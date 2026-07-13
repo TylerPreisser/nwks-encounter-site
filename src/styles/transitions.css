@@ -1,0 +1,32 @@
+/* transitions.css — owned by transitions-coder.
+   Static layers/positioning for the signature entrance modules in
+   src/js/transitions/*.js. Per-frame values (opacity, clip-path, transform) are
+   set inline by the modules; this file owns layout, base visuals and the
+   reduced-motion kill-switch. */
+
+/* ---------- world reveal states (used by every transition module) ---------- */
+/* While a module's animation is in flight the world is un-hidden but pinned as
+   a full-viewport overlay so it never distorts the gateway's flex layout before
+   app.js adds .stage.world-open (which hides the .half panels for good). */
+.world.nwks-world--transitioning{position:fixed !important;inset:0;z-index:400;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.world.nwks-world--shown{ }
+
+/* ---------- Men · Shatter (Canvas 2D shard field) ---------- */
+.nwks-transition-canvas{position:fixed;inset:0;z-index:900;display:block;pointer-events:none;will-change:transform,opacity}
+
+/* ---------- Women · Veil lift (layered gradient + clip-path + gold motes) ---------- */
+.nwks-veil-overlay{position:fixed;inset:0;z-index:900;overflow:hidden;pointer-events:none}
+.nwks-veil-layer{position:absolute;inset:-6% -6%;
+  background:
+    linear-gradient(180deg,rgba(250,246,241,.98) 0%,rgba(250,246,241,.93) 42%,rgba(239,231,220,.86) 100%),
+    repeating-linear-gradient(115deg,rgba(181,152,79,.06) 0 3px,transparent 3px 9px);
+  clip-path:inset(0 0 0 0);transform:translateY(0);filter:blur(0);
+  will-change:clip-path,opacity,filter,transform}
+.nwks-veil-light{position:absolute;inset:0;
+  background:radial-gradient(60% 55% at 50% 100%,rgba(181,152,79,.6),transparent 72%);
+  opacity:0;mix-blend-mode:screen;will-change:opacity,transform}
+.nwks-veil-canvas{position:absolute;inset:0;width:100%;height:100%}
+
+@media(prefers-reduced-motion:reduce){
+  .nwks-transition-canvas,.nwks-veil-overlay{display:none}
+}

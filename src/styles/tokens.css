@@ -1,0 +1,10 @@
+:root{
+  /* shared neutral frame — light warm stone + antique gold */
+  --f-bg:#EAE3D4; --f-bg2:#E2DAC8; --f-ink:#2A2723; --f-gold:#9C8038; --f-rule:#cdbf9d;
+  /* men signature */
+  --m-olive:#3D4127; --m-olive-deep:#2A2D1B; --m-gun:#1B1D17; --m-yellow:#E6C12F;
+  --m-bone:#E8E3D2; --m-dim:#b3ae99;
+  /* women signature */
+  --w-pearl:#FAF6F1; --w-pearl-deep:#EFE7DC; --w-ink:#2A2622; --w-gold:#B5984F; --w-gold-deep:#8c722f; --w-dim:#8a8175;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+}

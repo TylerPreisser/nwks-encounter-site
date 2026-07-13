@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NWKS Encounter — Concept: Animated Gateway</title>
+<link rel="stylesheet" href="styles/tokens.css">
+<link rel="stylesheet" href="styles/gateway.css">
+<link rel="stylesheet" href="styles/worlds.css">
+<link rel="stylesheet" href="styles/transitions.css">
+</head>
+<body>
+
+<div class="stage" id="stage">
+  <div class="intro" id="intro">
+    <h1>NWKS&nbsp;Encounter</h1>
+    <div class="sub">“It is for freedom that Christ has set us free.”</div>
+    <div class="ln"></div>
+  </div>
+
+  <section class="half half--men" data-door="men" tabindex="0" aria-label="Enter Men's Encounter">
+    <div class="half__inner">
+      <div class="eyebrow">Men's Encounter</div>
+      <img class="mark" src="../assets/mens-mark.png" alt="N.W. Kansas Freedom Encounter — Galatians 5:1">
+      <div class="rule"></div>
+      <div class="dates">August 6 – 8, 2026</div>
+      <button class="enter" type="button">Enter <span class="arr">→</span></button>
+    </div>
+    <div class="scrollhint">Women's below<span>↓</span></div>
+  </section>
+
+  <section class="half half--women" data-door="women" tabindex="0" aria-label="Enter Women's Encounter">
+    <div class="half__inner">
+      <div class="eyebrow">Women's Encounter</div>
+      <img class="mark" src="../assets/womens-mark.png" alt="NWKS Women's Encounter — Galatians 5:1">
+      <div class="rule"></div>
+      <div class="dates">July 17 – 19, 2026</div>
+      <button class="enter" type="button">Enter <span class="arr">→</span></button>
+    </div>
+  </section>
+
+  <!-- concept switcher stub — data-attrs only, not functional until a later phase -->
+  <div class="concept-switcher" id="concept-switcher" data-men-active="men-shatter" data-women-active="women-veil" hidden></div>
+
+  <div class="frame frame-top">
+    <span class="nm">NWKS<span class="dot"></span>Encounter</span>
+    <a class="unite-link" id="unite-link" href="#unite">Unite</a>
+  </div>
+  <div class="frame frame-bottom">
+    <span class="vs">“It is for freedom that Christ has set us free.”</span>
+    <span class="ref">Galatians 5:1</span>
+  </div>
+
+  <main id="world-men" class="world" hidden aria-label="Men's Encounter world"></main>
+  <main id="world-women" class="world" hidden aria-label="Women's Encounter world"></main>
+  <main id="world-unite" class="world" hidden aria-label="Unite world"></main>
+</div>
+
+<script src="js/registry.js"></script>
+<script src="content/men.js"></script>
+<script src="content/women.js"></script>
+<script src="content/unite.js"></script>
+<script src="js/worlds.js"></script>
+<script src="js/transitions/men-shatter.js"></script>
+<script src="js/transitions/women-veil.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
