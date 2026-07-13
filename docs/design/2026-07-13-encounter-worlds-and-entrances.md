@@ -178,8 +178,12 @@ large (well past the usual 500-line guideline). Options:
   to `dist/index.html` for Artifact + Pages. Best separation, but reintroduces a build step
   (contradicts "no build step").
 
-Recommendation: **A** while the operator still wants easy Artifact previews; revisit if the file
-becomes unwieldy.
+**Decision (2026-07-13): Option C.** Because the build runs as a **Ruflo swarm** (parallel agents),
+single-file (A) would make agents collide on one giant file — the known swarm-sprawl failure mode.
+So: **modular source** (each transition module / world / content its own file, one agent each) **+ a
+tiny dependency-free inline-bundle step** (`build/bundle.mjs`, Node only) that emits a single
+self-contained `dist/index.html`. This preserves Artifact parity AND gives the swarm clean,
+non-colliding units. `dist/index.html` is what deploys to Pages and can publish as an Artifact.
 
 ## 10. Accessibility & quality
 
@@ -200,4 +204,14 @@ becomes unwieldy.
 5. Mobile: swipe between doors, tap to enter with a portrait-tuned transition, parallax feels alive;
    verified on iPhone Safari against the live URL.
 6. Reduced-motion and no-View-Transitions fallbacks work; content reachable without motion.
-7. Stays a single self-contained file (Option A) unless we consciously choose otherwise.
+7. Modular source (Option C) builds via `build/bundle.mjs` to a single self-contained
+   `dist/index.html` (no external deps) — deploys to Pages and can publish as an Artifact.
+
+## 12. Execution model — looped Ruflo swarm
+
+Per operator standing instruction, build work runs as a **hierarchical, queen-led Ruflo swarm in
+the agentic LOOP** (lead = me). Minimal roster, file-partitioned so agents don't collide:
+`architect` (scaffold + module interfaces + bundle) → `transitions-coder` + `worlds-coder`
+(parallel, independent files) → `reviewer/tester` (bundle + verify). **Coders do NOT touch git —
+the lead owns commit/push/deploy/live-verify every iteration** (swarms here commit-but-don't-push,
+handoffs are flaky, they sprawl). Loop cap ~6/phase; pause after each phase for operator reaction.
