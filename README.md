@@ -4,6 +4,31 @@ Recovered redesign concept for **nwksencounter.com** (Northwest Kansas Encounter
 Men's Encounter / Women's Encounter). This is the "Animated Gateway" concept we built
 as a Claude Artifact and iterated on.
 
+## Live site & repo
+
+- **Live:** https://nwks-encounter-site.pages.dev (Cloudflare Pages, production)
+- **Repo:** https://github.com/TylerPreisser/nwks-encounter-site
+- **Content source of truth:** `~/Downloads/nwksencounter.com/` — the scraped copy of the
+  *old* live WordPress site. All real copy, dates, logos, and the `mens/` `womens/` `unite/`
+  page content come from there. The current `index.html` gateway uses only a subset (branding,
+  the two Encounter dates, the verse).
+
+### Edit → publish workflow
+
+`index.html` is the single source. To change the live site:
+
+```bash
+cd ~/Desktop/nwks-encounter-site
+# 1. edit index.html
+git add -A && git commit -m "..."      # local + GitHub history
+git push                               # GitHub = source of truth
+wrangler pages deploy . --project-name nwks-encounter-site --branch main --commit-dirty=true
+```
+
+The last command publishes to the production URL above. (Cloudflare's native
+"connect-to-GitHub" auto-deploy needs a one-time dashboard OAuth; until that's wired,
+run the `wrangler` deploy after each push — or add a GitHub Action to do it automatically.)
+
 ## What this is / where it came from
 
 - Built in a Claude Code session on **2026-06-25** (session `6c7c2de2-4d94-4708-b46c-9688deed6258`).
