@@ -28,19 +28,14 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
 .enter:hover .arr{transform:translateX(6px)}
 
 /* ---------- MEN signature ---------- */
-.half--men{color:var(--m-bone);background:
-  radial-gradient(120% 90% at 30% 8%, rgba(255,255,255,.07), transparent 55%),
-  linear-gradient(155deg,var(--m-olive) 0%,var(--m-olive-deep) 58%,var(--m-gun) 100%)}
-.half--men::before{content:"";position:absolute;inset:-20%;z-index:1;opacity:.5;background-image:
-  repeating-linear-gradient(115deg,rgba(0,0,0,.10) 0 2px,transparent 2px 7px),
-  radial-gradient(2px 2px at 20% 30%,rgba(232,227,210,.18),transparent),
-  radial-gradient(1.5px 1.5px at 70% 60%,rgba(232,227,210,.14),transparent),
-  radial-gradient(1.5px 1.5px at 45% 85%,rgba(232,227,210,.12),transparent);
-  animation:drift 26s linear infinite}
-.half--men::after{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;
-  background:radial-gradient(130% 120% at 50% 122%,transparent 42%,rgba(0,0,0,.5) 100%)}
+/* Flat #6E765F = the exact background color of the men's logo JPG, so the logo's
+   own background blends into the panel with no visible edge. Texture layer removed
+   on purpose — any texture behind the logo would re-expose its square boundary. */
+.half--men{color:var(--m-bone);background:#6E765F}
+.half--men::before{display:none}
+.half--men::after{display:none}
 @keyframes drift{from{transform:translate3d(0,0,0)}to{transform:translate3d(-4%,-3%,0)}}
-.half--men .mark{filter:drop-shadow(0 10px 24px rgba(0,0,0,.55))}
+.half--men .mark{filter:none}
 .half--men .eyebrow{color:var(--m-yellow)}
 .half--men .dates{color:var(--m-dim)}
 .half--men .rule{background:var(--m-yellow);box-shadow:0 1px 0 rgba(0,0,0,.4)}
