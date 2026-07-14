@@ -158,6 +158,8 @@ window.NWKS = window.NWKS || {};
       }
 
       var coverEl = createCoverLayer();
+      var stageForFreeze = stageEl();
+      if (stageForFreeze) stageForFreeze.classList.add('nwks-tx-active'); // freeze door hover-jerk
       var swapped = false;
       var settled = false;
 
@@ -185,6 +187,7 @@ window.NWKS = window.NWKS || {};
         // calling swap() must not leave the UI stuck mid-transition.
         if (!swapped) doSwap(dir, door);
         if (coverEl.parentNode) coverEl.parentNode.removeChild(coverEl);
+        if (stageForFreeze) stageForFreeze.classList.remove('nwks-tx-active');
       }
 
       return new Promise(function (resolve) {

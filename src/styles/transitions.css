@@ -20,6 +20,15 @@
 .nwks-tx-cover--opaque{background:#0b0b09}
 .nwks-tx-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;
   pointer-events:none}
+/* Nothing inside the cover ever captures pointer events — otherwise the cover
+   canvas steals :hover from the gateway doors and the hovered (expanded) half
+   snaps back to 50/50, producing a hard jerk at the start of the transition. */
+.nwks-tx-cover, .nwks-tx-cover *{pointer-events:none !important}
+/* While any transition is running, freeze the doors so their hover flex-grow
+   animation can't jerk mid-transition — the field cross-fades over a still gateway. */
+.stage.nwks-tx-active .half{transition:none !important}
+.stage.nwks-tx-active:hover .half,
+.stage.nwks-tx-active:hover .half:hover{flex-grow:1 !important;filter:none !important}
 
 @media(prefers-reduced-motion:reduce){
   .nwks-tx-cover{display:none}
