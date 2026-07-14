@@ -64,6 +64,152 @@ window.NWKS = window.NWKS || {};
     list.appendChild(row);
   }
 
+  // ---- ambient background canvases (Task 1: men = warm embers/sparks drifting up,
+  // women = baby-pink "pixie dust" drifting up). One <canvas> per door, position:fixed,
+  // painted behind the world content (see .world-ambient in worlds.css — the canvas gets
+  // a negative z-index inside the .world stacking context created via isolation:isolate,
+  // so it sits above the flat world background but below all text/UI). Lifecycle is
+  // independent of the idempotent content build: destroyed in close(), and (re)started at
+  // the top of every render(door) call so it always matches the world that's open. ----
+  var ambient = {};
+
+  function rand(min, max) { return min + Math.random() * (max - min); }
+
+  function ambientPalette(door) {
+    return door === 'women'
+      ? { fill: '255,190,212', glow: '255,170,200' }   // baby pink pixie dust
+      : { fill: '255,189,92', glow: '255,140,40' };    // warm ember/spark
+  }
+
+  function makeAmbientParticle(door, w, h, seedAnywhere) {
+    var women = door === 'women';
+    return {
+      x: rand(0, w),
+      y: seedAnywhere ? rand(0, h) : (h + rand(0, 30)),
+      r: women ? rand(1, 2.4) : rand(0.8, 2.1),
+      speed: women ? rand(5, 13) : rand(12, 28),
+      drift: rand(-8, 8),
+      driftPhase: rand(0, Math.PI * 2),
+      twinkle: rand(0.5, 1.4),
+      alpha: women ? rand(0.1, 0.32) : rand(0.14, 0.42)
+    };
+  }
+
+  function startAmbient(worldEl, door) {
+    stopAmbient(door);
+    var probe = document.createElement('canvas');
+    if (!probe.getContext) return; // no canvas support — skip silently, never block content
+
+    var reduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    var canvas = el('canvas', { className: 'world-ambient' });
+    canvas.setAttribute('aria-hidden', 'true');
+    worldEl.insertBefore(canvas, worldEl.firstChild || null);
+
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    var palette = ambientPalette(door);
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var w = 0, h = 0, particles = [], raf = null, lastT = null, lastPaintAt = null, watchdog = null;
+    var alive = true;
+
+    function targetCount() {
+      var n = Math.round((w * h) / 15000);
+      var cap = door === 'women' ? 46 : 38;
+      return Math.max(16, Math.min(cap, n));
+    }
+
+    function seed() {
+      var n = targetCount();
+      particles = [];
+      for (var i = 0; i < n; i++) particles.push(makeAmbientParticle(door, w, h, true));
+    }
+
+    function resize() {
+      w = window.innerWidth;
+      h = window.innerHeight;
+      canvas.width = Math.max(1, Math.round(w * dpr));
+      canvas.height = Math.max(1, Math.round(h * dpr));
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      seed();
+    }
+
+    function paint(staticFrame) {
+      ctx.clearRect(0, 0, w, h);
+      for (var i = 0; i < particles.length; i++) {
+        var p = particles[i];
+        var flicker = staticFrame ? 1 : (0.7 + 0.3 * Math.sin(p.driftPhase * p.twinkle));
+        var a = p.alpha * flicker;
+        var x = p.x + (staticFrame ? 0 : Math.sin(p.driftPhase) * p.drift);
+        ctx.beginPath();
+        ctx.fillStyle = 'rgba(' + palette.fill + ',' + a.toFixed(3) + ')';
+        ctx.shadowColor = 'rgba(' + palette.glow + ',' + (a * 0.55).toFixed(3) + ')';
+        ctx.shadowBlur = door === 'women' ? 5 : 4;
+        ctx.arc(x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function frame(t) {
+      if (lastT == null) lastT = t;
+      var dt = Math.min((t - lastT) / 1000, 0.05);
+      lastT = t;
+      for (var i = 0; i < particles.length; i++) {
+        var p = particles[i];
+        p.y -= p.speed * dt;
+        p.driftPhase += dt * 0.6;
+        if (p.y < -12) particles[i] = makeAmbientParticle(door, w, h, false);
+      }
+      paint(false);
+      lastPaintAt = (window.performance && performance.now) ? performance.now() : Date.now();
+      raf = requestAnimationFrame(frame);
+    }
+
+    var onResize = function () { resize(); if (reduced) paint(true); };
+    resize();
+
+    if (reduced) {
+      paint(true); // one static, non-animated frame — no rAF loop, no watchdog needed
+    } else {
+      raf = requestAnimationFrame(frame);
+      lastPaintAt = (window.performance && performance.now) ? performance.now() : Date.now();
+      // Watchdog: the site's masked-swap transition harness (transition-core.js)
+      // globally monkey-patches requestAnimationFrame/cancelAnimationFrame for the
+      // duration of the enter/exit cover animation and cancels whatever frame is
+      // still in flight when it settles — including this loop's pending frame, since
+      // it's chained via the same global rAF. That silently kills the self-chaining
+      // loop with no way for it to notice and restart itself. This interval checks
+      // for a stall and re-arms the chain — cheap, and inert once the loop is healthy.
+      watchdog = setInterval(function () {
+        if (!alive) return;
+        var now = (window.performance && performance.now) ? performance.now() : Date.now();
+        if (lastPaintAt != null && (now - lastPaintAt) > 500) {
+          lastT = null; // avoid a large dt jump on the resumed frame
+          raf = requestAnimationFrame(frame);
+        }
+      }, 400);
+    }
+    window.addEventListener('resize', onResize);
+
+    ambient[door] = {
+      destroy: function () {
+        alive = false;
+        if (raf) cancelAnimationFrame(raf);
+        if (watchdog) clearInterval(watchdog);
+        window.removeEventListener('resize', onResize);
+        if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+      }
+    };
+  }
+
+  function stopAmbient(door) {
+    if (ambient[door]) {
+      ambient[door].destroy();
+      delete ambient[door];
+    }
+  }
+
   function registerNav(content, extraClass) {
     var nav = el('nav', { className: 'world-register' + (extraClass ? ' ' + extraClass : '') });
     (content.register || []).forEach(function (r) {
@@ -128,12 +274,16 @@ window.NWKS = window.NWKS || {};
       // is owned by the masked-swap harness (transition-core doSwap), NEVER here —
       // revealing the world in render() is what caused the "instant jump then a
       // pointless overlay" bug (render runs before the transition covers the screen).
+      // Ambient background is the one exception: it's restarted on every door-entry
+      // (its own lifecycle, torn down in close()) even when content is already built.
       if (worldEl.dataset.builtFor === door) {
+        if (door === 'men' || door === 'women') startAmbient(worldEl, door);
         return;
       }
 
       worldEl.innerHTML = '';
       worldEl.className = 'world world--' + door;
+      if (door === 'men' || door === 'women') startAmbient(worldEl, door);
 
       // ---- sticky header: event name + back control ----
       var header = el('header', { className: 'world-header' });
@@ -157,22 +307,34 @@ window.NWKS = window.NWKS || {};
       if (content.dates) {
         hero.appendChild(el('p', { className: 'world-hero__dates', text: content.dates }));
       }
-      var formSpecKey = door === 'men' ? 'menAttendee' : (door === 'women' ? 'women' : null);
-      var hasNativeForm = !!(formSpecKey && NWKS.forms && NWKS.forms.specs && NWKS.forms.specs[formSpecKey]);
-      // Assigned below (after the world body is built) — the hero CTA and the
-      // Register section's buttons both open this same full-screen form page.
+      // Uniform registration (both doors): the hero shows TWO CTAs — Attendee opens the
+      // real native form, Server opens a panel (a real form when one exists, or a
+      // "currently closed" notice — see src/content/forms.js + src/js/forms.js).
+      var formSpecKeys = door === 'men' ? { attendee: 'menAttendee', server: 'menServer' }
+        : (door === 'women' ? { attendee: 'women', server: 'womenServer' } : null);
+      var hasNativeForm = !!(formSpecKeys && NWKS.forms && NWKS.forms.specs &&
+        NWKS.forms.specs[formSpecKeys.attendee]);
+      // Assigned below (after the world body is built) — both hero CTAs open panels
+      // inside this same full-screen form page.
       var formPage = null;
 
-      if (content.register && content.register.length) {
-        var cta;
-        if (hasNativeForm) {
-          cta = el('button', { className: 'world-cta', text: content.register[0].label });
-          cta.type = 'button';
-          cta.addEventListener('click', function () { if (formPage) formPage.open(formSpecKey); });
-        } else {
-          cta = externalLink(content.register[0].label, content.register[0].href);
-          cta.className = 'world-cta';
-        }
+      if (hasNativeForm) {
+        var ctaGroup = el('div', { className: 'world-hero__cta-group' });
+
+        var attendeeCta = el('button', { className: 'world-cta', text: 'Register as an Attendee' });
+        attendeeCta.type = 'button';
+        attendeeCta.addEventListener('click', function () { if (formPage) formPage.open(formSpecKeys.attendee); });
+        ctaGroup.appendChild(attendeeCta);
+
+        var serverCta = el('button', { className: 'world-cta world-cta--secondary', text: 'Register as a Server' });
+        serverCta.type = 'button';
+        serverCta.addEventListener('click', function () { if (formPage) formPage.open(formSpecKeys.server); });
+        ctaGroup.appendChild(serverCta);
+
+        hero.appendChild(ctaGroup);
+      } else if (content.register && content.register.length) {
+        var cta = externalLink(content.register[0].label, content.register[0].href);
+        cta.className = 'world-cta';
         hero.appendChild(cta);
       }
       worldEl.appendChild(hero);
@@ -218,10 +380,10 @@ window.NWKS = window.NWKS || {};
 
       worldEl.appendChild(body);
 
-      // ---- Register: native-form doors (men/women) use ONLY the top hero CTA to
-      // open the full-screen form page — no redundant bottom register section
-      // (operator: "the register button's already at the top"). External-link
-      // doors (e.g. Unite) keep a small register link list here. ----
+      // ---- Register: native-form doors (men/women) use ONLY the hero CTAs to open the
+      // full-screen form page — no redundant bottom register section (operator: "the
+      // register button's already at the top"). External-link doors (e.g. Unite) keep a
+      // small register link list here. ----
       if (content.register && content.register.length && !hasNativeForm) {
         var registerSec = el('section', { className: 'world-section world-section--register' });
         registerSec.id = 'register';
@@ -237,7 +399,7 @@ window.NWKS = window.NWKS || {};
       }
 
       if (hasNativeForm) {
-        var formPageKeys = door === 'men' ? ['menAttendee', 'menServer'] : [formSpecKey];
+        var formPageKeys = [formSpecKeys.attendee, formSpecKeys.server];
         formPage = buildFormPage(worldEl, door, formPageKeys);
       }
 
@@ -249,6 +411,7 @@ window.NWKS = window.NWKS || {};
     close: function (door) {
       var worldEl = document.getElementById('world-' + door);
       if (worldEl) worldEl.hidden = true;
+      stopAmbient(door);
       var stage = document.getElementById('stage');
       if (stage) stage.classList.remove('world-open');
     }

@@ -222,12 +222,28 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
            (--w2-* tokens scoped below; see src/styles/fonts.css for the type-system source).
            Unite = lightweight, shared warm-stone tokens only. */
 
-.world{background:var(--f-bg);color:var(--f-ink);font-family:var(--serif)}
+.world{background:var(--f-bg);color:var(--f-ink);font-family:var(--serif);
+  position:relative;isolation:isolate}
+
+/* ---------- AMBIENT BACKGROUND (Task 1) ----------
+   One <canvas> per door (men/women), created by src/js/worlds.js startAmbient() and
+   inserted as the world's first child. position:fixed keeps it pinned to the viewport;
+   z-index:-1 places it inside the .world stacking context (established by
+   isolation:isolate above) UNDER all normal-flow content but ABOVE the flat world
+   background — see the paint-order note in worlds.js. Never intercepts input. */
+.world-ambient{position:fixed;inset:0;width:100%;height:100%;z-index:-1;
+  pointer-events:none;display:block}
+@media(prefers-reduced-motion:reduce){
+  .world-ambient{opacity:.7}
+}
 
 /* ---------- STICKY HEADER ---------- */
 .world-header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:1em;
   padding:.85em 4vw;background:rgba(234,227,212,.92);backdrop-filter:blur(6px);
-  border-bottom:1px solid var(--f-rule)}
+  border-bottom:1px solid var(--f-rule);
+  padding-top:max(.85em, env(safe-area-inset-top));
+  padding-left:max(4vw, env(safe-area-inset-left));
+  padding-right:max(4vw, env(safe-area-inset-right))}
 .world-back{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;font-weight:700;
   letter-spacing:.14em;font-size:.7rem;text-transform:uppercase;color:var(--f-ink);
   background:transparent;border:1px solid var(--f-rule);border-radius:2px;padding:.55em 1em;
@@ -258,6 +274,14 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
   border:1px solid var(--f-gold);color:var(--f-gold);background:transparent;cursor:pointer;
   transition:.3s}
 .world-cta:hover{background:var(--f-gold);color:#fff}
+
+/* ---------- HERO CTA GROUP (Task 2: uniform Attendee + Server registration) ----------
+   Two buttons side by side on desktop, stacked full-width on mobile (see @media below).
+   The Server button reuses .world-cta's themed colors but with a dashed border so it
+   reads as the secondary action next to the solid Attendee CTA. */
+.world-hero__cta-group{display:flex;flex-wrap:wrap;justify-content:center;gap:1em;margin-top:2em}
+.world-hero__cta-group .world-cta{margin-top:0}
+.world-cta--secondary{border-style:dashed}
 
 /* ---------- BODY ---------- */
 .world-body{max-width:1000px;margin:0 auto;padding:0 6vw}
@@ -306,14 +330,20 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
 .world-formpage[hidden]{display:none}
 .world-formpage__header{position:sticky;top:0;z-index:2;display:flex;align-items:center;
   flex:0 0 auto;padding:.85em 4vw;background:rgba(234,227,212,.92);backdrop-filter:blur(6px);
-  border-bottom:1px solid var(--f-rule)}
+  border-bottom:1px solid var(--f-rule);
+  padding-top:max(.85em, env(safe-area-inset-top));
+  padding-left:max(4vw, env(safe-area-inset-left));
+  padding-right:max(4vw, env(safe-area-inset-right))}
 .world-formpage__back{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;font-weight:700;
   letter-spacing:.14em;font-size:.7rem;text-transform:uppercase;color:var(--f-ink);
   background:transparent;border:1px solid var(--f-rule);border-radius:2px;padding:.55em 1em;
   cursor:pointer;transition:.25s}
 .world-formpage__back:hover{background:var(--f-gold);border-color:var(--f-gold);color:#fff}
 .world-formpage__scroll{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;
-  padding:5vh 6vw 8vh}
+  padding:5vh 6vw 8vh;
+  padding-bottom:max(8vh, calc(env(safe-area-inset-bottom) + 3vh));
+  padding-left:max(6vw, env(safe-area-inset-left));
+  padding-right:max(6vw, env(safe-area-inset-right))}
 .world-formpage__panel{max-width:640px;margin:0 auto}
 .world-formpage__title{font-size:clamp(1.2rem,3vw,1.7rem);font-weight:600;letter-spacing:.02em;
   margin-bottom:1em}
@@ -331,7 +361,8 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
 
 /* ---------- VERSE FOOTER ---------- */
 .world-verse{text-align:center;padding:5vh 6vw 8vh;font-style:italic;color:var(--f-ink);
-  font-size:clamp(.86rem,1.6vw,1rem)}
+  font-size:clamp(.86rem,1.6vw,1rem);
+  padding-bottom:max(8vh, calc(env(safe-area-inset-bottom) + 3vh))}
 
 /* ================= MEN'S THEME — whole page = dark gunmetal/olive (same as the
    header), all text lifted to light (bone/dim) with yellow accents, per operator
@@ -411,6 +442,20 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
 .world--women .world-register__btn:hover{background:var(--w2-pink-deep);border-color:var(--w2-pink-deep);color:#fff}
 .world--women .world-verse{color:var(--w2-pink-deep);font-family:var(--w2-font-display);font-style:italic}
 
+/* ---- Task 3: genuinely pretty, easy-to-read women's typography ----
+   Narrower measure (comfortable line length), roomier line-height, a slightly larger
+   display serif for headings, and softer letter-spacing than the men's/shared defaults. */
+.world--women .world-body{max-width:760px}
+.world--women .world-hero__title{font-size:clamp(1.7rem,5vw,2.85rem);letter-spacing:.015em;
+  line-height:1.18}
+.world--women .world-hero__tagline{font-size:clamp(1rem,2vw,1.18rem);line-height:1.5}
+.world--women .world-section__title{font-size:clamp(1.15rem,2.6vw,1.55rem);letter-spacing:.01em;
+  margin-bottom:.7em}
+.world--women .world-p{font-size:clamp(1rem,1.7vw,1.08rem);line-height:1.85;
+  color:var(--w2-ink);letter-spacing:.005em}
+.world--women .world-list li{line-height:1.75;margin-bottom:.7em;font-size:clamp(.95rem,1.5vw,1.02rem)}
+.world--women .world-contact__name{font-size:1rem}
+
 /* ================= UNITE THEME (lightweight) ================= */
 .world--unite .world-hero{background:linear-gradient(180deg,var(--f-bg),var(--f-bg2))}
 .world--unite .world-hero__logo{box-shadow:none;outline:none}
@@ -419,7 +464,10 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
 /* ---------- MOBILE ---------- */
 @media(max-width:760px){
   /* sticky header: back + event name must share one line without wrapping/overflow */
-  .world-header,.world-formpage__header{padding:.6em 4vw;gap:.6em}
+  .world-header,.world-formpage__header{padding:.6em 4vw;gap:.6em;
+    padding-top:max(.6em, env(safe-area-inset-top));
+    padding-left:max(4vw, env(safe-area-inset-left));
+    padding-right:max(4vw, env(safe-area-inset-right))}
   .world-back,.world-formpage__back{font-size:.62rem;letter-spacing:.08em;
     padding:.6em .8em;min-height:44px;display:inline-flex;align-items:center;
     flex:0 0 auto;white-space:nowrap}
@@ -431,6 +479,7 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
   .world-hero__title{font-size:clamp(1.3rem,6.5vw,1.7rem)}
   .world-cta{width:100%;justify-content:center;min-height:44px;padding:.9em 1.6em;
     box-sizing:border-box}
+  .world-hero__cta-group{flex-direction:column;width:100%}
 
   .world-body{padding:0 6vw}
   .world-section{padding:2.8vh 0}
@@ -443,20 +492,31 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
   .world-contact{flex-direction:column;align-items:flex-start;gap:.25em;padding:.7em 0}
   .world-contact__link{min-height:44px;display:inline-flex;align-items:center}
 
-  .world-formpage__scroll{padding:3.5vh 6vw 6vh}
+  .world-formpage__scroll{padding:3.5vh 6vw 6vh;
+    padding-bottom:max(6vh, calc(env(safe-area-inset-bottom) + 2vh));
+    padding-left:max(6vw, env(safe-area-inset-left));
+    padding-right:max(6vw, env(safe-area-inset-right))}
   .world-formpage__panel{max-width:100%}
   .world-formpage__title{font-size:clamp(1.15rem,5.5vw,1.4rem)}
 
-  .world-verse{padding:4vh 6vw 6vh;font-size:.88rem}
+  .world-verse{padding:4vh 6vw 6vh;font-size:.88rem;
+    padding-bottom:max(6vh, calc(env(safe-area-inset-bottom) + 2vh))}
 }
 
 @media(max-width:430px){
-  .world-header,.world-formpage__header{padding:.55em 4.5vw}
+  .world-header,.world-formpage__header{padding:.55em 4.5vw;
+    padding-top:max(.55em, env(safe-area-inset-top));
+    padding-left:max(4.5vw, env(safe-area-inset-left));
+    padding-right:max(4.5vw, env(safe-area-inset-right))}
   .world-back,.world-formpage__back{font-size:.58rem;padding:.6em .7em}
   .world-header__name{font-size:.66rem;max-width:44vw}
   .world-hero{padding:4.5vh 5vw 3.5vh}
   .world-hero__logo{width:clamp(110px,32vw,140px)}
   .world-body,.world-formpage__scroll{padding-left:5.5vw;padding-right:5.5vw}
+  .world-body{padding-left:max(5.5vw, env(safe-area-inset-left));
+    padding-right:max(5.5vw, env(safe-area-inset-right))}
+  .world-formpage__scroll{padding-left:max(5.5vw, env(safe-area-inset-left));
+    padding-right:max(5.5vw, env(safe-area-inset-right))}
 }
 
 @media(prefers-reduced-motion:reduce){
@@ -472,130 +532,236 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
    inherits the shared light body background (--f-bg) from worlds.css and
    layers on each door's accent color, same convention as world-list/
    world-inline-link/world-register__btn already use in worlds.css.
-   Women-only: a soft baby-pink accent (--w-form-pink, local to this file —
-   tokens.css is not touched) per operator direction: white/pink/black, clean. */
+
+   REDESIGN (P4, field-realism): premium form styling pass. Researched modern
+   award-winning / Typeform-style form UI (floating labels, soft rounded
+   fields, refined focus glow, single-column vertical flow, inline-card
+   choice rows) — see the design notes at the end of this file. Floating
+   labels were tried and rejected for these specific specs: several real
+   field labels are long descriptive sentences ("IF you have had a major
+   life event…") that overlap/truncate badly as an inset label, so instead
+   the premium signal comes from generous rhythm, soft glowing focus rings,
+   card-style radio/checkbox rows, a gorgeous gradient submit button, and
+   (women only) an elegant serif-italic label voice + delicate hairline
+   dividers between fields — reusing the site's OWN already-established
+   --w2-* tokens (fonts.css / worlds.css) instead of inventing new ones, so
+   the form now matches the rest of the Women's world instead of drifting
+   from it as the old local --w-form-pink swatch did. */
 
 .nwks-form-mount{margin-top:1.6em;max-width:560px}
-.nwks-form{display:flex;flex-direction:column;gap:1.2em}
+.nwks-form{display:flex;flex-direction:column;gap:0;
+  --nwks-divider:var(--f-rule);--nwks-accent:var(--f-gold);--nwks-accent-deep:var(--f-gold)}
 
-.nwks-field,.nwks-field--choice{display:flex;flex-direction:column;gap:.45em;
-  border:none;margin:0;padding:0}
+.nwks-field,.nwks-field--choice{display:flex;flex-direction:column;gap:.5em;
+  border:none;margin:0;padding:1.15em 0;position:relative}
+.nwks-field:first-child{padding-top:0}
+.nwks-field:not(:first-child)::before{content:"";position:absolute;top:0;left:0;right:0;
+  height:1px;background:linear-gradient(90deg,transparent,var(--nwks-divider) 18%,
+  var(--nwks-divider) 82%,transparent)}
+
 .nwks-field__label{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;
   font-weight:700;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;
   color:var(--f-ink)}
-.nwks-field__help{font-size:.78rem;line-height:1.5;margin:0;opacity:.72}
+.nwks-field__required{color:var(--nwks-accent-deep);font-weight:700;margin-left:.05em}
+.nwks-field__help{font-size:.78rem;line-height:1.55;margin:0;opacity:.72;max-width:46em}
 
-.nwks-field__input{font:inherit;font-size:.95rem;padding:.75em .9em;
-  border-radius:4px;border:1px solid var(--f-rule);background:#fff;color:var(--f-ink);
-  transition:.2s}
-.nwks-field__input--area{resize:vertical;min-height:5.5em}
-.nwks-field__input:focus{outline:2px solid var(--f-gold);outline-offset:1px;
-  border-color:var(--f-gold)}
+.nwks-field__input{font:inherit;font-size:.95rem;padding:.85em 1em;
+  border-radius:10px;border:1.5px solid var(--f-rule);background:#fff;color:var(--f-ink);
+  box-shadow:inset 0 1px 2px rgba(20,20,20,.03);
+  transition:border-color .22s ease,box-shadow .22s ease,transform .12s ease}
+.nwks-field__input--area{resize:vertical;min-height:5.5em;line-height:1.55}
+.nwks-form .nwks-field__input:hover{border-color:var(--nwks-accent)}
+.nwks-form .nwks-field__input:focus{outline:none;border-color:var(--nwks-accent-deep);
+  box-shadow:inset 0 1px 2px rgba(20,20,20,.03),0 0 0 4px color-mix(in srgb,var(--nwks-accent-deep) 18%,transparent)}
+.nwks-field__input--select{appearance:none;-webkit-appearance:none;padding-right:2.6em;
+  cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239C8038' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 1em center;background-size:.85em}
 
 .nwks-field__options{display:flex;flex-direction:column;gap:.55em}
-.nwks-option{display:flex;align-items:center;flex-wrap:wrap;gap:.6em}
-.nwks-option__input{width:1.15em;height:1.15em;accent-color:var(--f-gold);
-  flex:0 0 auto}
-.nwks-option__label{font-size:.9rem;color:var(--f-ink)}
+.nwks-option{display:flex;align-items:center;flex-wrap:wrap;gap:.7em;
+  border:1.5px solid var(--f-rule);border-radius:10px;padding:.65em .85em;
+  background:#fff;transition:border-color .2s ease,background-color .2s ease,box-shadow .2s ease}
+.nwks-form .nwks-option:hover{border-color:var(--nwks-accent)}
+.nwks-form .nwks-option:has(:checked){border-color:var(--nwks-accent-deep);
+  background:color-mix(in srgb,var(--nwks-accent-deep) 7%,#fff);
+  box-shadow:0 0 0 1px var(--nwks-accent-deep)}
+
+.nwks-option__input{appearance:none;-webkit-appearance:none;width:1.2em;height:1.2em;
+  flex:0 0 auto;border:2px solid var(--f-rule);background:#fff;cursor:pointer;
+  transition:border-color .2s ease,background .2s ease,box-shadow .2s ease}
+.nwks-option__input[type="radio"]{border-radius:50%}
+.nwks-option__input[type="checkbox"]{border-radius:5px}
+.nwks-form .nwks-option__input:checked{border-color:var(--nwks-accent-deep)}
+.nwks-form .nwks-option__input[type="radio"]:checked{
+  background:radial-gradient(circle,var(--nwks-accent-deep) 0 42%,#fff 45% 100%)}
+.nwks-form .nwks-option__input[type="checkbox"]:checked{background-color:var(--nwks-accent-deep);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:center;background-size:70%}
+.nwks-form .nwks-option__input:focus-visible{outline:none;
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--nwks-accent-deep) 25%,transparent)}
+.nwks-option__label{font-size:.9rem;color:var(--f-ink);cursor:pointer}
 .nwks-option__other-input{flex:1 1 180px;font:inherit;font-size:.88rem;
-  padding:.45em .65em;border-radius:3px;border:1px solid var(--f-rule);background:#fff;
-  transition:.2s}
-.nwks-option__other-input:focus{outline:2px solid var(--f-gold);outline-offset:1px;
-  border-color:var(--f-gold)}
+  padding:.5em .75em;border-radius:8px;border:1.5px solid var(--f-rule);background:#fff;
+  transition:border-color .2s ease,box-shadow .2s ease}
+.nwks-form .nwks-option__other-input:focus{outline:none;border-color:var(--nwks-accent-deep);
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--nwks-accent-deep) 18%,transparent)}
 .nwks-option__other-input:disabled{opacity:.45}
 
-.nwks-form__submit{align-self:flex-start;margin-top:.3em;padding:1em 2.2em;
+.nwks-form__submit{align-self:flex-start;margin-top:1.5em;padding:1.05em 2.6em;
+  display:inline-flex;align-items:center;gap:.6em;
   font-family:"Helvetica Neue",Arial,system-ui,sans-serif;font-weight:700;
-  letter-spacing:.2em;text-transform:uppercase;font-size:.72rem;border-radius:2px;
-  border:1px solid var(--f-gold);background:transparent;color:var(--f-gold);
-  cursor:pointer;transition:.25s}
-.nwks-form__submit:hover:not(:disabled){background:var(--f-gold);color:#fff}
-.nwks-form__submit:disabled{opacity:.55;cursor:default}
+  letter-spacing:.16em;text-transform:uppercase;font-size:.74rem;border-radius:999px;
+  border:1px solid transparent;color:#fff;cursor:pointer;
+  background:linear-gradient(135deg,var(--nwks-accent),var(--nwks-accent-deep));
+  box-shadow:0 10px 24px -8px color-mix(in srgb,var(--nwks-accent-deep) 55%,transparent),
+    0 2px 6px rgba(0,0,0,.08);
+  transition:transform .22s cubic-bezier(.22,1,.36,1),box-shadow .22s ease,opacity .2s ease}
+.nwks-form__submit:hover:not(:disabled){transform:translateY(-2px);
+  box-shadow:0 16px 30px -8px color-mix(in srgb,var(--nwks-accent-deep) 60%,transparent),
+    0 4px 10px rgba(0,0,0,.1)}
+.nwks-form__submit:active:not(:disabled){transform:translateY(0)}
+.nwks-form__submit:disabled{opacity:.55;cursor:default;box-shadow:none}
 
-.nwks-form__status{font-size:.85rem;min-height:1.3em;margin:0}
-.nwks-form__status--success{color:#3d6b3d;font-weight:600}
-.nwks-form__status--error{color:#a83c3c;font-weight:600}
+.nwks-form__status{font-size:.85rem;min-height:1.3em;margin:1em 0 0;line-height:1.5}
+.nwks-form__status--success,.nwks-form__status--error{display:flex;align-items:flex-start;
+  gap:.6em;padding:.85em 1em;border-radius:10px;font-weight:600}
+.nwks-form__status--success::before,.nwks-form__status--error::before{content:"";
+  flex:0 0 auto;width:1.3em;height:1.3em;border-radius:50%;display:inline-flex;
+  align-items:center;justify-content:center;font-size:.8em;font-weight:800;color:#fff;
+  margin-top:.05em}
+.nwks-form__status--success{color:#2f6b3d;background:rgba(63,140,80,.09)}
+.nwks-form__status--success::before{content:"✓";background:#3f8c50}
+.nwks-form__status--error{color:#a13a3a;background:rgba(196,74,74,.09)}
+.nwks-form__status--error::before{content:"!";background:#c44a4a}
 
-.nwks-form__fallback{font-size:.8rem;opacity:.85;margin:.4em 0 0}
-.nwks-form__fallback-link{color:var(--f-gold);font-weight:600;text-decoration:none;
-  border-bottom:1px solid var(--f-gold)}
+.nwks-form__fallback{font-size:.8rem;opacity:.85;margin:1.1em 0 0}
+.nwks-form__fallback-link{color:var(--nwks-accent-deep);font-weight:600;text-decoration:none;
+  border-bottom:1px solid var(--nwks-accent-deep)}
 .nwks-form__fallback-link:hover{opacity:.75}
 
-.nwks-form--closed{padding:1.3em 1.4em;border:1px dashed var(--f-rule);
-  border-radius:6px;display:flex;flex-direction:column;gap:.7em}
-.nwks-form__closed-msg{margin:0;font-size:.92rem;line-height:1.6}
+.nwks-form--closed{padding:1.5em 1.6em;border:1.5px solid var(--f-rule);
+  border-radius:14px;display:flex;flex-direction:column;gap:.9em;background:#fff}
+.nwks-form__closed-msg{margin:0;font-size:.95rem;line-height:1.65}
 
 /* ---- world-register toggle + fallback used by worlds.js on the men door ---- */
 .world-register__toggle{display:flex;flex-direction:column;gap:.8em;margin-top:1.6em}
 .world-register__toggle-btn{align-self:flex-start;font-family:"Helvetica Neue",Arial,
   system-ui,sans-serif;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
   font-size:.7rem;background:transparent;border:1px solid var(--f-rule);
-  border-radius:2px;padding:.7em 1.2em;cursor:pointer;color:var(--f-ink);transition:.25s}
+  border-radius:999px;padding:.7em 1.3em;cursor:pointer;color:var(--f-ink);transition:.25s}
 .world-register__toggle-btn:hover{border-color:var(--f-gold);color:var(--f-gold)}
 
 /* ================= MEN'S ACCENT — dark form page (matches the dark world body):
-   labels/options/status recolored to bone/yellow since the .nwks-* base rules
-   hardcode the light-theme --f-ink/--f-gold, which are unreadable on dark. ======= */
-.world--men .nwks-field__input,.world--men .nwks-option__other-input{border-color:var(--m-dim)}
-.world--men .nwks-field__input:focus,.world--men .nwks-option__other-input:focus{
-  outline-color:var(--m-yellow);border-color:var(--m-yellow)}
-.world--men .nwks-option__input{accent-color:var(--m-yellow)}
-.world--men .nwks-form__submit{border-color:var(--m-yellow);color:var(--m-yellow)}
-.world--men .nwks-form__submit:hover:not(:disabled){background:var(--m-yellow);color:var(--m-gun)}
+   clean and strong. Yellow-on-olive CTA with real depth; inputs stay light so
+   they read clearly against the dark page (standard practice for a dark UI). ======= */
+.world--men .nwks-form{--nwks-divider:rgba(232,227,210,.16);--nwks-accent:var(--m-yellow);
+  --nwks-accent-deep:#c9a423}
+.world--men .nwks-field__input,.world--men .nwks-option,.world--men .nwks-option__other-input{
+  border-color:var(--m-dim);background:#FAF8F0}
+.world--men .nwks-field__input--select{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236E765F' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")}
+.world--men .nwks-option__input{border-color:var(--m-dim);background:#FAF8F0}
+.world--men .nwks-form__submit{color:var(--m-gun)}
 .world--men .nwks-form__fallback-link{color:var(--m-yellow);border-bottom-color:var(--m-yellow)}
 .world--men .world-register__toggle-btn:hover{border-color:var(--m-yellow);color:var(--m-yellow)}
-.world--men .nwks-field__label,.world--men .nwks-option__label{color:var(--m-bone)}
+.world--men .nwks-field__label{color:var(--m-bone)}
+.world--men .nwks-option__label{color:var(--m-gun)}
+.world--men .nwks-field__required{color:var(--m-yellow)}
 .world--men .nwks-field__help,.world--men .nwks-form__fallback{color:var(--m-dim)}
-.world--men .nwks-form__status--success{color:#9fd6a0}
-.world--men .nwks-form__status--error{color:#e79b9b}
-.world--men .nwks-form--closed{border-color:rgba(232,227,210,.25)}
+.world--men .nwks-form__status--success{color:#c7ecc8;background:rgba(159,214,160,.14)}
+.world--men .nwks-form__status--error{color:#f4c6c6;background:rgba(231,155,155,.14)}
+.world--men .nwks-form--closed{border-color:rgba(232,227,210,.3);background:rgba(255,255,255,.05)}
 .world--men .nwks-form__closed-msg{color:var(--m-bone)}
 
-/* ============ WOMEN'S ACCENT (white/baby-pink/black, clean & refined) =============== */
-.world--women{--w-form-pink:#F1D3DA;--w-form-pink-deep:#C98A9C}
-.world--women .nwks-field__input,.world--women .nwks-option__other-input{
-  border-color:var(--w-form-pink-deep);background:#fff}
-.world--women .nwks-field__input:focus,.world--women .nwks-option__other-input:focus{
-  outline-color:var(--w-form-pink-deep);border-color:var(--w-form-pink-deep)}
-.world--women .nwks-option__input{accent-color:var(--w-form-pink-deep)}
-.world--women .nwks-form__submit{border-color:var(--w-form-pink-deep);color:var(--w-ink);
-  background:var(--w-form-pink)}
-.world--women .nwks-form__submit:hover:not(:disabled){background:var(--w-form-pink-deep);
-  color:#fff}
-.world--women .nwks-form__fallback-link{color:var(--w-gold-deep);border-bottom-color:var(--w-form-pink-deep)}
-.world--women .world-register__toggle-btn:hover{border-color:var(--w-form-pink-deep);color:var(--w-gold-deep)}
+/* ============ WOMEN'S ACCENT — white/baby-pink/black, elegant & delicate.
+   Reuses the SAME --w2-* tokens the rest of the Women's world already runs on
+   (worlds.css / fonts.css) instead of a locally-invented palette, so the form
+   now matches the hero/body exactly. Labels take the world's display serif
+   (Bodoni 72/Didot, Apple-first, already used for the tagline) for a soft,
+   pretty, editorial voice — legibility verified at label sizes via Playwright. */
+.world--women .nwks-form{--nwks-divider:var(--w2-rule);--nwks-accent:var(--w2-pink-deep);
+  --nwks-accent-deep:var(--w2-pink-deep)}
+.world--women .nwks-field__label{font-family:var(--w2-font-display);font-style:italic;
+  font-weight:400;text-transform:none;letter-spacing:.01em;font-size:1.05rem;
+  color:var(--w2-ink);display:flex;align-items:baseline;gap:.5em}
+.world--women .nwks-field__label::before{content:"";flex:0 0 auto;width:.4em;height:.4em;
+  border-radius:50%;background:var(--w2-pink-deep);align-self:center}
+.world--women .nwks-field__required{color:var(--w2-pink-deep);font-style:normal}
+.world--women .nwks-field__help{color:var(--w2-dim);font-family:var(--w2-font-body)}
+.world--women .nwks-field__input,.world--women .nwks-option,.world--women .nwks-option__other-input,
+.world--women .nwks-option__input{border-color:var(--w2-rule);background:#fff;font-family:var(--w2-font-body)}
+.world--women .nwks-option__label{font-family:var(--w2-font-body);color:var(--w2-ink)}
+.world--women .nwks-form__submit{font-family:var(--w2-font-body)}
+.world--women .nwks-form__fallback-link{color:var(--w2-pink-deep);border-bottom-color:var(--w2-pink-deep)}
+.world--women .nwks-form__fallback{font-family:var(--w2-font-body)}
+.world--women .world-register__toggle-btn:hover{border-color:var(--w2-pink-deep);color:var(--w2-pink-deep)}
+.world--women .nwks-form--closed{border-color:var(--w2-rule)}
+.world--women .nwks-form__closed-msg{font-family:var(--w2-font-body)}
 
 @media(max-width:760px){
   .nwks-form-mount{max-width:100%}
-  .nwks-form{gap:1.5em}
 
-  .nwks-field,.nwks-field--choice{gap:.55em}
+  .nwks-field,.nwks-field--choice{gap:.6em;padding:1.3em 0}
   .nwks-field__label{font-size:.85rem}
+  .world--women .nwks-field__label{font-size:1.08rem}
   .nwks-field__help{font-size:.82rem}
 
-  .nwks-field__input{font-size:16px;padding:.9em 1em;min-height:48px;border-radius:6px}
+  .nwks-field__input{font-size:16px;padding:1em 1.1em;min-height:48px;border-radius:12px}
   .nwks-field__input--area{min-height:6.5em}
 
-  .nwks-field__options{gap:.35em}
-  .nwks-option{min-height:48px;padding:.5em .3em;gap:.85em;border-radius:6px}
+  .nwks-field__options{gap:.5em}
+  .nwks-option{min-height:48px;padding:.6em .7em;gap:.85em;border-radius:12px}
   .nwks-option__input{width:1.5em;height:1.5em}
   .nwks-option__label{font-size:1rem;line-height:1.35;padding:.35em 0;flex:1 1 auto}
-  .nwks-option__other-input{font-size:16px;padding:.7em .85em;min-height:46px;flex-basis:100%}
+  .nwks-option__other-input{font-size:16px;padding:.75em .9em;min-height:46px;flex-basis:100%}
 
-  .nwks-form__submit{width:100%;min-height:50px;padding:1.05em 1.5em;font-size:.78rem;
-    justify-content:center;text-align:center}
+  .nwks-form__submit{width:100%;min-height:52px;padding:1.1em 1.5em;font-size:.78rem;
+    justify-content:center;text-align:center;margin-top:1.7em}
 
   .nwks-form__status{font-size:.95rem;line-height:1.5}
+  .nwks-form__status--success,.nwks-form__status--error{padding:1em 1.1em}
   .nwks-form__fallback{font-size:.88rem;line-height:1.5}
 
-  .nwks-form--closed{padding:1.4em 1.2em}
+  .nwks-form--closed{padding:1.5em 1.3em}
   .nwks-form__closed-msg{font-size:1rem;line-height:1.65}
 }
 
 @media(prefers-reduced-motion:reduce){
-  .nwks-field__input,.nwks-option__other-input,.nwks-form__submit,
-  .nwks-form__fallback-link,.world-register__toggle-btn{transition:none}
+  .nwks-field__input,.nwks-option,.nwks-option__input,.nwks-option__other-input,
+  .nwks-form__submit,.nwks-form__fallback-link,.world-register__toggle-btn{transition:none}
+  .nwks-form__submit:hover:not(:disabled){transform:none}
 }
+
+/* ================= RESEARCH NOTES (applied) =================
+   - Single-column vertical flow, generous field rhythm, delicate top hairline
+     divider between fields (fading gradient, not a hard rule) — feels premium
+     without floating labels (rejected here: real spec labels are full
+     sentences and would overlap/truncate as inset labels on a Google-Forms
+     scale registration form).
+   - Focus state = border-color shift + soft outer glow ring (box-shadow,
+     color-mix with the theme accent) instead of a hard browser outline —
+     the modern "glow" focus treatment from current form-UI writeups.
+   - Choice rows (radio/checkbox) styled as bordered "cards": hover + a
+     :has(:checked) highlighted state (background tint + accent border) so a
+     selected option visually reads as chosen at a glance, not just a tiny dot.
+   - Custom radio/checkbox rendered via appearance:none + background
+     radial-gradient / inline SVG check — no extra DOM, still real native
+     inputs (keyboard + a11y intact), :focus-visible ring added explicitly.
+   - Submit button upgraded from an outline-then-fill link to a pill-shaped
+     gradient CTA with a soft colored shadow and a hover lift — the "gorgeous
+     submit button" ask; kept full-width + 52px tall on mobile per the
+     existing 48px/16px mobile discipline.
+   - Success/error status upgraded to a soft tinted card with a round icon
+     badge instead of bare colored text — clearer at a glance, still uses
+     role=status/aria-live wired in forms.js (untouched).
+   - Women's specific: labels moved to the world's own display serif
+     (Bodoni 72/Didot via --w2-font-display, already used for the tagline)
+     in italic, with a small pink dot kicker — "pretty serif labels" — while
+     inputs/options/buttons stay on the body sans (--w2-font-body) for
+     legibility. Local --w-form-pink swatch removed in favor of the site's
+     real --w2-pink-deep / --w2-rule tokens so the form now matches the rest
+     of the Women's world instead of a slightly-off invented pink. */
 
 </style>
 <style>
@@ -1134,6 +1300,18 @@ NWKS.forms.specs = {
         options: ['Ham/bun', 'Ham/lettuce wrapped unwich', 'Turkey/bun', 'Turkey/lettuce wrapped unwich', 'Veggie/bun', 'Veggie/lettuce wrapped unwich'] },
       { name: 'entry.1554249951', label: 'Do you have any questions or concerns?', type: 'textarea', required: false }
     ]
+  },
+
+  /* There is no Women's Encounter Server registration Google Form — per the content copy
+     (src/content/women.js "Registration Timeline" section), Server registration for
+     Women's Encounter is currently FULL. This spec exists only so the uniform
+     Attendee/Server hero CTAs (src/js/worlds.js) have a real panel to open for the
+     Server button on the women's door; src/js/forms.js renders its "currently closed"
+     notice (same code path as menServer) since there are no fields/action. */
+  womenServer: {
+    title: "Women's Encounter — Server Registration",
+    closed: true,
+    closedMessage: "Server registration for Women's Encounter is currently full. Please contact us if you have questions."
   }
 };
 
@@ -1205,6 +1383,152 @@ window.NWKS = window.NWKS || {};
     list.appendChild(row);
   }
 
+  // ---- ambient background canvases (Task 1: men = warm embers/sparks drifting up,
+  // women = baby-pink "pixie dust" drifting up). One <canvas> per door, position:fixed,
+  // painted behind the world content (see .world-ambient in worlds.css — the canvas gets
+  // a negative z-index inside the .world stacking context created via isolation:isolate,
+  // so it sits above the flat world background but below all text/UI). Lifecycle is
+  // independent of the idempotent content build: destroyed in close(), and (re)started at
+  // the top of every render(door) call so it always matches the world that's open. ----
+  var ambient = {};
+
+  function rand(min, max) { return min + Math.random() * (max - min); }
+
+  function ambientPalette(door) {
+    return door === 'women'
+      ? { fill: '255,190,212', glow: '255,170,200' }   // baby pink pixie dust
+      : { fill: '255,189,92', glow: '255,140,40' };    // warm ember/spark
+  }
+
+  function makeAmbientParticle(door, w, h, seedAnywhere) {
+    var women = door === 'women';
+    return {
+      x: rand(0, w),
+      y: seedAnywhere ? rand(0, h) : (h + rand(0, 30)),
+      r: women ? rand(1, 2.4) : rand(0.8, 2.1),
+      speed: women ? rand(5, 13) : rand(12, 28),
+      drift: rand(-8, 8),
+      driftPhase: rand(0, Math.PI * 2),
+      twinkle: rand(0.5, 1.4),
+      alpha: women ? rand(0.1, 0.32) : rand(0.14, 0.42)
+    };
+  }
+
+  function startAmbient(worldEl, door) {
+    stopAmbient(door);
+    var probe = document.createElement('canvas');
+    if (!probe.getContext) return; // no canvas support — skip silently, never block content
+
+    var reduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    var canvas = el('canvas', { className: 'world-ambient' });
+    canvas.setAttribute('aria-hidden', 'true');
+    worldEl.insertBefore(canvas, worldEl.firstChild || null);
+
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    var palette = ambientPalette(door);
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var w = 0, h = 0, particles = [], raf = null, lastT = null, lastPaintAt = null, watchdog = null;
+    var alive = true;
+
+    function targetCount() {
+      var n = Math.round((w * h) / 15000);
+      var cap = door === 'women' ? 46 : 38;
+      return Math.max(16, Math.min(cap, n));
+    }
+
+    function seed() {
+      var n = targetCount();
+      particles = [];
+      for (var i = 0; i < n; i++) particles.push(makeAmbientParticle(door, w, h, true));
+    }
+
+    function resize() {
+      w = window.innerWidth;
+      h = window.innerHeight;
+      canvas.width = Math.max(1, Math.round(w * dpr));
+      canvas.height = Math.max(1, Math.round(h * dpr));
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      seed();
+    }
+
+    function paint(staticFrame) {
+      ctx.clearRect(0, 0, w, h);
+      for (var i = 0; i < particles.length; i++) {
+        var p = particles[i];
+        var flicker = staticFrame ? 1 : (0.7 + 0.3 * Math.sin(p.driftPhase * p.twinkle));
+        var a = p.alpha * flicker;
+        var x = p.x + (staticFrame ? 0 : Math.sin(p.driftPhase) * p.drift);
+        ctx.beginPath();
+        ctx.fillStyle = 'rgba(' + palette.fill + ',' + a.toFixed(3) + ')';
+        ctx.shadowColor = 'rgba(' + palette.glow + ',' + (a * 0.55).toFixed(3) + ')';
+        ctx.shadowBlur = door === 'women' ? 5 : 4;
+        ctx.arc(x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function frame(t) {
+      if (lastT == null) lastT = t;
+      var dt = Math.min((t - lastT) / 1000, 0.05);
+      lastT = t;
+      for (var i = 0; i < particles.length; i++) {
+        var p = particles[i];
+        p.y -= p.speed * dt;
+        p.driftPhase += dt * 0.6;
+        if (p.y < -12) particles[i] = makeAmbientParticle(door, w, h, false);
+      }
+      paint(false);
+      lastPaintAt = (window.performance && performance.now) ? performance.now() : Date.now();
+      raf = requestAnimationFrame(frame);
+    }
+
+    var onResize = function () { resize(); if (reduced) paint(true); };
+    resize();
+
+    if (reduced) {
+      paint(true); // one static, non-animated frame — no rAF loop, no watchdog needed
+    } else {
+      raf = requestAnimationFrame(frame);
+      lastPaintAt = (window.performance && performance.now) ? performance.now() : Date.now();
+      // Watchdog: the site's masked-swap transition harness (transition-core.js)
+      // globally monkey-patches requestAnimationFrame/cancelAnimationFrame for the
+      // duration of the enter/exit cover animation and cancels whatever frame is
+      // still in flight when it settles — including this loop's pending frame, since
+      // it's chained via the same global rAF. That silently kills the self-chaining
+      // loop with no way for it to notice and restart itself. This interval checks
+      // for a stall and re-arms the chain — cheap, and inert once the loop is healthy.
+      watchdog = setInterval(function () {
+        if (!alive) return;
+        var now = (window.performance && performance.now) ? performance.now() : Date.now();
+        if (lastPaintAt != null && (now - lastPaintAt) > 500) {
+          lastT = null; // avoid a large dt jump on the resumed frame
+          raf = requestAnimationFrame(frame);
+        }
+      }, 400);
+    }
+    window.addEventListener('resize', onResize);
+
+    ambient[door] = {
+      destroy: function () {
+        alive = false;
+        if (raf) cancelAnimationFrame(raf);
+        if (watchdog) clearInterval(watchdog);
+        window.removeEventListener('resize', onResize);
+        if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+      }
+    };
+  }
+
+  function stopAmbient(door) {
+    if (ambient[door]) {
+      ambient[door].destroy();
+      delete ambient[door];
+    }
+  }
+
   function registerNav(content, extraClass) {
     var nav = el('nav', { className: 'world-register' + (extraClass ? ' ' + extraClass : '') });
     (content.register || []).forEach(function (r) {
@@ -1269,12 +1593,16 @@ window.NWKS = window.NWKS || {};
       // is owned by the masked-swap harness (transition-core doSwap), NEVER here —
       // revealing the world in render() is what caused the "instant jump then a
       // pointless overlay" bug (render runs before the transition covers the screen).
+      // Ambient background is the one exception: it's restarted on every door-entry
+      // (its own lifecycle, torn down in close()) even when content is already built.
       if (worldEl.dataset.builtFor === door) {
+        if (door === 'men' || door === 'women') startAmbient(worldEl, door);
         return;
       }
 
       worldEl.innerHTML = '';
       worldEl.className = 'world world--' + door;
+      if (door === 'men' || door === 'women') startAmbient(worldEl, door);
 
       // ---- sticky header: event name + back control ----
       var header = el('header', { className: 'world-header' });
@@ -1298,22 +1626,34 @@ window.NWKS = window.NWKS || {};
       if (content.dates) {
         hero.appendChild(el('p', { className: 'world-hero__dates', text: content.dates }));
       }
-      var formSpecKey = door === 'men' ? 'menAttendee' : (door === 'women' ? 'women' : null);
-      var hasNativeForm = !!(formSpecKey && NWKS.forms && NWKS.forms.specs && NWKS.forms.specs[formSpecKey]);
-      // Assigned below (after the world body is built) — the hero CTA and the
-      // Register section's buttons both open this same full-screen form page.
+      // Uniform registration (both doors): the hero shows TWO CTAs — Attendee opens the
+      // real native form, Server opens a panel (a real form when one exists, or a
+      // "currently closed" notice — see src/content/forms.js + src/js/forms.js).
+      var formSpecKeys = door === 'men' ? { attendee: 'menAttendee', server: 'menServer' }
+        : (door === 'women' ? { attendee: 'women', server: 'womenServer' } : null);
+      var hasNativeForm = !!(formSpecKeys && NWKS.forms && NWKS.forms.specs &&
+        NWKS.forms.specs[formSpecKeys.attendee]);
+      // Assigned below (after the world body is built) — both hero CTAs open panels
+      // inside this same full-screen form page.
       var formPage = null;
 
-      if (content.register && content.register.length) {
-        var cta;
-        if (hasNativeForm) {
-          cta = el('button', { className: 'world-cta', text: content.register[0].label });
-          cta.type = 'button';
-          cta.addEventListener('click', function () { if (formPage) formPage.open(formSpecKey); });
-        } else {
-          cta = externalLink(content.register[0].label, content.register[0].href);
-          cta.className = 'world-cta';
-        }
+      if (hasNativeForm) {
+        var ctaGroup = el('div', { className: 'world-hero__cta-group' });
+
+        var attendeeCta = el('button', { className: 'world-cta', text: 'Register as an Attendee' });
+        attendeeCta.type = 'button';
+        attendeeCta.addEventListener('click', function () { if (formPage) formPage.open(formSpecKeys.attendee); });
+        ctaGroup.appendChild(attendeeCta);
+
+        var serverCta = el('button', { className: 'world-cta world-cta--secondary', text: 'Register as a Server' });
+        serverCta.type = 'button';
+        serverCta.addEventListener('click', function () { if (formPage) formPage.open(formSpecKeys.server); });
+        ctaGroup.appendChild(serverCta);
+
+        hero.appendChild(ctaGroup);
+      } else if (content.register && content.register.length) {
+        var cta = externalLink(content.register[0].label, content.register[0].href);
+        cta.className = 'world-cta';
         hero.appendChild(cta);
       }
       worldEl.appendChild(hero);
@@ -1359,10 +1699,10 @@ window.NWKS = window.NWKS || {};
 
       worldEl.appendChild(body);
 
-      // ---- Register: native-form doors (men/women) use ONLY the top hero CTA to
-      // open the full-screen form page — no redundant bottom register section
-      // (operator: "the register button's already at the top"). External-link
-      // doors (e.g. Unite) keep a small register link list here. ----
+      // ---- Register: native-form doors (men/women) use ONLY the hero CTAs to open the
+      // full-screen form page — no redundant bottom register section (operator: "the
+      // register button's already at the top"). External-link doors (e.g. Unite) keep a
+      // small register link list here. ----
       if (content.register && content.register.length && !hasNativeForm) {
         var registerSec = el('section', { className: 'world-section world-section--register' });
         registerSec.id = 'register';
@@ -1378,7 +1718,7 @@ window.NWKS = window.NWKS || {};
       }
 
       if (hasNativeForm) {
-        var formPageKeys = door === 'men' ? ['menAttendee', 'menServer'] : [formSpecKey];
+        var formPageKeys = [formSpecKeys.attendee, formSpecKeys.server];
         formPage = buildFormPage(worldEl, door, formPageKeys);
       }
 
@@ -1390,6 +1730,7 @@ window.NWKS = window.NWKS || {};
     close: function (door) {
       var worldEl = document.getElementById('world-' + door);
       if (worldEl) worldEl.hidden = true;
+      stopAmbient(door);
       var stage = document.getElementById('stage');
       if (stage) stage.classList.remove('world-open');
     }
@@ -1430,8 +1771,14 @@ NWKS.forms = NWKS.forms || {};
     return p;
   }
 
+  function appendRequiredMark(labelEl) {
+    labelEl.appendChild(el('span', { className: 'nwks-field__required', text: ' *' }));
+  }
+
   function buildLabel(forId, text, required) {
-    var label = el('label', { className: 'nwks-field__label', text: text + (required ? ' *' : '') });
+    var label = el('label', { className: 'nwks-field__label' });
+    label.appendChild(document.createTextNode(text));
+    if (required) appendRequiredMark(label);
     label.setAttribute('for', forId);
     return label;
   }
@@ -1482,7 +1829,10 @@ NWKS.forms = NWKS.forms || {};
   function buildChoiceField(container, specKey, field, idx) {
     var isCheckbox = field.type === 'checkbox';
     var fs = el('fieldset', { className: 'nwks-field nwks-field--choice' });
-    fs.appendChild(el('legend', { className: 'nwks-field__label', text: field.label + (field.required ? ' *' : '') }));
+    var legend = el('legend', { className: 'nwks-field__label' });
+    legend.appendChild(document.createTextNode(field.label));
+    if (field.required) appendRequiredMark(legend);
+    fs.appendChild(legend);
     if (field.help) fs.appendChild(buildHelp(fieldBaseId(specKey, idx) + '-help', field.help));
     var optsWrap = el('div', { className: 'nwks-field__options' });
     var otherInput = null;
@@ -1937,9 +2287,30 @@ NWKS.transitions = NWKS.transitions || {};
       }
       gfx.scale(dpr, dpr);
 
-      var fontSize = Math.round(Math.min(w, h) * 0.115);
-      var letterSpacing = Math.round(fontSize * 0.22);
-      var curveAmp = Math.min(16, h * 0.016); // gentle arc, subtle on purpose
+      // FREEDOM must read big and confident on mobile portrait, where the
+      // old min(w,h)*0.115 rule sized off the SMALLER dimension — on a tall
+      // phone that's the width, but 0.115 was tuned for a desktop aspect and
+      // left the word tiny and lost in a huge white void. Fix: size off the
+      // WORD'S RENDERED WIDTH so it always spans a fixed fraction of the
+      // viewport width, regardless of aspect ratio. Measure the word (with
+      // its letter-spacing) at a known base size, then solve for the font
+      // size that makes it span the target width.
+      var WORD_WIDTH_FRAC = 0.88; // FREEDOM should span ~88% of viewport width (top of the 82-88% band — max prominence on mobile portrait)
+      var LETTER_SPACING_RATIO = 0.22;
+      var BASE_PROBE_SIZE = 200;
+      gfx.font = '900 ' + BASE_PROBE_SIZE + 'px "Arial Black", Arial, sans-serif';
+      var probeSpacing = BASE_PROBE_SIZE * LETTER_SPACING_RATIO;
+      var probeWidth = 0;
+      for (var pi = 0; pi < 7; pi++) probeWidth += gfx.measureText('FREEDOM'[pi]).width;
+      probeWidth += probeSpacing * 6;
+      var fontSize = Math.round(BASE_PROBE_SIZE * (w * WORD_WIDTH_FRAC) / probeWidth);
+      // Clamp: never absurd on an ultra-wide desktop (cap relative to height
+      // so it can't overflow vertically or dwarf the arc), and never below a
+      // sensible floor on a narrow phone.
+      fontSize = Math.min(fontSize, Math.round(h * 0.32));
+      fontSize = Math.max(fontSize, Math.round(Math.min(w, h) * 0.1));
+      var letterSpacing = Math.round(fontSize * LETTER_SPACING_RATIO);
+      var curveAmp = Math.min(22, h * 0.02); // gentle arc, subtle on purpose
 
       // Ripple amplitude/frequency of the single moving edge — a function of
       // Y only, so the boundary bows like real cloth without ever slicing
@@ -2168,9 +2539,31 @@ NWKS.transitions = NWKS.transitions || {};
       }
       gfx.scale(dpr, dpr);
 
-      var fontSize = Math.round(Math.min(w, h) * 0.115);
-      var letterSpacing = Math.round(fontSize * 0.22);
-      var curveAmp = Math.min(16, h * 0.016); // gentle arc, subtle on purpose
+      // FREEDOM must read big and confident on mobile portrait, where the
+      // old min(w,h)*0.115 rule sized off the SMALLER dimension — on a tall
+      // phone that's the width, but 0.115 was tuned for a desktop aspect and
+      // left the word tiny and lost in a huge void. Fix: size off the WORD'S
+      // RENDERED WIDTH so it always spans a fixed fraction of the viewport
+      // width, regardless of aspect ratio. Measure the word (with its
+      // letter-spacing) at a known base size, then solve for the font size
+      // that makes it span the target width. Kept identical to men-banner.js
+      // so both doors share the exact same sizing behavior.
+      var WORD_WIDTH_FRAC = 0.88; // FREEDOM should span ~88% of viewport width (top of the 82-88% band — max prominence on mobile portrait)
+      var LETTER_SPACING_RATIO = 0.22;
+      var BASE_PROBE_SIZE = 200;
+      gfx.font = '900 ' + BASE_PROBE_SIZE + 'px "Arial Black", Arial, sans-serif';
+      var probeSpacing = BASE_PROBE_SIZE * LETTER_SPACING_RATIO;
+      var probeWidth = 0;
+      for (var pi = 0; pi < 7; pi++) probeWidth += gfx.measureText('FREEDOM'[pi]).width;
+      probeWidth += probeSpacing * 6;
+      var fontSize = Math.round(BASE_PROBE_SIZE * (w * WORD_WIDTH_FRAC) / probeWidth);
+      // Clamp: never absurd on an ultra-wide desktop (cap relative to height
+      // so it can't overflow vertically or dwarf the arc), and never below a
+      // sensible floor on a narrow phone.
+      fontSize = Math.min(fontSize, Math.round(h * 0.32));
+      fontSize = Math.max(fontSize, Math.round(Math.min(w, h) * 0.1));
+      var letterSpacing = Math.round(fontSize * LETTER_SPACING_RATIO);
+      var curveAmp = Math.min(22, h * 0.02); // gentle arc, subtle on purpose
 
       // Ripple amplitude/frequency of the single moving edge — a function of
       // Y only, so the boundary bows like real cloth without ever slicing

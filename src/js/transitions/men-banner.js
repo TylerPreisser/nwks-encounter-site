@@ -96,9 +96,30 @@ NWKS.transitions = NWKS.transitions || {};
       }
       gfx.scale(dpr, dpr);
 
-      var fontSize = Math.round(Math.min(w, h) * 0.115);
-      var letterSpacing = Math.round(fontSize * 0.22);
-      var curveAmp = Math.min(16, h * 0.016); // gentle arc, subtle on purpose
+      // FREEDOM must read big and confident on mobile portrait, where the
+      // old min(w,h)*0.115 rule sized off the SMALLER dimension — on a tall
+      // phone that's the width, but 0.115 was tuned for a desktop aspect and
+      // left the word tiny and lost in a huge white void. Fix: size off the
+      // WORD'S RENDERED WIDTH so it always spans a fixed fraction of the
+      // viewport width, regardless of aspect ratio. Measure the word (with
+      // its letter-spacing) at a known base size, then solve for the font
+      // size that makes it span the target width.
+      var WORD_WIDTH_FRAC = 0.88; // FREEDOM should span ~88% of viewport width (top of the 82-88% band — max prominence on mobile portrait)
+      var LETTER_SPACING_RATIO = 0.22;
+      var BASE_PROBE_SIZE = 200;
+      gfx.font = '900 ' + BASE_PROBE_SIZE + 'px "Arial Black", Arial, sans-serif';
+      var probeSpacing = BASE_PROBE_SIZE * LETTER_SPACING_RATIO;
+      var probeWidth = 0;
+      for (var pi = 0; pi < 7; pi++) probeWidth += gfx.measureText('FREEDOM'[pi]).width;
+      probeWidth += probeSpacing * 6;
+      var fontSize = Math.round(BASE_PROBE_SIZE * (w * WORD_WIDTH_FRAC) / probeWidth);
+      // Clamp: never absurd on an ultra-wide desktop (cap relative to height
+      // so it can't overflow vertically or dwarf the arc), and never below a
+      // sensible floor on a narrow phone.
+      fontSize = Math.min(fontSize, Math.round(h * 0.32));
+      fontSize = Math.max(fontSize, Math.round(Math.min(w, h) * 0.1));
+      var letterSpacing = Math.round(fontSize * LETTER_SPACING_RATIO);
+      var curveAmp = Math.min(22, h * 0.02); // gentle arc, subtle on purpose
 
       // Ripple amplitude/frequency of the single moving edge — a function of
       // Y only, so the boundary bows like real cloth without ever slicing

@@ -5,127 +5,233 @@
    inherits the shared light body background (--f-bg) from worlds.css and
    layers on each door's accent color, same convention as world-list/
    world-inline-link/world-register__btn already use in worlds.css.
-   Women-only: a soft baby-pink accent (--w-form-pink, local to this file —
-   tokens.css is not touched) per operator direction: white/pink/black, clean. */
+
+   REDESIGN (P4, field-realism): premium form styling pass. Researched modern
+   award-winning / Typeform-style form UI (floating labels, soft rounded
+   fields, refined focus glow, single-column vertical flow, inline-card
+   choice rows) — see the design notes at the end of this file. Floating
+   labels were tried and rejected for these specific specs: several real
+   field labels are long descriptive sentences ("IF you have had a major
+   life event…") that overlap/truncate badly as an inset label, so instead
+   the premium signal comes from generous rhythm, soft glowing focus rings,
+   card-style radio/checkbox rows, a gorgeous gradient submit button, and
+   (women only) an elegant serif-italic label voice + delicate hairline
+   dividers between fields — reusing the site's OWN already-established
+   --w2-* tokens (fonts.css / worlds.css) instead of inventing new ones, so
+   the form now matches the rest of the Women's world instead of drifting
+   from it as the old local --w-form-pink swatch did. */
 
 .nwks-form-mount{margin-top:1.6em;max-width:560px}
-.nwks-form{display:flex;flex-direction:column;gap:1.2em}
+.nwks-form{display:flex;flex-direction:column;gap:0;
+  --nwks-divider:var(--f-rule);--nwks-accent:var(--f-gold);--nwks-accent-deep:var(--f-gold)}
 
-.nwks-field,.nwks-field--choice{display:flex;flex-direction:column;gap:.45em;
-  border:none;margin:0;padding:0}
+.nwks-field,.nwks-field--choice{display:flex;flex-direction:column;gap:.5em;
+  border:none;margin:0;padding:1.15em 0;position:relative}
+.nwks-field:first-child{padding-top:0}
+.nwks-field:not(:first-child)::before{content:"";position:absolute;top:0;left:0;right:0;
+  height:1px;background:linear-gradient(90deg,transparent,var(--nwks-divider) 18%,
+  var(--nwks-divider) 82%,transparent)}
+
 .nwks-field__label{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;
   font-weight:700;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;
   color:var(--f-ink)}
-.nwks-field__help{font-size:.78rem;line-height:1.5;margin:0;opacity:.72}
+.nwks-field__required{color:var(--nwks-accent-deep);font-weight:700;margin-left:.05em}
+.nwks-field__help{font-size:.78rem;line-height:1.55;margin:0;opacity:.72;max-width:46em}
 
-.nwks-field__input{font:inherit;font-size:.95rem;padding:.75em .9em;
-  border-radius:4px;border:1px solid var(--f-rule);background:#fff;color:var(--f-ink);
-  transition:.2s}
-.nwks-field__input--area{resize:vertical;min-height:5.5em}
-.nwks-field__input:focus{outline:2px solid var(--f-gold);outline-offset:1px;
-  border-color:var(--f-gold)}
+.nwks-field__input{font:inherit;font-size:.95rem;padding:.85em 1em;
+  border-radius:10px;border:1.5px solid var(--f-rule);background:#fff;color:var(--f-ink);
+  box-shadow:inset 0 1px 2px rgba(20,20,20,.03);
+  transition:border-color .22s ease,box-shadow .22s ease,transform .12s ease}
+.nwks-field__input--area{resize:vertical;min-height:5.5em;line-height:1.55}
+.nwks-form .nwks-field__input:hover{border-color:var(--nwks-accent)}
+.nwks-form .nwks-field__input:focus{outline:none;border-color:var(--nwks-accent-deep);
+  box-shadow:inset 0 1px 2px rgba(20,20,20,.03),0 0 0 4px color-mix(in srgb,var(--nwks-accent-deep) 18%,transparent)}
+.nwks-field__input--select{appearance:none;-webkit-appearance:none;padding-right:2.6em;
+  cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239C8038' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 1em center;background-size:.85em}
 
 .nwks-field__options{display:flex;flex-direction:column;gap:.55em}
-.nwks-option{display:flex;align-items:center;flex-wrap:wrap;gap:.6em}
-.nwks-option__input{width:1.15em;height:1.15em;accent-color:var(--f-gold);
-  flex:0 0 auto}
-.nwks-option__label{font-size:.9rem;color:var(--f-ink)}
+.nwks-option{display:flex;align-items:center;flex-wrap:wrap;gap:.7em;
+  border:1.5px solid var(--f-rule);border-radius:10px;padding:.65em .85em;
+  background:#fff;transition:border-color .2s ease,background-color .2s ease,box-shadow .2s ease}
+.nwks-form .nwks-option:hover{border-color:var(--nwks-accent)}
+.nwks-form .nwks-option:has(:checked){border-color:var(--nwks-accent-deep);
+  background:color-mix(in srgb,var(--nwks-accent-deep) 7%,#fff);
+  box-shadow:0 0 0 1px var(--nwks-accent-deep)}
+
+.nwks-option__input{appearance:none;-webkit-appearance:none;width:1.2em;height:1.2em;
+  flex:0 0 auto;border:2px solid var(--f-rule);background:#fff;cursor:pointer;
+  transition:border-color .2s ease,background .2s ease,box-shadow .2s ease}
+.nwks-option__input[type="radio"]{border-radius:50%}
+.nwks-option__input[type="checkbox"]{border-radius:5px}
+.nwks-form .nwks-option__input:checked{border-color:var(--nwks-accent-deep)}
+.nwks-form .nwks-option__input[type="radio"]:checked{
+  background:radial-gradient(circle,var(--nwks-accent-deep) 0 42%,#fff 45% 100%)}
+.nwks-form .nwks-option__input[type="checkbox"]:checked{background-color:var(--nwks-accent-deep);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:center;background-size:70%}
+.nwks-form .nwks-option__input:focus-visible{outline:none;
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--nwks-accent-deep) 25%,transparent)}
+.nwks-option__label{font-size:.9rem;color:var(--f-ink);cursor:pointer}
 .nwks-option__other-input{flex:1 1 180px;font:inherit;font-size:.88rem;
-  padding:.45em .65em;border-radius:3px;border:1px solid var(--f-rule);background:#fff;
-  transition:.2s}
-.nwks-option__other-input:focus{outline:2px solid var(--f-gold);outline-offset:1px;
-  border-color:var(--f-gold)}
+  padding:.5em .75em;border-radius:8px;border:1.5px solid var(--f-rule);background:#fff;
+  transition:border-color .2s ease,box-shadow .2s ease}
+.nwks-form .nwks-option__other-input:focus{outline:none;border-color:var(--nwks-accent-deep);
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--nwks-accent-deep) 18%,transparent)}
 .nwks-option__other-input:disabled{opacity:.45}
 
-.nwks-form__submit{align-self:flex-start;margin-top:.3em;padding:1em 2.2em;
+.nwks-form__submit{align-self:flex-start;margin-top:1.5em;padding:1.05em 2.6em;
+  display:inline-flex;align-items:center;gap:.6em;
   font-family:"Helvetica Neue",Arial,system-ui,sans-serif;font-weight:700;
-  letter-spacing:.2em;text-transform:uppercase;font-size:.72rem;border-radius:2px;
-  border:1px solid var(--f-gold);background:transparent;color:var(--f-gold);
-  cursor:pointer;transition:.25s}
-.nwks-form__submit:hover:not(:disabled){background:var(--f-gold);color:#fff}
-.nwks-form__submit:disabled{opacity:.55;cursor:default}
+  letter-spacing:.16em;text-transform:uppercase;font-size:.74rem;border-radius:999px;
+  border:1px solid transparent;color:#fff;cursor:pointer;
+  background:linear-gradient(135deg,var(--nwks-accent),var(--nwks-accent-deep));
+  box-shadow:0 10px 24px -8px color-mix(in srgb,var(--nwks-accent-deep) 55%,transparent),
+    0 2px 6px rgba(0,0,0,.08);
+  transition:transform .22s cubic-bezier(.22,1,.36,1),box-shadow .22s ease,opacity .2s ease}
+.nwks-form__submit:hover:not(:disabled){transform:translateY(-2px);
+  box-shadow:0 16px 30px -8px color-mix(in srgb,var(--nwks-accent-deep) 60%,transparent),
+    0 4px 10px rgba(0,0,0,.1)}
+.nwks-form__submit:active:not(:disabled){transform:translateY(0)}
+.nwks-form__submit:disabled{opacity:.55;cursor:default;box-shadow:none}
 
-.nwks-form__status{font-size:.85rem;min-height:1.3em;margin:0}
-.nwks-form__status--success{color:#3d6b3d;font-weight:600}
-.nwks-form__status--error{color:#a83c3c;font-weight:600}
+.nwks-form__status{font-size:.85rem;min-height:1.3em;margin:1em 0 0;line-height:1.5}
+.nwks-form__status--success,.nwks-form__status--error{display:flex;align-items:flex-start;
+  gap:.6em;padding:.85em 1em;border-radius:10px;font-weight:600}
+.nwks-form__status--success::before,.nwks-form__status--error::before{content:"";
+  flex:0 0 auto;width:1.3em;height:1.3em;border-radius:50%;display:inline-flex;
+  align-items:center;justify-content:center;font-size:.8em;font-weight:800;color:#fff;
+  margin-top:.05em}
+.nwks-form__status--success{color:#2f6b3d;background:rgba(63,140,80,.09)}
+.nwks-form__status--success::before{content:"✓";background:#3f8c50}
+.nwks-form__status--error{color:#a13a3a;background:rgba(196,74,74,.09)}
+.nwks-form__status--error::before{content:"!";background:#c44a4a}
 
-.nwks-form__fallback{font-size:.8rem;opacity:.85;margin:.4em 0 0}
-.nwks-form__fallback-link{color:var(--f-gold);font-weight:600;text-decoration:none;
-  border-bottom:1px solid var(--f-gold)}
+.nwks-form__fallback{font-size:.8rem;opacity:.85;margin:1.1em 0 0}
+.nwks-form__fallback-link{color:var(--nwks-accent-deep);font-weight:600;text-decoration:none;
+  border-bottom:1px solid var(--nwks-accent-deep)}
 .nwks-form__fallback-link:hover{opacity:.75}
 
-.nwks-form--closed{padding:1.3em 1.4em;border:1px dashed var(--f-rule);
-  border-radius:6px;display:flex;flex-direction:column;gap:.7em}
-.nwks-form__closed-msg{margin:0;font-size:.92rem;line-height:1.6}
+.nwks-form--closed{padding:1.5em 1.6em;border:1.5px solid var(--f-rule);
+  border-radius:14px;display:flex;flex-direction:column;gap:.9em;background:#fff}
+.nwks-form__closed-msg{margin:0;font-size:.95rem;line-height:1.65}
 
 /* ---- world-register toggle + fallback used by worlds.js on the men door ---- */
 .world-register__toggle{display:flex;flex-direction:column;gap:.8em;margin-top:1.6em}
 .world-register__toggle-btn{align-self:flex-start;font-family:"Helvetica Neue",Arial,
   system-ui,sans-serif;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
   font-size:.7rem;background:transparent;border:1px solid var(--f-rule);
-  border-radius:2px;padding:.7em 1.2em;cursor:pointer;color:var(--f-ink);transition:.25s}
+  border-radius:999px;padding:.7em 1.3em;cursor:pointer;color:var(--f-ink);transition:.25s}
 .world-register__toggle-btn:hover{border-color:var(--f-gold);color:var(--f-gold)}
 
 /* ================= MEN'S ACCENT — dark form page (matches the dark world body):
-   labels/options/status recolored to bone/yellow since the .nwks-* base rules
-   hardcode the light-theme --f-ink/--f-gold, which are unreadable on dark. ======= */
-.world--men .nwks-field__input,.world--men .nwks-option__other-input{border-color:var(--m-dim)}
-.world--men .nwks-field__input:focus,.world--men .nwks-option__other-input:focus{
-  outline-color:var(--m-yellow);border-color:var(--m-yellow)}
-.world--men .nwks-option__input{accent-color:var(--m-yellow)}
-.world--men .nwks-form__submit{border-color:var(--m-yellow);color:var(--m-yellow)}
-.world--men .nwks-form__submit:hover:not(:disabled){background:var(--m-yellow);color:var(--m-gun)}
+   clean and strong. Yellow-on-olive CTA with real depth; inputs stay light so
+   they read clearly against the dark page (standard practice for a dark UI). ======= */
+.world--men .nwks-form{--nwks-divider:rgba(232,227,210,.16);--nwks-accent:var(--m-yellow);
+  --nwks-accent-deep:#c9a423}
+.world--men .nwks-field__input,.world--men .nwks-option,.world--men .nwks-option__other-input{
+  border-color:var(--m-dim);background:#FAF8F0}
+.world--men .nwks-field__input--select{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236E765F' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")}
+.world--men .nwks-option__input{border-color:var(--m-dim);background:#FAF8F0}
+.world--men .nwks-form__submit{color:var(--m-gun)}
 .world--men .nwks-form__fallback-link{color:var(--m-yellow);border-bottom-color:var(--m-yellow)}
 .world--men .world-register__toggle-btn:hover{border-color:var(--m-yellow);color:var(--m-yellow)}
-.world--men .nwks-field__label,.world--men .nwks-option__label{color:var(--m-bone)}
+.world--men .nwks-field__label{color:var(--m-bone)}
+.world--men .nwks-option__label{color:var(--m-gun)}
+.world--men .nwks-field__required{color:var(--m-yellow)}
 .world--men .nwks-field__help,.world--men .nwks-form__fallback{color:var(--m-dim)}
-.world--men .nwks-form__status--success{color:#9fd6a0}
-.world--men .nwks-form__status--error{color:#e79b9b}
-.world--men .nwks-form--closed{border-color:rgba(232,227,210,.25)}
+.world--men .nwks-form__status--success{color:#c7ecc8;background:rgba(159,214,160,.14)}
+.world--men .nwks-form__status--error{color:#f4c6c6;background:rgba(231,155,155,.14)}
+.world--men .nwks-form--closed{border-color:rgba(232,227,210,.3);background:rgba(255,255,255,.05)}
 .world--men .nwks-form__closed-msg{color:var(--m-bone)}
 
-/* ============ WOMEN'S ACCENT (white/baby-pink/black, clean & refined) =============== */
-.world--women{--w-form-pink:#F1D3DA;--w-form-pink-deep:#C98A9C}
-.world--women .nwks-field__input,.world--women .nwks-option__other-input{
-  border-color:var(--w-form-pink-deep);background:#fff}
-.world--women .nwks-field__input:focus,.world--women .nwks-option__other-input:focus{
-  outline-color:var(--w-form-pink-deep);border-color:var(--w-form-pink-deep)}
-.world--women .nwks-option__input{accent-color:var(--w-form-pink-deep)}
-.world--women .nwks-form__submit{border-color:var(--w-form-pink-deep);color:var(--w-ink);
-  background:var(--w-form-pink)}
-.world--women .nwks-form__submit:hover:not(:disabled){background:var(--w-form-pink-deep);
-  color:#fff}
-.world--women .nwks-form__fallback-link{color:var(--w-gold-deep);border-bottom-color:var(--w-form-pink-deep)}
-.world--women .world-register__toggle-btn:hover{border-color:var(--w-form-pink-deep);color:var(--w-gold-deep)}
+/* ============ WOMEN'S ACCENT — white/baby-pink/black, elegant & delicate.
+   Reuses the SAME --w2-* tokens the rest of the Women's world already runs on
+   (worlds.css / fonts.css) instead of a locally-invented palette, so the form
+   now matches the hero/body exactly. Labels take the world's display serif
+   (Bodoni 72/Didot, Apple-first, already used for the tagline) for a soft,
+   pretty, editorial voice — legibility verified at label sizes via Playwright. */
+.world--women .nwks-form{--nwks-divider:var(--w2-rule);--nwks-accent:var(--w2-pink-deep);
+  --nwks-accent-deep:var(--w2-pink-deep)}
+.world--women .nwks-field__label{font-family:var(--w2-font-display);font-style:italic;
+  font-weight:400;text-transform:none;letter-spacing:.01em;font-size:1.05rem;
+  color:var(--w2-ink);display:flex;align-items:baseline;gap:.5em}
+.world--women .nwks-field__label::before{content:"";flex:0 0 auto;width:.4em;height:.4em;
+  border-radius:50%;background:var(--w2-pink-deep);align-self:center}
+.world--women .nwks-field__required{color:var(--w2-pink-deep);font-style:normal}
+.world--women .nwks-field__help{color:var(--w2-dim);font-family:var(--w2-font-body)}
+.world--women .nwks-field__input,.world--women .nwks-option,.world--women .nwks-option__other-input,
+.world--women .nwks-option__input{border-color:var(--w2-rule);background:#fff;font-family:var(--w2-font-body)}
+.world--women .nwks-option__label{font-family:var(--w2-font-body);color:var(--w2-ink)}
+.world--women .nwks-form__submit{font-family:var(--w2-font-body)}
+.world--women .nwks-form__fallback-link{color:var(--w2-pink-deep);border-bottom-color:var(--w2-pink-deep)}
+.world--women .nwks-form__fallback{font-family:var(--w2-font-body)}
+.world--women .world-register__toggle-btn:hover{border-color:var(--w2-pink-deep);color:var(--w2-pink-deep)}
+.world--women .nwks-form--closed{border-color:var(--w2-rule)}
+.world--women .nwks-form__closed-msg{font-family:var(--w2-font-body)}
 
 @media(max-width:760px){
   .nwks-form-mount{max-width:100%}
-  .nwks-form{gap:1.5em}
 
-  .nwks-field,.nwks-field--choice{gap:.55em}
+  .nwks-field,.nwks-field--choice{gap:.6em;padding:1.3em 0}
   .nwks-field__label{font-size:.85rem}
+  .world--women .nwks-field__label{font-size:1.08rem}
   .nwks-field__help{font-size:.82rem}
 
-  .nwks-field__input{font-size:16px;padding:.9em 1em;min-height:48px;border-radius:6px}
+  .nwks-field__input{font-size:16px;padding:1em 1.1em;min-height:48px;border-radius:12px}
   .nwks-field__input--area{min-height:6.5em}
 
-  .nwks-field__options{gap:.35em}
-  .nwks-option{min-height:48px;padding:.5em .3em;gap:.85em;border-radius:6px}
+  .nwks-field__options{gap:.5em}
+  .nwks-option{min-height:48px;padding:.6em .7em;gap:.85em;border-radius:12px}
   .nwks-option__input{width:1.5em;height:1.5em}
   .nwks-option__label{font-size:1rem;line-height:1.35;padding:.35em 0;flex:1 1 auto}
-  .nwks-option__other-input{font-size:16px;padding:.7em .85em;min-height:46px;flex-basis:100%}
+  .nwks-option__other-input{font-size:16px;padding:.75em .9em;min-height:46px;flex-basis:100%}
 
-  .nwks-form__submit{width:100%;min-height:50px;padding:1.05em 1.5em;font-size:.78rem;
-    justify-content:center;text-align:center}
+  .nwks-form__submit{width:100%;min-height:52px;padding:1.1em 1.5em;font-size:.78rem;
+    justify-content:center;text-align:center;margin-top:1.7em}
 
   .nwks-form__status{font-size:.95rem;line-height:1.5}
+  .nwks-form__status--success,.nwks-form__status--error{padding:1em 1.1em}
   .nwks-form__fallback{font-size:.88rem;line-height:1.5}
 
-  .nwks-form--closed{padding:1.4em 1.2em}
+  .nwks-form--closed{padding:1.5em 1.3em}
   .nwks-form__closed-msg{font-size:1rem;line-height:1.65}
 }
 
 @media(prefers-reduced-motion:reduce){
-  .nwks-field__input,.nwks-option__other-input,.nwks-form__submit,
-  .nwks-form__fallback-link,.world-register__toggle-btn{transition:none}
+  .nwks-field__input,.nwks-option,.nwks-option__input,.nwks-option__other-input,
+  .nwks-form__submit,.nwks-form__fallback-link,.world-register__toggle-btn{transition:none}
+  .nwks-form__submit:hover:not(:disabled){transform:none}
 }
+
+/* ================= RESEARCH NOTES (applied) =================
+   - Single-column vertical flow, generous field rhythm, delicate top hairline
+     divider between fields (fading gradient, not a hard rule) — feels premium
+     without floating labels (rejected here: real spec labels are full
+     sentences and would overlap/truncate as inset labels on a Google-Forms
+     scale registration form).
+   - Focus state = border-color shift + soft outer glow ring (box-shadow,
+     color-mix with the theme accent) instead of a hard browser outline —
+     the modern "glow" focus treatment from current form-UI writeups.
+   - Choice rows (radio/checkbox) styled as bordered "cards": hover + a
+     :has(:checked) highlighted state (background tint + accent border) so a
+     selected option visually reads as chosen at a glance, not just a tiny dot.
+   - Custom radio/checkbox rendered via appearance:none + background
+     radial-gradient / inline SVG check — no extra DOM, still real native
+     inputs (keyboard + a11y intact), :focus-visible ring added explicitly.
+   - Submit button upgraded from an outline-then-fill link to a pill-shaped
+     gradient CTA with a soft colored shadow and a hover lift — the "gorgeous
+     submit button" ask; kept full-width + 52px tall on mobile per the
+     existing 48px/16px mobile discipline.
+   - Success/error status upgraded to a soft tinted card with a round icon
+     badge instead of bare colored text — clearer at a glance, still uses
+     role=status/aria-live wired in forms.js (untouched).
+   - Women's specific: labels moved to the world's own display serif
+     (Bodoni 72/Didot via --w2-font-display, already used for the tagline)
+     in italic, with a small pink dot kicker — "pretty serif labels" — while
+     inputs/options/buttons stay on the body sans (--w2-font-body) for
+     legibility. Local --w-form-pink swatch removed in favor of the site's
+     real --w2-pink-deep / --w2-rule tokens so the form now matches the rest
+     of the Women's world instead of a slightly-off invented pink. */

@@ -30,8 +30,14 @@ NWKS.forms = NWKS.forms || {};
     return p;
   }
 
+  function appendRequiredMark(labelEl) {
+    labelEl.appendChild(el('span', { className: 'nwks-field__required', text: ' *' }));
+  }
+
   function buildLabel(forId, text, required) {
-    var label = el('label', { className: 'nwks-field__label', text: text + (required ? ' *' : '') });
+    var label = el('label', { className: 'nwks-field__label' });
+    label.appendChild(document.createTextNode(text));
+    if (required) appendRequiredMark(label);
     label.setAttribute('for', forId);
     return label;
   }
@@ -82,7 +88,10 @@ NWKS.forms = NWKS.forms || {};
   function buildChoiceField(container, specKey, field, idx) {
     var isCheckbox = field.type === 'checkbox';
     var fs = el('fieldset', { className: 'nwks-field nwks-field--choice' });
-    fs.appendChild(el('legend', { className: 'nwks-field__label', text: field.label + (field.required ? ' *' : '') }));
+    var legend = el('legend', { className: 'nwks-field__label' });
+    legend.appendChild(document.createTextNode(field.label));
+    if (field.required) appendRequiredMark(legend);
+    fs.appendChild(legend);
     if (field.help) fs.appendChild(buildHelp(fieldBaseId(specKey, idx) + '-help', field.help));
     var optsWrap = el('div', { className: 'nwks-field__options' });
     var otherInput = null;

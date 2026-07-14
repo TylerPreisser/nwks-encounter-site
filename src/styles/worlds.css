@@ -6,12 +6,28 @@
            (--w2-* tokens scoped below; see src/styles/fonts.css for the type-system source).
            Unite = lightweight, shared warm-stone tokens only. */
 
-.world{background:var(--f-bg);color:var(--f-ink);font-family:var(--serif)}
+.world{background:var(--f-bg);color:var(--f-ink);font-family:var(--serif);
+  position:relative;isolation:isolate}
+
+/* ---------- AMBIENT BACKGROUND (Task 1) ----------
+   One <canvas> per door (men/women), created by src/js/worlds.js startAmbient() and
+   inserted as the world's first child. position:fixed keeps it pinned to the viewport;
+   z-index:-1 places it inside the .world stacking context (established by
+   isolation:isolate above) UNDER all normal-flow content but ABOVE the flat world
+   background — see the paint-order note in worlds.js. Never intercepts input. */
+.world-ambient{position:fixed;inset:0;width:100%;height:100%;z-index:-1;
+  pointer-events:none;display:block}
+@media(prefers-reduced-motion:reduce){
+  .world-ambient{opacity:.7}
+}
 
 /* ---------- STICKY HEADER ---------- */
 .world-header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:1em;
   padding:.85em 4vw;background:rgba(234,227,212,.92);backdrop-filter:blur(6px);
-  border-bottom:1px solid var(--f-rule)}
+  border-bottom:1px solid var(--f-rule);
+  padding-top:max(.85em, env(safe-area-inset-top));
+  padding-left:max(4vw, env(safe-area-inset-left));
+  padding-right:max(4vw, env(safe-area-inset-right))}
 .world-back{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;font-weight:700;
   letter-spacing:.14em;font-size:.7rem;text-transform:uppercase;color:var(--f-ink);
   background:transparent;border:1px solid var(--f-rule);border-radius:2px;padding:.55em 1em;
@@ -42,6 +58,14 @@
   border:1px solid var(--f-gold);color:var(--f-gold);background:transparent;cursor:pointer;
   transition:.3s}
 .world-cta:hover{background:var(--f-gold);color:#fff}
+
+/* ---------- HERO CTA GROUP (Task 2: uniform Attendee + Server registration) ----------
+   Two buttons side by side on desktop, stacked full-width on mobile (see @media below).
+   The Server button reuses .world-cta's themed colors but with a dashed border so it
+   reads as the secondary action next to the solid Attendee CTA. */
+.world-hero__cta-group{display:flex;flex-wrap:wrap;justify-content:center;gap:1em;margin-top:2em}
+.world-hero__cta-group .world-cta{margin-top:0}
+.world-cta--secondary{border-style:dashed}
 
 /* ---------- BODY ---------- */
 .world-body{max-width:1000px;margin:0 auto;padding:0 6vw}
@@ -90,14 +114,20 @@
 .world-formpage[hidden]{display:none}
 .world-formpage__header{position:sticky;top:0;z-index:2;display:flex;align-items:center;
   flex:0 0 auto;padding:.85em 4vw;background:rgba(234,227,212,.92);backdrop-filter:blur(6px);
-  border-bottom:1px solid var(--f-rule)}
+  border-bottom:1px solid var(--f-rule);
+  padding-top:max(.85em, env(safe-area-inset-top));
+  padding-left:max(4vw, env(safe-area-inset-left));
+  padding-right:max(4vw, env(safe-area-inset-right))}
 .world-formpage__back{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;font-weight:700;
   letter-spacing:.14em;font-size:.7rem;text-transform:uppercase;color:var(--f-ink);
   background:transparent;border:1px solid var(--f-rule);border-radius:2px;padding:.55em 1em;
   cursor:pointer;transition:.25s}
 .world-formpage__back:hover{background:var(--f-gold);border-color:var(--f-gold);color:#fff}
 .world-formpage__scroll{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;
-  padding:5vh 6vw 8vh}
+  padding:5vh 6vw 8vh;
+  padding-bottom:max(8vh, calc(env(safe-area-inset-bottom) + 3vh));
+  padding-left:max(6vw, env(safe-area-inset-left));
+  padding-right:max(6vw, env(safe-area-inset-right))}
 .world-formpage__panel{max-width:640px;margin:0 auto}
 .world-formpage__title{font-size:clamp(1.2rem,3vw,1.7rem);font-weight:600;letter-spacing:.02em;
   margin-bottom:1em}
@@ -115,7 +145,8 @@
 
 /* ---------- VERSE FOOTER ---------- */
 .world-verse{text-align:center;padding:5vh 6vw 8vh;font-style:italic;color:var(--f-ink);
-  font-size:clamp(.86rem,1.6vw,1rem)}
+  font-size:clamp(.86rem,1.6vw,1rem);
+  padding-bottom:max(8vh, calc(env(safe-area-inset-bottom) + 3vh))}
 
 /* ================= MEN'S THEME — whole page = dark gunmetal/olive (same as the
    header), all text lifted to light (bone/dim) with yellow accents, per operator
@@ -195,6 +226,20 @@
 .world--women .world-register__btn:hover{background:var(--w2-pink-deep);border-color:var(--w2-pink-deep);color:#fff}
 .world--women .world-verse{color:var(--w2-pink-deep);font-family:var(--w2-font-display);font-style:italic}
 
+/* ---- Task 3: genuinely pretty, easy-to-read women's typography ----
+   Narrower measure (comfortable line length), roomier line-height, a slightly larger
+   display serif for headings, and softer letter-spacing than the men's/shared defaults. */
+.world--women .world-body{max-width:760px}
+.world--women .world-hero__title{font-size:clamp(1.7rem,5vw,2.85rem);letter-spacing:.015em;
+  line-height:1.18}
+.world--women .world-hero__tagline{font-size:clamp(1rem,2vw,1.18rem);line-height:1.5}
+.world--women .world-section__title{font-size:clamp(1.15rem,2.6vw,1.55rem);letter-spacing:.01em;
+  margin-bottom:.7em}
+.world--women .world-p{font-size:clamp(1rem,1.7vw,1.08rem);line-height:1.85;
+  color:var(--w2-ink);letter-spacing:.005em}
+.world--women .world-list li{line-height:1.75;margin-bottom:.7em;font-size:clamp(.95rem,1.5vw,1.02rem)}
+.world--women .world-contact__name{font-size:1rem}
+
 /* ================= UNITE THEME (lightweight) ================= */
 .world--unite .world-hero{background:linear-gradient(180deg,var(--f-bg),var(--f-bg2))}
 .world--unite .world-hero__logo{box-shadow:none;outline:none}
@@ -203,7 +248,10 @@
 /* ---------- MOBILE ---------- */
 @media(max-width:760px){
   /* sticky header: back + event name must share one line without wrapping/overflow */
-  .world-header,.world-formpage__header{padding:.6em 4vw;gap:.6em}
+  .world-header,.world-formpage__header{padding:.6em 4vw;gap:.6em;
+    padding-top:max(.6em, env(safe-area-inset-top));
+    padding-left:max(4vw, env(safe-area-inset-left));
+    padding-right:max(4vw, env(safe-area-inset-right))}
   .world-back,.world-formpage__back{font-size:.62rem;letter-spacing:.08em;
     padding:.6em .8em;min-height:44px;display:inline-flex;align-items:center;
     flex:0 0 auto;white-space:nowrap}
@@ -215,6 +263,7 @@
   .world-hero__title{font-size:clamp(1.3rem,6.5vw,1.7rem)}
   .world-cta{width:100%;justify-content:center;min-height:44px;padding:.9em 1.6em;
     box-sizing:border-box}
+  .world-hero__cta-group{flex-direction:column;width:100%}
 
   .world-body{padding:0 6vw}
   .world-section{padding:2.8vh 0}
@@ -227,20 +276,31 @@
   .world-contact{flex-direction:column;align-items:flex-start;gap:.25em;padding:.7em 0}
   .world-contact__link{min-height:44px;display:inline-flex;align-items:center}
 
-  .world-formpage__scroll{padding:3.5vh 6vw 6vh}
+  .world-formpage__scroll{padding:3.5vh 6vw 6vh;
+    padding-bottom:max(6vh, calc(env(safe-area-inset-bottom) + 2vh));
+    padding-left:max(6vw, env(safe-area-inset-left));
+    padding-right:max(6vw, env(safe-area-inset-right))}
   .world-formpage__panel{max-width:100%}
   .world-formpage__title{font-size:clamp(1.15rem,5.5vw,1.4rem)}
 
-  .world-verse{padding:4vh 6vw 6vh;font-size:.88rem}
+  .world-verse{padding:4vh 6vw 6vh;font-size:.88rem;
+    padding-bottom:max(6vh, calc(env(safe-area-inset-bottom) + 2vh))}
 }
 
 @media(max-width:430px){
-  .world-header,.world-formpage__header{padding:.55em 4.5vw}
+  .world-header,.world-formpage__header{padding:.55em 4.5vw;
+    padding-top:max(.55em, env(safe-area-inset-top));
+    padding-left:max(4.5vw, env(safe-area-inset-left));
+    padding-right:max(4.5vw, env(safe-area-inset-right))}
   .world-back,.world-formpage__back{font-size:.58rem;padding:.6em .7em}
   .world-header__name{font-size:.66rem;max-width:44vw}
   .world-hero{padding:4.5vh 5vw 3.5vh}
   .world-hero__logo{width:clamp(110px,32vw,140px)}
   .world-body,.world-formpage__scroll{padding-left:5.5vw;padding-right:5.5vw}
+  .world-body{padding-left:max(5.5vw, env(safe-area-inset-left));
+    padding-right:max(5.5vw, env(safe-area-inset-right))}
+  .world-formpage__scroll{padding-left:max(5.5vw, env(safe-area-inset-left));
+    padding-right:max(5.5vw, env(safe-area-inset-right))}
 }
 
 @media(prefers-reduced-motion:reduce){

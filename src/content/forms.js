@@ -99,5 +99,17 @@ NWKS.forms.specs = {
         options: ['Ham/bun', 'Ham/lettuce wrapped unwich', 'Turkey/bun', 'Turkey/lettuce wrapped unwich', 'Veggie/bun', 'Veggie/lettuce wrapped unwich'] },
       { name: 'entry.1554249951', label: 'Do you have any questions or concerns?', type: 'textarea', required: false }
     ]
+  },
+
+  /* There is no Women's Encounter Server registration Google Form — per the content copy
+     (src/content/women.js "Registration Timeline" section), Server registration for
+     Women's Encounter is currently FULL. This spec exists only so the uniform
+     Attendee/Server hero CTAs (src/js/worlds.js) have a real panel to open for the
+     Server button on the women's door; src/js/forms.js renders its "currently closed"
+     notice (same code path as menServer) since there are no fields/action. */
+  womenServer: {
+    title: "Women's Encounter — Server Registration",
+    closed: true,
+    closedMessage: "Server registration for Women's Encounter is currently full. Please contact us if you have questions."
   }
 };
