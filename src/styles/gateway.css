@@ -6,12 +6,9 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
 
 /* ---------- UNIFORM HALF ---------- */
 .half{position:relative;flex:1 1 0;min-width:0;overflow:hidden;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;cursor:pointer;
-  transition:flex-grow .7s cubic-bezier(.22,.61,.36,1),filter .7s ease}
-@media(hover:hover){
-  .stage:hover .half{flex-grow:.82;filter:saturate(.85) brightness(.92)}
-  .stage:hover .half:hover{flex-grow:1.5;filter:none}
-}
+  align-items:center;justify-content:center;cursor:pointer}
+/* No hover flex animation — the two doors are static 50/50. The mouse-over resize
+   was fussy and caused the hover-steal jerk at the start of a transition. */
 .half__inner{position:relative;z-index:3;width:100%;display:flex;flex-direction:column;align-items:center;
   text-align:center;padding:calc(clamp(46px,6.5vh,62px) + 4vh) 7vw calc(78px + 4vh);
   transform:translateY(16px);opacity:0}
@@ -151,12 +148,13 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
   font-size:.6rem;letter-spacing:.28em;text-transform:uppercase;animation:bob 1.8s ease-in-out infinite}
 @keyframes bob{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,6px)}}
 @media(max-width:760px){
-  body{overflow-y:auto}
-  .stage{flex-direction:column;height:auto}
-  .half{min-height:92vh;min-height:92dvh}
-  .stage:hover .half,.stage:hover .half:hover{flex-grow:1;filter:none}
-  .mark{width:66%}
-  .scrollhint{display:flex}
+  /* Vertical 50/50 split — both doors visible on one screen, stacked top/bottom. */
+  .stage{flex-direction:column}
+  .half{min-height:0}
+  .half__inner{padding:3.5vh 8vw}
+  .mark{width:clamp(120px,42vw,188px)}
+  .eyebrow{margin-bottom:1.3vh}
+  .enter{margin-top:2.2vh}
 }
 @media(prefers-reduced-motion:reduce){
   *{animation:none !important;transition:none !important}
