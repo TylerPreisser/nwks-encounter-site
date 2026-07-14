@@ -18,11 +18,11 @@ NWKS.registry = {
   // Which concept is active for a given door. Defaults chosen away from the
   // geometric shatter (operator disliked it): Men's = Dawn, Women's = Fireflies.
   // The concept switcher lets the operator flip through all registered options.
-  _active: { men: 'men-banner', women: 'women-fireflies' },
+  _active: { men: 'men-banner', women: 'women-banner' },
 
   getActive: function (door) {
     if (this._active[door]) return this._active[door];
-    return door === 'women' ? 'women-fireflies' : 'men-banner';
+    return door === 'women' ? 'women-banner' : 'men-banner';
   },
 
   setActive: function (door, id) {

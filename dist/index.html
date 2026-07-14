@@ -421,15 +421,45 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
 
 /* ---------- MOBILE ---------- */
 @media(max-width:760px){
-  .world-header{padding:.75em 5vw}
+  /* sticky header: back + event name must share one line without wrapping/overflow */
+  .world-header,.world-formpage__header{padding:.6em 4vw;gap:.6em}
+  .world-back,.world-formpage__back{font-size:.62rem;letter-spacing:.08em;
+    padding:.6em .8em;min-height:44px;display:inline-flex;align-items:center;
+    flex:0 0 auto;white-space:nowrap}
+  .world-header__name{font-size:.72rem;letter-spacing:.04em;line-height:1.3;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+
   .world-hero{padding:5vh 6vw 4vh}
+  .world-hero__logo{width:clamp(120px,34vw,160px);margin-bottom:1em}
+  .world-hero__title{font-size:clamp(1.3rem,6.5vw,1.7rem)}
+  .world-cta{width:100%;justify-content:center;min-height:44px;padding:.9em 1.6em;
+    box-sizing:border-box}
+
   .world-body{padding:0 6vw}
+  .world-section{padding:2.8vh 0}
+  .world-list li{padding-left:1.3em}
+
   .world-register{flex-direction:column}
-  .world-register__btn{width:100%;justify-content:center}
-  .world-cta{width:100%;justify-content:center}
-  .world-contact{flex-direction:column;align-items:flex-start;gap:.3em}
-  .world-formpage__header{padding:.75em 5vw}
-  .world-formpage__scroll{padding:4vh 6vw 6vh}
+  .world-register__btn{width:100%;justify-content:center;min-height:44px;
+    box-sizing:border-box}
+
+  .world-contact{flex-direction:column;align-items:flex-start;gap:.25em;padding:.7em 0}
+  .world-contact__link{min-height:44px;display:inline-flex;align-items:center}
+
+  .world-formpage__scroll{padding:3.5vh 6vw 6vh}
+  .world-formpage__panel{max-width:100%}
+  .world-formpage__title{font-size:clamp(1.15rem,5.5vw,1.4rem)}
+
+  .world-verse{padding:4vh 6vw 6vh;font-size:.88rem}
+}
+
+@media(max-width:430px){
+  .world-header,.world-formpage__header{padding:.55em 4.5vw}
+  .world-back,.world-formpage__back{font-size:.58rem;padding:.6em .7em}
+  .world-header__name{font-size:.66rem;max-width:44vw}
+  .world-hero{padding:4.5vh 5vw 3.5vh}
+  .world-hero__logo{width:clamp(110px,32vw,140px)}
+  .world-body,.world-formpage__scroll{padding-left:5.5vw;padding-right:5.5vw}
 }
 
 @media(prefers-reduced-motion:reduce){
@@ -471,7 +501,10 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
   flex:0 0 auto}
 .nwks-option__label{font-size:.9rem;color:var(--f-ink)}
 .nwks-option__other-input{flex:1 1 180px;font:inherit;font-size:.88rem;
-  padding:.45em .65em;border-radius:3px;border:1px solid var(--f-rule);background:#fff}
+  padding:.45em .65em;border-radius:3px;border:1px solid var(--f-rule);background:#fff;
+  transition:.2s}
+.nwks-option__other-input:focus{outline:2px solid var(--f-gold);outline-offset:1px;
+  border-color:var(--f-gold)}
 .nwks-option__other-input:disabled{opacity:.45}
 
 .nwks-form__submit{align-self:flex-start;margin-top:.3em;padding:1em 2.2em;
@@ -507,7 +540,8 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
    labels/options/status recolored to bone/yellow since the .nwks-* base rules
    hardcode the light-theme --f-ink/--f-gold, which are unreadable on dark. ======= */
 .world--men .nwks-field__input,.world--men .nwks-option__other-input{border-color:var(--m-dim)}
-.world--men .nwks-field__input:focus{outline-color:var(--m-yellow);border-color:var(--m-yellow)}
+.world--men .nwks-field__input:focus,.world--men .nwks-option__other-input:focus{
+  outline-color:var(--m-yellow);border-color:var(--m-yellow)}
 .world--men .nwks-option__input{accent-color:var(--m-yellow)}
 .world--men .nwks-form__submit{border-color:var(--m-yellow);color:var(--m-yellow)}
 .world--men .nwks-form__submit:hover:not(:disabled){background:var(--m-yellow);color:var(--m-gun)}
@@ -524,8 +558,8 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
 .world--women{--w-form-pink:#F1D3DA;--w-form-pink-deep:#C98A9C}
 .world--women .nwks-field__input,.world--women .nwks-option__other-input{
   border-color:var(--w-form-pink-deep);background:#fff}
-.world--women .nwks-field__input:focus{outline-color:var(--w-form-pink-deep);
-  border-color:var(--w-form-pink-deep)}
+.world--women .nwks-field__input:focus,.world--women .nwks-option__other-input:focus{
+  outline-color:var(--w-form-pink-deep);border-color:var(--w-form-pink-deep)}
 .world--women .nwks-option__input{accent-color:var(--w-form-pink-deep)}
 .world--women .nwks-form__submit{border-color:var(--w-form-pink-deep);color:var(--w-ink);
   background:var(--w-form-pink)}
@@ -536,12 +570,34 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
 
 @media(max-width:760px){
   .nwks-form-mount{max-width:100%}
-  .nwks-form__submit{width:100%;justify-content:center;text-align:center}
+  .nwks-form{gap:1.5em}
+
+  .nwks-field,.nwks-field--choice{gap:.55em}
+  .nwks-field__label{font-size:.85rem}
+  .nwks-field__help{font-size:.82rem}
+
+  .nwks-field__input{font-size:16px;padding:.9em 1em;min-height:48px;border-radius:6px}
+  .nwks-field__input--area{min-height:6.5em}
+
+  .nwks-field__options{gap:.35em}
+  .nwks-option{min-height:48px;padding:.5em .3em;gap:.85em;border-radius:6px}
+  .nwks-option__input{width:1.5em;height:1.5em}
+  .nwks-option__label{font-size:1rem;line-height:1.35;padding:.35em 0;flex:1 1 auto}
+  .nwks-option__other-input{font-size:16px;padding:.7em .85em;min-height:46px;flex-basis:100%}
+
+  .nwks-form__submit{width:100%;min-height:50px;padding:1.05em 1.5em;font-size:.78rem;
+    justify-content:center;text-align:center}
+
+  .nwks-form__status{font-size:.95rem;line-height:1.5}
+  .nwks-form__fallback{font-size:.88rem;line-height:1.5}
+
+  .nwks-form--closed{padding:1.4em 1.2em}
+  .nwks-form__closed-msg{font-size:1rem;line-height:1.65}
 }
 
 @media(prefers-reduced-motion:reduce){
-  .nwks-field__input,.nwks-form__submit,.nwks-form__fallback-link,
-  .world-register__toggle-btn{transition:none}
+  .nwks-field__input,.nwks-option__other-input,.nwks-form__submit,
+  .nwks-form__fallback-link,.world-register__toggle-btn{transition:none}
 }
 
 </style>
@@ -786,11 +842,11 @@ NWKS.registry = {
   // Which concept is active for a given door. Defaults chosen away from the
   // geometric shatter (operator disliked it): Men's = Dawn, Women's = Fireflies.
   // The concept switcher lets the operator flip through all registered options.
-  _active: { men: 'men-banner', women: 'women-fireflies' },
+  _active: { men: 'men-banner', women: 'women-banner' },
 
   getActive: function (door) {
     if (this._active[door]) return this._active[door];
-    return door === 'women' ? 'women-fireflies' : 'men-banner';
+    return door === 'women' ? 'women-banner' : 'men-banner';
   },
 
   setActive: function (door, id) {
@@ -1803,46 +1859,52 @@ NWKS.transitions = NWKS.transitions || {};
    doc; men-shatter.js / women-veil.js are the reference implementations).
    Real effect = "Freedom Banner": an all-white cloth flag with bold black
    letter-spaced FREEDOM lettering unfurls across the screen (anchored off-
-   screen left, free/trailing edge on the right — like a real flag flying),
-   fully covers the viewport, the DOM swaps hidden underneath, then the same
-   cloth sweeps away the same direction to reveal what's now underneath.
-   Native Canvas 2D only, no libraries:
-     - cloth motion is a sum of two sine waves per vertical mesh column, with
-       amplitude growing toward the free (right) edge, so it reads as a real
-       flag rippling rather than a rigid sweeping rectangle;
-     - each column also derives a shading term from the wave's local slope
-       (dY/dx) so the flat white cloth reads as folded fabric with depth;
-     - FREEDOM is pre-rendered once to an offscreen canvas, then composited
-       back column-by-column with the SAME per-column vertical offset as the
-       cloth, so the lettering visibly rides the ripple;
-     - the leading/trailing coverage boundary is itself jittered by the same
-       wave field so the unfurl/withdraw edge is ragged cloth, not a hard
-       vertical line — actual full-viewport opacity is still guaranteed the
-       cheap way (an opaque inline background on coverEl during the cover
-       phase), so the wavy edge is purely decorative, never a real gap.
+   screen left, free/trailing edge on the right), fully covers the viewport,
+   the DOM swaps hidden underneath, then the same cloth sweeps away the same
+   direction to reveal what's now underneath. Native Canvas 2D only, no
+   libraries.
+
+   IMPORTANT — this is a rewrite that removes a real defect: the previous
+   implementation rendered the cloth as a vertical-strip MESH (many adjacent
+   per-column fillRect/drawImage calls). Even with flat white columns, every
+   column boundary leaves a faint anti-aliased seam, and dozens of repeated
+   seams read as a field of faint vertical lines across the banner — visible
+   in captured frames. The fix is structural, not cosmetic:
+     - the covered region is ONE filled path per frame, not N column rects.
+       The path is a simple polygon: a flat edge pinned to the screen side
+       (x=0 while unfurling, x=w while withdrawing) and a single continuous
+       wavy edge on the moving side, built by walking a handful of points
+       down the height and connecting them — one gfx.fill() call, so there
+       are zero internal seams. The wave is a function of Y (how far down
+       the sweeping edge bows in/out), not a function of X-column-index, so
+       nothing is ever sliced into strips.
+     - FREEDOM is drawn directly by clipping to that same single path, then
+       filling one flat white rect and drawing the word on top — no offscreen
+       column-compositing, no drawImage slicing. The word is drawn once, with
+       each of its 7 glyphs individually placed along a gentle static arc
+       (per-glyph baseline offset), which reads as a soft banner curve without
+       ever tearing a letterform across a column boundary (the earlier
+       per-strip text approach both banded AND tore letters).
    Same run() handles 'enter' and 'exit' — geometry is identical either way,
-   only the swapped DOM content differs. Total ~900ms. */
+   only the swapped DOM content differs. Total ~680ms. */
 (function () {
   'use strict';
 
   var COVER_MS = 340;   // cloth unfurls left -> right to full coverage -> cover() + swap()
   var UNCOVER_MS = 340;  // cloth withdraws the same direction -> uncover() + resolve()
 
-  var CLOTH_WHITE = [255, 255, 255];   // pure white banner (operator: all-white)
-  var TEXT_BLACK = '#0a0a0a';          // near-pure black FREEDOM text
-  var SHADOW_MIN = 0.00;               // FLAT pure-white cloth — no fold shading at all,
-  var SHADOW_MAX = 0.00;               // so there are zero vertical mesh bands/lines.
+  var CLOTH_WHITE = 'rgb(255,255,255)'; // pure white banner (operator: all-white)
+  var TEXT_BLACK = '#0a0a0a';           // near-pure black FREEDOM text
 
   function clamp01(n) { return n < 0 ? 0 : n > 1 ? 1 : n; }
   function easeOutQuad(t) { return 1 - (1 - t) * (1 - t); }
   function easeInCubic(t) { return t * t * t; }
 
-  function meshColumns(w) {
-    return Math.max(40, Math.min(200, Math.round(w / 7)));
-  }
-
-  // Manual letter-spaced text draw (portable — no reliance on ctx.letterSpacing).
-  function drawSpacedText(g, text, cx, cy, spacing) {
+  // Manual letter-spaced text draw, each glyph individually placed along a
+  // gentle static arc (max bow at the center letter, tapering to ~0 at both
+  // ends) — a soft banner curve with no per-column slicing, so nothing can
+  // tear a letterform apart frame to frame.
+  function drawFreedomGlyphs(g, text, cx, cy, spacing, curveAmp) {
     var widths = [];
     var total = 0;
     var i;
@@ -1854,8 +1916,12 @@ NWKS.transitions = NWKS.transitions || {};
     total += spacing * (text.length - 1);
     var x = cx - total / 2;
     g.textAlign = 'left';
+    var last = text.length - 1;
     for (i = 0; i < text.length; i++) {
-      g.fillText(text[i], x, cy);
+      var frac = last > 0 ? i / last : 0.5;       // 0..1 across the word
+      var bow = Math.sin(frac * Math.PI);          // 0 at both ends, 1 at center
+      var yOff = curveAmp * bow;
+      g.fillText(text[i], x, cy + yOff);
       x += widths[i] + spacing;
     }
   }
@@ -1883,66 +1949,71 @@ NWKS.transitions = NWKS.transitions || {};
       }
       gfx.scale(dpr, dpr);
 
-      // Pre-render FREEDOM once to an offscreen canvas at the same device
-      // pixel ratio as the main canvas, so column slices can be drawImage'd
-      // back 1:1 with a per-column vertical offset (the cloth ripple).
-      var textCanvas = document.createElement('canvas');
-      textCanvas.width = Math.max(1, Math.round(w * dpr));
-      textCanvas.height = Math.max(1, Math.round(h * dpr));
-      var tgfx = textCanvas.getContext('2d');
-      tgfx.scale(dpr, dpr);
-      tgfx.fillStyle = TEXT_BLACK;
       var fontSize = Math.round(Math.min(w, h) * 0.115);
-      tgfx.font = '900 ' + fontSize + 'px "Arial Black", Arial, sans-serif';
-      tgfx.textBaseline = 'middle';
-      drawSpacedText(tgfx, 'FREEDOM', w / 2, h / 2, Math.round(fontSize * 0.22));
+      var letterSpacing = Math.round(fontSize * 0.22);
+      var curveAmp = Math.min(16, h * 0.016); // gentle arc, subtle on purpose
 
-      var cols = meshColumns(w);
-      var colW = w / cols;
-      // Integer-pixel column boundaries — adjacent fillRect/drawImage calls at
-      // fractional pixel edges get anti-aliased, and with ~cols thin strips
-      // that AA seam repeats every column and reads as a fine mechanical
-      // banding pattern instead of a smooth fold gradient. Snapping every
-      // boundary to a whole pixel (shared between neighbors, no overlap/gap)
-      // removes that seam entirely.
-      var colPix = [];
-      var ci;
-      for (ci = 0; ci <= cols; ci++) colPix[ci] = Math.round(ci * colW);
-
-      // A second, much finer column set used ONLY for compositing the
-      // FREEDOM text (see smoothedOffsets() below for why): the coarse
-      // ~7px cloth-shading mesh above is fine for a tint (a smooth alpha
-      // blend has no hard edge), but drawImage-compositing text at that
-      // granularity draws each ~7px slice at one flat vertical offset, so
-      // even a smoothed offset curve still leaves a visible notch at every
-      // column boundary through a letter's vertical strokes. Narrow strips
-      // make each notch sub-pixel and invisible.
-      var TEXT_STRIP_PX = 3;
-      var textCols = Math.max(cols, Math.min(500, Math.ceil(w / TEXT_STRIP_PX)));
-      var textColPix = [];
-      var tci;
-      for (tci = 0; tci <= textCols; tci++) textColPix[tci] = Math.round(tci * (w / textCols));
-
-      var ampText = Math.min(34, h * 0.04);   // vertical ripple amplitude at the free edge
-      var ampEdge = Math.min(30, w * 0.025);  // horizontal jitter amplitude of the coverage boundary
+      // Ripple amplitude/frequency of the single moving edge — a function of
+      // Y only, so the boundary bows like real cloth without ever slicing
+      // the fill into columns.
+      var ampEdge = Math.min(26, w * 0.02);
       var edgeSpan = w + ampEdge * 2;
+      var waveFreq = (Math.PI * 2 / h) * 1.6;
+      var waveSpeed = 0.0035;
 
-      // waveY — vertical cloth displacement for a column, amplitude growing
-      // toward the free (right, high xFrac) edge; two combined sine terms so
-      // it reads as real fabric rather than one rigid ripple.
-      function waveY(xFrac, t) {
-        var amp = ampText * Math.pow(clamp01(xFrac), 1.3);
-        return amp * Math.sin(xFrac * 9.2 + t * 0.0052) +
-          amp * 0.45 * Math.sin(xFrac * 15.7 + t * 0.0083 + 1.9);
+      function edgeX(y, t, edgePos) {
+        return edgePos + ampEdge * Math.sin(y * waveFreq + t * waveSpeed) +
+          ampEdge * 0.35 * Math.sin(y * waveFreq * 2.1 - t * waveSpeed * 1.4 + 1.3);
       }
 
-      // edgeJitter — small independent wave used only to ragged-ify the
-      // coverage boundary so the unfurl/withdraw front looks like moving
-      // cloth, not a straight sweeping line.
-      function edgeJitter(xFrac, t) {
-        var amp = ampEdge * Math.pow(clamp01(xFrac), 1.1);
-        return amp * Math.sin(xFrac * 7.3 + t * 0.006 + 0.6) +
-          amp * 0.4 * Math.sin(xFrac * 13.1 + t * 0.0095 + 2.4);
+      // Builds ONE continuous polygon path for the currently-covered region:
+      //   phase 'in'  -> covered = [0, edgeX(y)]   (flat edge at x=0, wavy edge moving right)
+      //   phase 'out' -> covered = [edgeX(y), w]   (flat edge at x=w, wavy edge moving right)
+      // A single path + single fill == zero internal seams, by construction.
+      var EDGE_STEPS = 28;
+      function tracePath(phase, edgePos, t) {
+        gfx.beginPath();
+        var i, y, ex;
+        if (phase === 'in') {
+          gfx.moveTo(0, 0);
+          gfx.lineTo(0, h);
+          for (i = EDGE_STEPS; i >= 0; i--) {
+            y = h * i / EDGE_STEPS;
+            ex = edgeX(y, t, edgePos);
+            gfx.lineTo(ex, y);
+          }
+        } else {
+          gfx.moveTo(w, 0);
+          gfx.lineTo(w, h);
+          for (i = EDGE_STEPS; i >= 0; i--) {
+            y = h * i / EDGE_STEPS;
+            ex = edgeX(y, t, edgePos);
+            gfx.lineTo(ex, y);
+          }
+        }
+        gfx.closePath();
+      }
+
+      function drawCloth(t, phase, edgePos, textAlpha) {
+        gfx.clearRect(0, 0, w, h);
+        gfx.save();
+        tracePath(phase, edgePos, t);
+        gfx.clip();
+
+        // Single solid fill for the entire covered region — flat white,
+        // zero seams (this replaces the old per-column mesh entirely).
+        gfx.fillStyle = CLOTH_WHITE;
+        gfx.fillRect(0, 0, w, h);
+
+        if (textAlpha > 0.01) {
+          gfx.globalAlpha = clamp01(textAlpha);
+          gfx.fillStyle = TEXT_BLACK;
+          gfx.font = '900 ' + fontSize + 'px "Arial Black", Arial, sans-serif';
+          gfx.textBaseline = 'middle';
+          drawFreedomGlyphs(gfx, 'FREEDOM', w / 2, h / 2, letterSpacing, curveAmp);
+          gfx.globalAlpha = 1;
+        }
+        gfx.restore();
       }
 
       var didSwap = false;
@@ -1950,96 +2021,11 @@ NWKS.transitions = NWKS.transitions || {};
       var start = null;
       var totalMs = COVER_MS + UNCOVER_MS;
 
-      coverEl.style.background = 'rgb(' + CLOTH_WHITE.join(',') + ')';
-
-      // Per-column ripple offset, low-pass smoothed across neighboring
-      // columns of whichever mesh is passed in (pixArr/nCols). The raw
-      // two-sine waveY() has enough local slope near the free edge that
-      // compositing FREEDOM's per-column text slices at the raw value
-      // tears the letterforms into jagged, disconnected black shards that
-      // reshape every frame (read as "glitching black lines" — confirmed
-      // in captured frames, worst on the D/O/M at the high-amplitude free
-      // edge). A symmetric box-smooth over a fixed PHYSICAL window (not a
-      // fixed column count, so it scales with whichever mesh resolution is
-      // passed in) removes that fine-scale jaggedness while preserving the
-      // large-scale sweep, so text/shading ride one continuous curve
-      // instead of tearing between columns.
-      var SMOOTH_PX = 130;
-      function smoothedOffsets(t, pixArr, nCols) {
-        var raw = new Array(nCols);
-        var i, xFrac;
-        for (i = 0; i < nCols; i++) {
-          xFrac = pixArr[i] / w;
-          raw[i] = waveY(xFrac, t);
-        }
-        var colWidthPx = w / nCols;
-        var radius = Math.max(1, Math.round((SMOOTH_PX / 2) / colWidthPx));
-        var out = new Array(nCols);
-        for (i = 0; i < nCols; i++) {
-          var sum = 0, count = 0, k, j;
-          for (k = -radius; k <= radius; k++) {
-            j = i + k;
-            if (j >= 0 && j < nCols) { sum += raw[j]; count++; }
-          }
-          out[i] = sum / count;
-        }
-        return out;
-      }
-
-      // phase: 'in' -> boundary grows left->right, covered = colX-jitter <= edgePos
-      //        'out' -> boundary grows left->right, covered = colX-jitter >= edgePos (remaining cloth recedes right)
-      function drawCloth(t, phase, edgePos, textAlpha) {
-        gfx.clearRect(0, 0, w, h);
-        gfx.globalAlpha = 1;
-        var off = smoothedOffsets(t, colPix, cols);
-        var i, colX, colX1, colWpx, xFrac, threshold, visible;
-        for (i = 0; i < cols; i++) {
-          colX = colPix[i];
-          colX1 = colPix[i + 1];
-          colWpx = colX1 - colX;
-          xFrac = colX / w;
-          threshold = colX - edgeJitter(xFrac, t);
-          visible = phase === 'in' ? threshold <= edgePos : threshold >= edgePos;
-          if (!visible) continue;
-
-          var y0 = off[i];
-          var y1 = i + 1 < cols ? off[i + 1] : off[i];
-          var slope = (y1 - y0) / colW;
-          // Smooth (no hard saturation) signed map: slope 0 -> mid-tone, positive
-          // slope -> slightly darker fold, negative -> slightly lighter — subtle
-          // grey folds/highlights rather than a hard-edged banding pattern.
-          var shadeT = clamp01(0.5 + slope * 1.6);
-          var shadeAlpha = SHADOW_MIN + shadeT * (SHADOW_MAX - SHADOW_MIN);
-          var r = Math.round(CLOTH_WHITE[0] * (1 - shadeAlpha));
-          var g = Math.round(CLOTH_WHITE[1] * (1 - shadeAlpha));
-          var b = Math.round(CLOTH_WHITE[2] * (1 - shadeAlpha));
-          gfx.fillStyle = 'rgb(' + r + ',' + g + ',' + b + ')';
-          gfx.fillRect(colX, 0, colWpx, h);
-        }
-
-        if (textAlpha > 0.01) {
-          gfx.globalAlpha = clamp01(textAlpha);
-          var textOff = smoothedOffsets(t, textColPix, textCols);
-          var sx, sw, tColX, tColX1, tColWpx, tXFrac, tThreshold, tVisible;
-          for (i = 0; i < textCols; i++) {
-            tColX = textColPix[i];
-            tColX1 = textColPix[i + 1];
-            tColWpx = tColX1 - tColX;
-            tXFrac = tColX / w;
-            tThreshold = tColX - edgeJitter(tXFrac, t);
-            tVisible = phase === 'in' ? tThreshold <= edgePos : tThreshold >= edgePos;
-            if (!tVisible) continue;
-            sx = Math.round(tColX * dpr);
-            sw = Math.round(tColWpx * dpr);
-            gfx.drawImage(
-              textCanvas,
-              sx, 0, sw, textCanvas.height,
-              tColX, textOff[i], tColWpx, h
-            );
-          }
-          gfx.globalAlpha = 1;
-        }
-      }
+      // Authoritative mask: an opaque inline background on coverEl guarantees
+      // full opacity throughout the cover phase regardless of the ripple, so
+      // the swap is genuinely hidden even before the canvas paints its first
+      // frame.
+      coverEl.style.background = CLOTH_WHITE;
 
       function frame(ts) {
         if (start === null) start = ts;
@@ -2053,12 +2039,9 @@ NWKS.transitions = NWKS.transitions || {};
         } else {
           if (!didSwap) {
             didSwap = true;
-            // Authoritative mask: the inline white background on coverEl has
-            // guaranteed full opacity throughout the cover phase regardless
-            // of the ragged wave edge, so the swap is genuinely hidden. Swap
-            // now, release harness control, then let the cloth canvas (drawn
-            // at full coverage this exact frame) take over as the visible
-            // surface so its withdrawal is actually seen.
+            // Swap now, at the covered midpoint, then let the cloth canvas
+            // (drawn at full coverage this exact frame) take over as the
+            // visible surface so its withdrawal is actually seen.
             ctx.cover();
             ctx.swap();
             ctx.uncover();
@@ -2107,167 +2090,229 @@ NWKS.transitions = NWKS.transitions || {};
 window.NWKS = window.NWKS || {};
 NWKS.transitions = NWKS.transitions || {};
 
-/* Women · Pixie Dust — baby-pink fairy dust rising over a LIGHT blush-white field
- * that matches the women's page background (never a dark crossfade).
- *
- * Each mote = soft pink glow + bright core + a twinkling 4-point golden sparkle
- * glint (the thing that reads as magical fairy dust) + a faint upward trail.
- * Field fades to fully opaque by 170 (swap hidden at 190), dust rises/twinkles,
- * field fades out from 560 revealing the world (also light blush → seamless). */
+/* Owned by transitions-coder. Follows the masked-swap contract (see
+   src/js/transition-core.js for the full contract doc). Women's companion to
+   men-banner.js — same "Freedom Banner" mechanic (Galatians 5:1 applies to
+   both doors), a soft pale blush/ivory cloth with the word FREEDOM unfurling
+   across the screen, but in an elegant, feminine palette: a very pale warm
+   blush banner with the lettering in a deep dark-rose tone rather than flat
+   black. Native Canvas 2D only, no libraries.
+
+   Rendering approach is IDENTICAL in structure to the (rewritten) men-banner
+   — this is deliberate: the earlier men's version rendered the cloth as a
+   vertical-strip MESH (many adjacent per-column fillRect/drawImage calls),
+   and even with flat columns every column boundary left a faint anti-aliased
+   seam that repeated into a field of faint vertical lines. This file never
+   had that bug, but it must never regain it, so it shares the same
+   seam-proof construction as the fixed men-banner:
+     - the covered region is ONE filled path per frame (a simple polygon: a
+       flat edge pinned to the screen side, and a single continuous wavy edge
+       on the moving side, built by walking a handful of points down the
+       height) — one gfx.fill() call, zero internal seams. The wave is a
+       function of Y only, never sliced into per-column strips.
+     - FREEDOM is drawn directly by clipping to that same single path, then
+       filling one flat blush rect and drawing the word on top — no offscreen
+       column-compositing, no drawImage slicing. Each of the 7 glyphs is
+       individually placed along a gentle static arc (per-glyph baseline
+       offset), which reads as a soft banner curve without ever tearing a
+       letterform across a column boundary.
+   Same run() handles 'enter' and 'exit' — geometry is identical either way,
+   only the swapped DOM content differs. Total ~680ms. */
 (function () {
   'use strict';
 
-  var DURATION = 980;
-  var FIELD_IN = 170;
-  var SWAP_AT = 190;
-  var FIELD_OUT = 560;
-  var TAU = Math.PI * 2;
+  var COVER_MS = 340;   // cloth unfurls left -> right to full coverage -> cover() + swap()
+  var UNCOVER_MS = 340;  // cloth withdraws the same direction -> uncover() + resolve()
 
-  function ease(t) { return t < 0 ? 0 : t > 1 ? 1 : t * t * (3 - 2 * t); }
+  var CLOTH_BLUSH = 'rgb(253,247,244)'; // very pale warm blush/ivory banner
+  var TEXT_ROSE = '#6b2740';            // elegant deep dark-rose FREEDOM text
 
-  function makeDust(W, H, n) {
-    var arr = [];
-    for (var i = 0; i < n; i++) {
-      var roll = Math.random();
-      var kind = roll < 0.14 ? 'bokeh' : (roll < 0.74 ? 'sparkle' : 'mote');
-      arr.push({
-        x: Math.random() * W,
-        y: H * (0.05 + Math.random() * 1.2),        // spread up the screen + below bottom
-        kind: kind,
-        r: kind === 'bokeh' ? 10 + Math.random() * 20 : 1.6 + Math.random() * 3.2,
-        rise: (kind === 'bokeh' ? 32 : 68) + Math.random() * 78,
-        swayA: 8 + Math.random() * 30,
-        swayF: 0.5 + Math.random() * 1.0,
-        ph: Math.random() * TAU,
-        a: kind === 'bokeh' ? 0.16 + Math.random() * 0.12 : 0.7 + Math.random() * 0.3,
-        twS: 2.0 + Math.random() * 4.0,             // fast twinkle
-        twPh: Math.random() * TAU
-      });
+  function clamp01(n) { return n < 0 ? 0 : n > 1 ? 1 : n; }
+  function easeOutQuad(t) { return 1 - (1 - t) * (1 - t); }
+  function easeInCubic(t) { return t * t * t; }
+
+  // Manual letter-spaced text draw, each glyph individually placed along a
+  // gentle static arc (max bow at the center letter, tapering to ~0 at both
+  // ends) — a soft banner curve with no per-column slicing, so nothing can
+  // tear a letterform apart frame to frame.
+  function drawFreedomGlyphs(g, text, cx, cy, spacing, curveAmp) {
+    var widths = [];
+    var total = 0;
+    var i;
+    for (i = 0; i < text.length; i++) {
+      var wch = g.measureText(text[i]).width;
+      widths.push(wch);
+      total += wch;
     }
-    return arr;
+    total += spacing * (text.length - 1);
+    var x = cx - total / 2;
+    g.textAlign = 'left';
+    var last = text.length - 1;
+    for (i = 0; i < text.length; i++) {
+      var frac = last > 0 ? i / last : 0.5;       // 0..1 across the word
+      var bow = Math.sin(frac * Math.PI);          // 0 at both ends, 1 at center
+      var yOff = curveAmp * bow;
+      g.fillText(text[i], x, cy + yOff);
+      x += widths[i] + spacing;
+    }
   }
 
-  // 4-point sparkle glint (two crossed tapered gradient bars) — warm gold-white.
-  function glint(g, x, y, len, wide, alpha) {
-    g.save();
-    g.translate(x, y);
-    for (var k = 0; k < 2; k++) {
-      var grad = g.createLinearGradient(-len, 0, len, 0);
-      grad.addColorStop(0, 'rgba(255,236,190,0)');
-      grad.addColorStop(0.5, 'rgba(255,240,205,' + alpha + ')');
-      grad.addColorStop(1, 'rgba(255,236,190,0)');
-      g.fillStyle = grad;
-      g.beginPath();
-      g.moveTo(-len, 0); g.lineTo(0, -wide); g.lineTo(len, 0); g.lineTo(0, wide); g.closePath();
-      g.fill();
-      g.rotate(Math.PI / 2);
-    }
-    g.restore();
-  }
+  function run(coverEl, ctx) {
+    return new Promise(function (resolve) {
+      var w = window.innerWidth;
+      var h = window.innerHeight;
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-  NWKS.transitions['women-fireflies'] = {
-    id: 'women-fireflies',
-    label: 'Pixie Dust',
-    door: 'women',
-    run: function (coverEl, ctx) {
-      return new Promise(function (resolve) {
-        var dpr = Math.min(window.devicePixelRatio || 1, 2);
-        var W = window.innerWidth, H = window.innerHeight;
-        var cvs = document.createElement('canvas');
-        cvs.width = Math.round(W * dpr); cvs.height = Math.round(H * dpr);
-        cvs.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none';
-        coverEl.appendChild(cvs);
-        var g = cvs.getContext('2d');
-        if (!g) { ctx.swap(); resolve(); return; }
-        g.scale(dpr, dpr);
+      var canvas = document.createElement('canvas');
+      canvas.className = 'nwks-tx-canvas nwks-tx-canvas--banner';
+      canvas.width = Math.max(1, Math.round(w * dpr));
+      canvas.height = Math.max(1, Math.round(h * dpr));
+      coverEl.appendChild(canvas);
 
-        var dust = makeDust(W, H, Math.max(46, Math.min(104, Math.round(W * H / 13500))));
-        var start = null, raf = 0, swapped = false;
+      var gfx = canvas.getContext('2d');
+      if (!gfx) {
+        ctx.cover();
+        ctx.swap();
+        ctx.uncover();
+        if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+        resolve();
+        return;
+      }
+      gfx.scale(dpr, dpr);
 
-        function fieldAlpha(t) {
-          if (t <= FIELD_IN) return ease(t / FIELD_IN);
-          if (t < FIELD_OUT) return 1;
-          return 1 - ease((t - FIELD_OUT) / (DURATION - FIELD_OUT));
-        }
+      var fontSize = Math.round(Math.min(w, h) * 0.115);
+      var letterSpacing = Math.round(fontSize * 0.22);
+      var curveAmp = Math.min(16, h * 0.016); // gentle arc, subtle on purpose
 
-        function drawField(a) {
-          g.save();
-          g.globalAlpha = a;
-          var grad = g.createLinearGradient(0, 0, 0, H);
-          grad.addColorStop(0, '#FEFAFB');
-          grad.addColorStop(0.5, '#FCEBF1');
-          grad.addColorStop(1, '#F4D3E1');
-          g.fillStyle = grad;
-          g.fillRect(0, 0, W, H);
-          g.restore();
-        }
+      // Ripple amplitude/frequency of the single moving edge — a function of
+      // Y only, so the boundary bows like real cloth without ever slicing
+      // the fill into columns.
+      var ampEdge = Math.min(26, w * 0.02);
+      var edgeSpan = w + ampEdge * 2;
+      var waveFreq = (Math.PI * 2 / h) * 1.6;
+      var waveSpeed = 0.0035;
 
-        function drawDust(t, fa) {
-          var vis = ease(Math.min(1, fa * 1.3));
-          if (vis <= 0) return;
-          var tsec = t / 1000;
-          for (var i = 0; i < dust.length; i++) {
-            var p = dust[i];
-            var y = p.y - p.rise * tsec;
-            if (y < -p.r * 4) continue;
-            var x = p.x + Math.sin(tsec * p.swayF + p.ph) * p.swayA;
-            var tw = 0.45 + 0.55 * Math.sin(tsec * p.twS + p.twPh);
-            var heightFade = y > H * 0.1 ? 1 : ease(Math.max(0, y) / (H * 0.1));
-            var alpha = p.a * (0.55 + 0.45 * tw) * vis * heightFade;
-            if (alpha <= 0.02) continue;
-            var rad = p.r * (p.kind === 'bokeh' ? 1 : (0.9 + 0.25 * tw));
+      function edgeX(y, t, edgePos) {
+        return edgePos + ampEdge * Math.sin(y * waveFreq + t * waveSpeed) +
+          ampEdge * 0.35 * Math.sin(y * waveFreq * 2.1 - t * waveSpeed * 1.4 + 1.3);
+      }
 
-            // faint upward trail (rising dust) for the small bright ones
-            if (p.kind !== 'bokeh') {
-              var tg = g.createLinearGradient(x, y, x, y + rad * 7);
-              tg.addColorStop(0, 'rgba(244,150,188,' + (alpha * 0.32) + ')');
-              tg.addColorStop(1, 'rgba(244,150,188,0)');
-              g.fillStyle = tg;
-              g.fillRect(x - rad * 0.5, y, rad, rad * 7);
-            }
-
-            // soft pink glow
-            var gr = g.createRadialGradient(x, y, 0, x, y, rad * 3);
-            gr.addColorStop(0, 'rgba(246,150,190,' + (alpha * 0.8) + ')');
-            gr.addColorStop(0.5, 'rgba(240,130,178,' + (alpha * 0.32) + ')');
-            gr.addColorStop(1, 'rgba(240,130,178,0)');
-            g.fillStyle = gr;
-            g.beginPath(); g.arc(x, y, rad * 3, 0, TAU); g.fill();
-
-            // bright warm core
-            var cg = g.createRadialGradient(x, y, 0, x, y, rad);
-            cg.addColorStop(0, 'rgba(255,250,252,' + alpha + ')');
-            cg.addColorStop(1, 'rgba(255,240,246,0)');
-            g.fillStyle = cg;
-            g.beginPath(); g.arc(x, y, rad, 0, TAU); g.fill();
-
-            // twinkling golden sparkle glint (only sparkle kind, at twinkle peaks)
-            if (p.kind === 'sparkle' && tw > 0.4) {
-              var gv = (tw - 0.4) / 0.6; // 0..1
-              glint(g, x, y, rad * (3.6 + gv * 5), Math.max(0.9, rad * 0.46), alpha * (0.5 + gv * 0.5));
-            }
+      // Builds ONE continuous polygon path for the currently-covered region:
+      //   phase 'in'  -> covered = [0, edgeX(y)]   (flat edge at x=0, wavy edge moving right)
+      //   phase 'out' -> covered = [edgeX(y), w]   (flat edge at x=w, wavy edge moving right)
+      // A single path + single fill == zero internal seams, by construction.
+      var EDGE_STEPS = 28;
+      function tracePath(phase, edgePos, t) {
+        gfx.beginPath();
+        var i, y, ex;
+        if (phase === 'in') {
+          gfx.moveTo(0, 0);
+          gfx.lineTo(0, h);
+          for (i = EDGE_STEPS; i >= 0; i--) {
+            y = h * i / EDGE_STEPS;
+            ex = edgeX(y, t, edgePos);
+            gfx.lineTo(ex, y);
+          }
+        } else {
+          gfx.moveTo(w, 0);
+          gfx.lineTo(w, h);
+          for (i = EDGE_STEPS; i >= 0; i--) {
+            y = h * i / EDGE_STEPS;
+            ex = edgeX(y, t, edgePos);
+            gfx.lineTo(ex, y);
           }
         }
+        gfx.closePath();
+      }
 
-        function teardown() {
-          if (raf) cancelAnimationFrame(raf);
-          if (cvs.parentNode) cvs.parentNode.removeChild(cvs);
+      function drawCloth(t, phase, edgePos, textAlpha) {
+        gfx.clearRect(0, 0, w, h);
+        gfx.save();
+        tracePath(phase, edgePos, t);
+        gfx.clip();
+
+        // Single solid fill for the entire covered region — flat blush,
+        // zero seams (no per-column mesh anywhere in this concept).
+        gfx.fillStyle = CLOTH_BLUSH;
+        gfx.fillRect(0, 0, w, h);
+
+        if (textAlpha > 0.01) {
+          gfx.globalAlpha = clamp01(textAlpha);
+          gfx.fillStyle = TEXT_ROSE;
+          gfx.font = '900 ' + fontSize + 'px "Arial Black", Arial, sans-serif';
+          gfx.textBaseline = 'middle';
+          drawFreedomGlyphs(gfx, 'FREEDOM', w / 2, h / 2, letterSpacing, curveAmp);
+          gfx.globalAlpha = 1;
+        }
+        gfx.restore();
+      }
+
+      var didSwap = false;
+      var rafId = null;
+      var start = null;
+      var totalMs = COVER_MS + UNCOVER_MS;
+
+      // Authoritative mask: an opaque inline background on coverEl guarantees
+      // full opacity throughout the cover phase regardless of the ripple, so
+      // the swap is genuinely hidden even before the canvas paints its first
+      // frame.
+      coverEl.style.background = CLOTH_BLUSH;
+
+      function frame(ts) {
+        if (start === null) start = ts;
+        var t = ts - start;
+
+        if (t < COVER_MS) {
+          var pIn = clamp01(t / COVER_MS);
+          var edgePos = easeOutQuad(pIn) * edgeSpan - ampEdge;
+          var textAlpha = clamp01((pIn - 0.30) / 0.45);
+          drawCloth(t, 'in', edgePos, textAlpha);
+        } else {
+          if (!didSwap) {
+            didSwap = true;
+            // Swap now, at the covered midpoint, then let the cloth canvas
+            // (drawn at full coverage this exact frame) take over as the
+            // visible surface so its withdrawal is actually seen.
+            ctx.cover();
+            ctx.swap();
+            ctx.uncover();
+            coverEl.style.background = 'transparent';
+          }
+          var tOut = t - COVER_MS;
+          var pOut = clamp01(tOut / UNCOVER_MS);
+          var edgePosOut = easeInCubic(pOut) * edgeSpan - ampEdge;
+          drawCloth(t, 'out', edgePosOut, 1);
         }
 
-        function frame(now) {
-          if (start === null) start = now;
-          var t = now - start;
-          var fa = fieldAlpha(t);
-          g.clearRect(0, 0, W, H);
-          drawField(fa);
-          drawDust(t, fa);
-          if (!swapped && t >= SWAP_AT) { swapped = true; ctx.swap(); }
-          if (t < DURATION) { raf = requestAnimationFrame(frame); }
-          else { if (!swapped) ctx.swap(); teardown(); resolve(); }
+        if (t >= totalMs) {
+          teardown();
+          return;
         }
-        raf = requestAnimationFrame(frame);
-      });
-    }
+        rafId = requestAnimationFrame(frame);
+      }
+
+      rafId = requestAnimationFrame(frame);
+
+      function teardown() {
+        if (rafId !== null) cancelAnimationFrame(rafId);
+        rafId = null;
+        if (!didSwap) {
+          ctx.cover();
+          ctx.swap();
+        }
+        ctx.uncover();
+        coverEl.style.background = '';
+        if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+        resolve();
+      }
+    });
+  }
+
+  NWKS.transitions['women-banner'] = {
+    id: 'women-banner',
+    label: 'Freedom Banner',
+    door: 'women',
+    run: run
   };
 })();
 

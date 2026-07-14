@@ -31,7 +31,10 @@
   flex:0 0 auto}
 .nwks-option__label{font-size:.9rem;color:var(--f-ink)}
 .nwks-option__other-input{flex:1 1 180px;font:inherit;font-size:.88rem;
-  padding:.45em .65em;border-radius:3px;border:1px solid var(--f-rule);background:#fff}
+  padding:.45em .65em;border-radius:3px;border:1px solid var(--f-rule);background:#fff;
+  transition:.2s}
+.nwks-option__other-input:focus{outline:2px solid var(--f-gold);outline-offset:1px;
+  border-color:var(--f-gold)}
 .nwks-option__other-input:disabled{opacity:.45}
 
 .nwks-form__submit{align-self:flex-start;margin-top:.3em;padding:1em 2.2em;
@@ -67,7 +70,8 @@
    labels/options/status recolored to bone/yellow since the .nwks-* base rules
    hardcode the light-theme --f-ink/--f-gold, which are unreadable on dark. ======= */
 .world--men .nwks-field__input,.world--men .nwks-option__other-input{border-color:var(--m-dim)}
-.world--men .nwks-field__input:focus{outline-color:var(--m-yellow);border-color:var(--m-yellow)}
+.world--men .nwks-field__input:focus,.world--men .nwks-option__other-input:focus{
+  outline-color:var(--m-yellow);border-color:var(--m-yellow)}
 .world--men .nwks-option__input{accent-color:var(--m-yellow)}
 .world--men .nwks-form__submit{border-color:var(--m-yellow);color:var(--m-yellow)}
 .world--men .nwks-form__submit:hover:not(:disabled){background:var(--m-yellow);color:var(--m-gun)}
@@ -84,8 +88,8 @@
 .world--women{--w-form-pink:#F1D3DA;--w-form-pink-deep:#C98A9C}
 .world--women .nwks-field__input,.world--women .nwks-option__other-input{
   border-color:var(--w-form-pink-deep);background:#fff}
-.world--women .nwks-field__input:focus{outline-color:var(--w-form-pink-deep);
-  border-color:var(--w-form-pink-deep)}
+.world--women .nwks-field__input:focus,.world--women .nwks-option__other-input:focus{
+  outline-color:var(--w-form-pink-deep);border-color:var(--w-form-pink-deep)}
 .world--women .nwks-option__input{accent-color:var(--w-form-pink-deep)}
 .world--women .nwks-form__submit{border-color:var(--w-form-pink-deep);color:var(--w-ink);
   background:var(--w-form-pink)}
@@ -96,10 +100,32 @@
 
 @media(max-width:760px){
   .nwks-form-mount{max-width:100%}
-  .nwks-form__submit{width:100%;justify-content:center;text-align:center}
+  .nwks-form{gap:1.5em}
+
+  .nwks-field,.nwks-field--choice{gap:.55em}
+  .nwks-field__label{font-size:.85rem}
+  .nwks-field__help{font-size:.82rem}
+
+  .nwks-field__input{font-size:16px;padding:.9em 1em;min-height:48px;border-radius:6px}
+  .nwks-field__input--area{min-height:6.5em}
+
+  .nwks-field__options{gap:.35em}
+  .nwks-option{min-height:48px;padding:.5em .3em;gap:.85em;border-radius:6px}
+  .nwks-option__input{width:1.5em;height:1.5em}
+  .nwks-option__label{font-size:1rem;line-height:1.35;padding:.35em 0;flex:1 1 auto}
+  .nwks-option__other-input{font-size:16px;padding:.7em .85em;min-height:46px;flex-basis:100%}
+
+  .nwks-form__submit{width:100%;min-height:50px;padding:1.05em 1.5em;font-size:.78rem;
+    justify-content:center;text-align:center}
+
+  .nwks-form__status{font-size:.95rem;line-height:1.5}
+  .nwks-form__fallback{font-size:.88rem;line-height:1.5}
+
+  .nwks-form--closed{padding:1.4em 1.2em}
+  .nwks-form__closed-msg{font-size:1rem;line-height:1.65}
 }
 
 @media(prefers-reduced-motion:reduce){
-  .nwks-field__input,.nwks-form__submit,.nwks-form__fallback-link,
-  .world-register__toggle-btn{transition:none}
+  .nwks-field__input,.nwks-option__other-input,.nwks-form__submit,
+  .nwks-form__fallback-link,.world-register__toggle-btn{transition:none}
 }

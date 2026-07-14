@@ -202,15 +202,45 @@
 
 /* ---------- MOBILE ---------- */
 @media(max-width:760px){
-  .world-header{padding:.75em 5vw}
+  /* sticky header: back + event name must share one line without wrapping/overflow */
+  .world-header,.world-formpage__header{padding:.6em 4vw;gap:.6em}
+  .world-back,.world-formpage__back{font-size:.62rem;letter-spacing:.08em;
+    padding:.6em .8em;min-height:44px;display:inline-flex;align-items:center;
+    flex:0 0 auto;white-space:nowrap}
+  .world-header__name{font-size:.72rem;letter-spacing:.04em;line-height:1.3;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+
   .world-hero{padding:5vh 6vw 4vh}
+  .world-hero__logo{width:clamp(120px,34vw,160px);margin-bottom:1em}
+  .world-hero__title{font-size:clamp(1.3rem,6.5vw,1.7rem)}
+  .world-cta{width:100%;justify-content:center;min-height:44px;padding:.9em 1.6em;
+    box-sizing:border-box}
+
   .world-body{padding:0 6vw}
+  .world-section{padding:2.8vh 0}
+  .world-list li{padding-left:1.3em}
+
   .world-register{flex-direction:column}
-  .world-register__btn{width:100%;justify-content:center}
-  .world-cta{width:100%;justify-content:center}
-  .world-contact{flex-direction:column;align-items:flex-start;gap:.3em}
-  .world-formpage__header{padding:.75em 5vw}
-  .world-formpage__scroll{padding:4vh 6vw 6vh}
+  .world-register__btn{width:100%;justify-content:center;min-height:44px;
+    box-sizing:border-box}
+
+  .world-contact{flex-direction:column;align-items:flex-start;gap:.25em;padding:.7em 0}
+  .world-contact__link{min-height:44px;display:inline-flex;align-items:center}
+
+  .world-formpage__scroll{padding:3.5vh 6vw 6vh}
+  .world-formpage__panel{max-width:100%}
+  .world-formpage__title{font-size:clamp(1.15rem,5.5vw,1.4rem)}
+
+  .world-verse{padding:4vh 6vw 6vh;font-size:.88rem}
+}
+
+@media(max-width:430px){
+  .world-header,.world-formpage__header{padding:.55em 4.5vw}
+  .world-back,.world-formpage__back{font-size:.58rem;padding:.6em .7em}
+  .world-header__name{font-size:.66rem;max-width:44vw}
+  .world-hero{padding:4.5vh 5vw 3.5vh}
+  .world-hero__logo{width:clamp(110px,32vw,140px)}
+  .world-body,.world-formpage__scroll{padding-left:5.5vw;padding-right:5.5vw}
 }
 
 @media(prefers-reduced-motion:reduce){

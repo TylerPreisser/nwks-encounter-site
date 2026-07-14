@@ -1,37 +1,32 @@
 window.NWKS = window.NWKS || {};
 NWKS.transitions = NWKS.transitions || {};
 
-/* Owned by transitions-coder (Phase 2 non-geometric concept set). Follows the
-   masked-swap contract (see src/js/transition-core.js for the full contract
-   doc; men-shatter.js / women-veil.js are the reference implementations).
-   Real effect = "Freedom Banner": an all-white cloth flag with bold black
-   letter-spaced FREEDOM lettering unfurls across the screen (anchored off-
-   screen left, free/trailing edge on the right), fully covers the viewport,
-   the DOM swaps hidden underneath, then the same cloth sweeps away the same
-   direction to reveal what's now underneath. Native Canvas 2D only, no
-   libraries.
+/* Owned by transitions-coder. Follows the masked-swap contract (see
+   src/js/transition-core.js for the full contract doc). Women's companion to
+   men-banner.js — same "Freedom Banner" mechanic (Galatians 5:1 applies to
+   both doors), a soft pale blush/ivory cloth with the word FREEDOM unfurling
+   across the screen, but in an elegant, feminine palette: a very pale warm
+   blush banner with the lettering in a deep dark-rose tone rather than flat
+   black. Native Canvas 2D only, no libraries.
 
-   IMPORTANT — this is a rewrite that removes a real defect: the previous
-   implementation rendered the cloth as a vertical-strip MESH (many adjacent
-   per-column fillRect/drawImage calls). Even with flat white columns, every
-   column boundary leaves a faint anti-aliased seam, and dozens of repeated
-   seams read as a field of faint vertical lines across the banner — visible
-   in captured frames. The fix is structural, not cosmetic:
-     - the covered region is ONE filled path per frame, not N column rects.
-       The path is a simple polygon: a flat edge pinned to the screen side
-       (x=0 while unfurling, x=w while withdrawing) and a single continuous
-       wavy edge on the moving side, built by walking a handful of points
-       down the height and connecting them — one gfx.fill() call, so there
-       are zero internal seams. The wave is a function of Y (how far down
-       the sweeping edge bows in/out), not a function of X-column-index, so
-       nothing is ever sliced into strips.
+   Rendering approach is IDENTICAL in structure to the (rewritten) men-banner
+   — this is deliberate: the earlier men's version rendered the cloth as a
+   vertical-strip MESH (many adjacent per-column fillRect/drawImage calls),
+   and even with flat columns every column boundary left a faint anti-aliased
+   seam that repeated into a field of faint vertical lines. This file never
+   had that bug, but it must never regain it, so it shares the same
+   seam-proof construction as the fixed men-banner:
+     - the covered region is ONE filled path per frame (a simple polygon: a
+       flat edge pinned to the screen side, and a single continuous wavy edge
+       on the moving side, built by walking a handful of points down the
+       height) — one gfx.fill() call, zero internal seams. The wave is a
+       function of Y only, never sliced into per-column strips.
      - FREEDOM is drawn directly by clipping to that same single path, then
-       filling one flat white rect and drawing the word on top — no offscreen
-       column-compositing, no drawImage slicing. The word is drawn once, with
-       each of its 7 glyphs individually placed along a gentle static arc
-       (per-glyph baseline offset), which reads as a soft banner curve without
-       ever tearing a letterform across a column boundary (the earlier
-       per-strip text approach both banded AND tore letters).
+       filling one flat blush rect and drawing the word on top — no offscreen
+       column-compositing, no drawImage slicing. Each of the 7 glyphs is
+       individually placed along a gentle static arc (per-glyph baseline
+       offset), which reads as a soft banner curve without ever tearing a
+       letterform across a column boundary.
    Same run() handles 'enter' and 'exit' — geometry is identical either way,
    only the swapped DOM content differs. Total ~680ms. */
 (function () {
@@ -40,8 +35,8 @@ NWKS.transitions = NWKS.transitions || {};
   var COVER_MS = 340;   // cloth unfurls left -> right to full coverage -> cover() + swap()
   var UNCOVER_MS = 340;  // cloth withdraws the same direction -> uncover() + resolve()
 
-  var CLOTH_WHITE = 'rgb(255,255,255)'; // pure white banner (operator: all-white)
-  var TEXT_BLACK = '#0a0a0a';           // near-pure black FREEDOM text
+  var CLOTH_BLUSH = 'rgb(253,247,244)'; // very pale warm blush/ivory banner
+  var TEXT_ROSE = '#6b2740';            // elegant deep dark-rose FREEDOM text
 
   function clamp01(n) { return n < 0 ? 0 : n > 1 ? 1 : n; }
   function easeOutQuad(t) { return 1 - (1 - t) * (1 - t); }
@@ -147,14 +142,14 @@ NWKS.transitions = NWKS.transitions || {};
         tracePath(phase, edgePos, t);
         gfx.clip();
 
-        // Single solid fill for the entire covered region — flat white,
-        // zero seams (this replaces the old per-column mesh entirely).
-        gfx.fillStyle = CLOTH_WHITE;
+        // Single solid fill for the entire covered region — flat blush,
+        // zero seams (no per-column mesh anywhere in this concept).
+        gfx.fillStyle = CLOTH_BLUSH;
         gfx.fillRect(0, 0, w, h);
 
         if (textAlpha > 0.01) {
           gfx.globalAlpha = clamp01(textAlpha);
-          gfx.fillStyle = TEXT_BLACK;
+          gfx.fillStyle = TEXT_ROSE;
           gfx.font = '900 ' + fontSize + 'px "Arial Black", Arial, sans-serif';
           gfx.textBaseline = 'middle';
           drawFreedomGlyphs(gfx, 'FREEDOM', w / 2, h / 2, letterSpacing, curveAmp);
@@ -172,7 +167,7 @@ NWKS.transitions = NWKS.transitions || {};
       // full opacity throughout the cover phase regardless of the ripple, so
       // the swap is genuinely hidden even before the canvas paints its first
       // frame.
-      coverEl.style.background = CLOTH_WHITE;
+      coverEl.style.background = CLOTH_BLUSH;
 
       function frame(ts) {
         if (start === null) start = ts;
@@ -224,10 +219,10 @@ NWKS.transitions = NWKS.transitions || {};
     });
   }
 
-  NWKS.transitions['men-banner'] = {
-    id: 'men-banner',
+  NWKS.transitions['women-banner'] = {
+    id: 'women-banner',
     label: 'Freedom Banner',
-    door: 'men',
+    door: 'women',
     run: run
   };
 })();
