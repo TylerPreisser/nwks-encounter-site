@@ -10,10 +10,10 @@ NWKS.transitions = NWKS.transitions || {};
 (function () {
   'use strict';
 
-  var DURATION = 1080;
-  var FIELD_IN = 300;      // field 0 -> opaque
-  var SWAP_AT = 320;       // swap under full opacity
-  var FIELD_OUT = 640;     // field opaque -> 0 begins
+  var DURATION = 780;      // snappy (fixes slow enter/back)
+  var FIELD_IN = 210;      // field 0 -> opaque (fast)
+  var SWAP_AT = 230;       // swap under full opacity
+  var FIELD_OUT = 470;     // field opaque -> 0 begins
   var TAU = Math.PI * 2;
 
   function ease(t) { return t < 0 ? 0 : t > 1 ? 1 : t * t * (3 - 2 * t); } // smoothstep

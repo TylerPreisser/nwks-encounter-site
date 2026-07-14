@@ -114,9 +114,8 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
 .half--women .enter:hover{background:var(--w-gold);border-color:var(--w-gold);color:#fff;letter-spacing:.38em}
 
 /* ---------- SHARED LIGHT FRAME ---------- */
-.frame{position:absolute;left:0;right:0;z-index:6;color:var(--f-ink);
-  background:linear-gradient(var(--f-bg),var(--f-bg2));
-  display:flex;align-items:center;justify-content:center;text-align:center;opacity:0}
+/* Gateway top/bottom bars removed per operator — the two doors now run full-height. */
+.frame{display:none !important}
 .frame-top{top:0;height:clamp(46px,6.5vh,62px);border-bottom:1px solid var(--f-rule);
   box-shadow:0 1px 0 rgba(255,255,255,.4) inset;animation:fadeIn 1s ease 3s forwards}
 .frame-top .nm{font-family:var(--serif);font-weight:600;letter-spacing:.34em;
@@ -1112,9 +1111,11 @@ window.NWKS = window.NWKS || {};
       if (!worldEl) return;
       var content = (NWKS.content && NWKS.content[door]) || {};
 
-      // Idempotent: this door's world was already built for this content — just show it.
+      // Idempotent: already built for this content — nothing to rebuild. Visibility
+      // is owned by the masked-swap harness (transition-core doSwap), NEVER here —
+      // revealing the world in render() is what caused the "instant jump then a
+      // pointless overlay" bug (render runs before the transition covers the screen).
       if (worldEl.dataset.builtFor === door) {
-        worldEl.hidden = false;
         return;
       }
 
@@ -1243,7 +1244,8 @@ window.NWKS = window.NWKS || {};
       }
 
       worldEl.dataset.builtFor = door;
-      worldEl.hidden = false;
+      // Do NOT reveal here — the masked-swap harness (transition-core doSwap) un-hides
+      // the world at the covered midpoint so the swap is never visible.
     },
 
     close: function (door) {
@@ -1725,8 +1727,8 @@ NWKS.transitions = NWKS.transitions || {};
 (function () {
   'use strict';
 
-  var COVER_MS = 480;   // cloth unfurls left -> right to full coverage -> cover() + swap()
-  var UNCOVER_MS = 480;  // cloth withdraws the same direction -> uncover() + resolve()
+  var COVER_MS = 340;   // cloth unfurls left -> right to full coverage -> cover() + swap()
+  var UNCOVER_MS = 340;  // cloth withdraws the same direction -> uncover() + resolve()
 
   var CLOTH_WHITE = [255, 255, 255];   // pure white banner (operator: all-white)
   var TEXT_BLACK = '#0a0a0a';          // near-pure black FREEDOM text
@@ -1967,10 +1969,10 @@ NWKS.transitions = NWKS.transitions || {};
 (function () {
   'use strict';
 
-  var DURATION = 1080;
-  var FIELD_IN = 300;      // field 0 -> opaque
-  var SWAP_AT = 320;       // swap under full opacity
-  var FIELD_OUT = 640;     // field opaque -> 0 begins
+  var DURATION = 780;      // snappy (fixes slow enter/back)
+  var FIELD_IN = 210;      // field 0 -> opaque (fast)
+  var SWAP_AT = 230;       // swap under full opacity
+  var FIELD_OUT = 470;     // field opaque -> 0 begins
   var TAU = Math.PI * 2;
 
   function ease(t) { return t < 0 ? 0 : t > 1 ? 1 : t * t * (3 - 2 * t); } // smoothstep

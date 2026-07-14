@@ -28,8 +28,8 @@ NWKS.transitions = NWKS.transitions || {};
 (function () {
   'use strict';
 
-  var COVER_MS = 480;   // cloth unfurls left -> right to full coverage -> cover() + swap()
-  var UNCOVER_MS = 480;  // cloth withdraws the same direction -> uncover() + resolve()
+  var COVER_MS = 340;   // cloth unfurls left -> right to full coverage -> cover() + swap()
+  var UNCOVER_MS = 340;  // cloth withdraws the same direction -> uncover() + resolve()
 
   var CLOTH_WHITE = [255, 255, 255];   // pure white banner (operator: all-white)
   var TEXT_BLACK = '#0a0a0a';          // near-pure black FREEDOM text

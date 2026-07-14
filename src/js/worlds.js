@@ -79,9 +79,11 @@ window.NWKS = window.NWKS || {};
       if (!worldEl) return;
       var content = (NWKS.content && NWKS.content[door]) || {};
 
-      // Idempotent: this door's world was already built for this content — just show it.
+      // Idempotent: already built for this content — nothing to rebuild. Visibility
+      // is owned by the masked-swap harness (transition-core doSwap), NEVER here —
+      // revealing the world in render() is what caused the "instant jump then a
+      // pointless overlay" bug (render runs before the transition covers the screen).
       if (worldEl.dataset.builtFor === door) {
-        worldEl.hidden = false;
         return;
       }
 
@@ -210,7 +212,8 @@ window.NWKS = window.NWKS || {};
       }
 
       worldEl.dataset.builtFor = door;
-      worldEl.hidden = false;
+      // Do NOT reveal here — the masked-swap harness (transition-core doSwap) un-hides
+      // the world at the covered midpoint so the swap is never visible.
     },
 
     close: function (door) {
