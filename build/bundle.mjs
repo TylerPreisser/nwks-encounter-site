@@ -55,8 +55,25 @@ function inlineAssetRefsIn(text, baseDir, label) {
   return text;
 }
 
+// Guard: curly/smart quotes used as HTML attribute delimiters (e.g. class=”x”) are
+// invalid and silently break class/id/href parsing → collapsed layout that still
+// passes text-content greps. Fail the build loudly if any are found.
+function checkSmartQuotes(html) {
+  const bad = [];
+  html.split('\n').forEach((line, i) => {
+    if (/=[“”‘’]/.test(line)) bad.push(`  line ${i + 1}: ${line.trim().slice(0, 80)}`);
+  });
+  if (bad.length) {
+    console.error('bundle.mjs: FAILED — smart/curly quotes used as attribute delimiters in src/index.html:');
+    console.error(bad.join('\n'));
+    console.error('Fix: replace “ ” ‘ ’ around attribute values with straight " or \'.');
+    process.exit(1);
+  }
+}
+
 function bundle() {
   let html = readFileSync(SRC_INDEX, 'utf8');
+  checkSmartQuotes(html);
 
   // 1) Inline each <link rel="stylesheet" href="..."> as <style>, in document order.
   html = html.replace(
