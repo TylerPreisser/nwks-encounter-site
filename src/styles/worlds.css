@@ -229,7 +229,7 @@
 /* ---- Task 3: genuinely pretty, easy-to-read women's typography ----
    Narrower measure (comfortable line length), roomier line-height, a slightly larger
    display serif for headings, and softer letter-spacing than the men's/shared defaults. */
-.world--women .world-body{max-width:760px}
+.world--women .world-body{max-width:min(1040px,92vw)}
 .world--women .world-hero__title{font-size:clamp(1.7rem,5vw,2.85rem);letter-spacing:.015em;
   line-height:1.18}
 .world--women .world-hero__tagline{font-size:clamp(1rem,2vw,1.18rem);line-height:1.5}

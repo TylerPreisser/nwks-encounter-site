@@ -39,6 +39,7 @@ NWKS.transitions = NWKS.transitions || {};
 
   var COVER_MS = 340;   // cloth unfurls left -> right to full coverage -> cover() + swap()
   var UNCOVER_MS = 340;  // cloth withdraws the same direction -> uncover() + resolve()
+  var HOLD_MS = 450;     // full cloth + FREEDOM holds before it swipes out
 
   var CLOTH_WHITE = 'rgb(255,255,255)'; // pure white banner (operator: all-white)
   var TEXT_BLACK = '#0a0a0a';           // near-pure black FREEDOM text
@@ -187,7 +188,7 @@ NWKS.transitions = NWKS.transitions || {};
       var didSwap = false;
       var rafId = null;
       var start = null;
-      var totalMs = COVER_MS + UNCOVER_MS;
+      var totalMs = COVER_MS + HOLD_MS + UNCOVER_MS;
 
       // Authoritative mask: an opaque inline background on coverEl guarantees
       // full opacity throughout the cover phase regardless of the ripple, so
@@ -204,18 +205,19 @@ NWKS.transitions = NWKS.transitions || {};
           var edgePos = easeOutQuad(pIn) * edgeSpan - ampEdge;
           var textAlpha = clamp01((pIn - 0.55) / 0.4);
           drawCloth(t, 'in', edgePos, textAlpha);
-        } else {
+        } else if (t < COVER_MS + HOLD_MS) {
+          // HOLD: the full white cloth + FREEDOM lingers on screen; the DOM swap
+          // happens hidden underneath here, then the cloth stays put for HOLD_MS.
           if (!didSwap) {
             didSwap = true;
-            // Swap now, at the covered midpoint, then let the cloth canvas
-            // (drawn at full coverage this exact frame) take over as the
-            // visible surface so its withdrawal is actually seen.
             ctx.cover();
             ctx.swap();
             ctx.uncover();
             coverEl.style.background = 'transparent';
           }
-          var tOut = t - COVER_MS;
+          drawCloth(t, 'in', edgeSpan - ampEdge, 1);
+        } else {
+          var tOut = t - COVER_MS - HOLD_MS;
           var pOut = clamp01(tOut / UNCOVER_MS);
           var edgePosOut = easeInCubic(pOut) * edgeSpan - ampEdge;
           drawCloth(t, 'out', edgePosOut, 1);

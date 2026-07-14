@@ -79,20 +79,16 @@ window.NWKS = window.NWKS || {};
   }
 
   function exit(door) {
+    // No exit animation — going back to the main page is INSTANT (operator: only
+    // animate on the way in). The gateway is already rendered underneath, so just
+    // close the world.
     if (busy) return;
-    busy = true;
-
-    var conceptId = NWKS.registry ? NWKS.registry.getActive(door) : null;
-
-    NWKS.tx.run(conceptId, { dir: 'exit', door: door }).then(function () {
-      busy = false;
-      openDoor = null;
-      if (NWKS.worlds && typeof NWKS.worlds.close === 'function') {
-        NWKS.worlds.close(door);
-      }
-      var doorEl = document.querySelector('.half[data-door="' + door + '"]');
-      if (doorEl) doorEl.focus();
-    });
+    openDoor = null;
+    if (NWKS.worlds && typeof NWKS.worlds.close === 'function') {
+      NWKS.worlds.close(door);
+    }
+    var doorEl = document.querySelector('.half[data-door="' + door + '"]');
+    if (doorEl) doorEl.focus();
   }
 
   // ---- boot: visible concept switcher — lists registered concepts per door,

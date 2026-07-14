@@ -85,13 +85,16 @@ window.NWKS = window.NWKS || {};
     var women = door === 'women';
     return {
       x: rand(0, w),
-      y: seedAnywhere ? rand(0, h) : (h + rand(0, 30)),
-      r: women ? rand(1, 2.4) : rand(0.8, 2.1),
-      speed: women ? rand(5, 13) : rand(12, 28),
-      drift: rand(-8, 8),
-      driftPhase: rand(0, Math.PI * 2),
-      twinkle: rand(0.5, 1.4),
-      alpha: women ? rand(0.1, 0.32) : rand(0.14, 0.42)
+      y: seedAnywhere ? rand(-0.05 * h, h) : (h + rand(4, 40)),
+      r: women ? rand(1.6, 4.4) : rand(1.1, 3.4),
+      speed: women ? rand(16, 40) : rand(30, 72),   // px/sec upward (embers faster)
+      swayA: rand(6, 26),
+      swayF: rand(0.4, 1.1),
+      ph: rand(0, Math.PI * 2),
+      flickF: women ? rand(2, 5) : rand(7, 15),      // flicker speed (embers flicker fast)
+      flickPh: rand(0, Math.PI * 2),
+      maxA: rand(0.55, 1.0),
+      bright: Math.random() < (women ? 0.28 : 0.4)   // some burn brighter
     };
   }
 
@@ -109,13 +112,13 @@ window.NWKS = window.NWKS || {};
     if (!ctx) return;
     var palette = ambientPalette(door);
     var dpr = Math.min(window.devicePixelRatio || 1, 2);
-    var w = 0, h = 0, particles = [], raf = null, lastT = null, lastPaintAt = null, watchdog = null;
+    var w = 0, h = 0, particles = [], raf = null, lastT = null, lastPaintAt = null, watchdog = null, frameTime = 0;
     var alive = true;
 
     function targetCount() {
-      var n = Math.round((w * h) / 15000);
-      var cap = door === 'women' ? 46 : 38;
-      return Math.max(16, Math.min(cap, n));
+      var n = Math.round((w * h) / 11000);
+      var cap = door === 'women' ? 74 : 56;
+      return Math.max(30, Math.min(cap, n));
     }
 
     function seed() {
@@ -137,29 +140,43 @@ window.NWKS = window.NWKS || {};
 
     function paint(staticFrame) {
       ctx.clearRect(0, 0, w, h);
+      var men = door === 'men';
+      ctx.globalCompositeOperation = men ? 'lighter' : 'source-over'; // embers glow additively on olive
       for (var i = 0; i < particles.length; i++) {
         var p = particles[i];
-        var flicker = staticFrame ? 1 : (0.7 + 0.3 * Math.sin(p.driftPhase * p.twinkle));
-        var a = p.alpha * flicker;
-        var x = p.x + (staticFrame ? 0 : Math.sin(p.driftPhase) * p.drift);
+        var flick = staticFrame ? 0.85 : (0.5 + 0.5 * Math.sin(frameTime * p.flickF + p.flickPh));
+        var lifeTop = p.y < h * 0.16 ? Math.max(0, p.y / (h * 0.16)) : 1; // cool/fade near the top
+        var a = p.maxA * flick * lifeTop * (p.bright ? 1 : 0.7);
+        if (a <= 0.02) continue;
+        var x = p.x + (staticFrame ? 0 : Math.sin(frameTime * p.swayF + p.ph) * p.swayA);
+        var rad = p.r * (p.bright ? 3.4 : 2.7);
+        var g = ctx.createRadialGradient(x, p.y, 0, x, p.y, rad);
+        if (men) {
+          g.addColorStop(0, 'rgba(255,246,214,' + a + ')');            // hot white-gold core
+          g.addColorStop(0.3, 'rgba(255,150,48,' + (a * 0.8) + ')');   // orange
+          g.addColorStop(1, 'rgba(255,88,18,0)');                      // red, transparent
+        } else {
+          g.addColorStop(0, 'rgba(255,255,255,' + a + ')');            // bright sparkle core
+          g.addColorStop(0.32, 'rgba(244,140,192,' + (a * 0.85) + ')');// pink
+          g.addColorStop(1, 'rgba(240,128,182,0)');
+        }
+        ctx.fillStyle = g;
         ctx.beginPath();
-        ctx.fillStyle = 'rgba(' + palette.fill + ',' + a.toFixed(3) + ')';
-        ctx.shadowColor = 'rgba(' + palette.glow + ',' + (a * 0.55).toFixed(3) + ')';
-        ctx.shadowBlur = door === 'women' ? 5 : 4;
-        ctx.arc(x, p.y, p.r, 0, Math.PI * 2);
+        ctx.arc(x, p.y, rad, 0, Math.PI * 2);
         ctx.fill();
       }
+      ctx.globalCompositeOperation = 'source-over';
     }
 
     function frame(t) {
       if (lastT == null) lastT = t;
       var dt = Math.min((t - lastT) / 1000, 0.05);
       lastT = t;
+      frameTime += dt;
       for (var i = 0; i < particles.length; i++) {
         var p = particles[i];
         p.y -= p.speed * dt;
-        p.driftPhase += dt * 0.6;
-        if (p.y < -12) particles[i] = makeAmbientParticle(door, w, h, false);
+        if (p.y < -p.r * 4) particles[i] = makeAmbientParticle(door, w, h, false);
       }
       paint(false);
       lastPaintAt = (window.performance && performance.now) ? performance.now() : Date.now();
@@ -325,11 +342,8 @@ window.NWKS = window.NWKS || {};
         attendeeCta.type = 'button';
         attendeeCta.addEventListener('click', function () { if (formPage) formPage.open(formSpecKeys.attendee); });
         ctaGroup.appendChild(attendeeCta);
-
-        var serverCta = el('button', { className: 'world-cta world-cta--secondary', text: 'Register as a Server' });
-        serverCta.type = 'button';
-        serverCta.addEventListener('click', function () { if (formPage) formPage.open(formSpecKeys.server); });
-        ctaGroup.appendChild(serverCta);
+        // Server registration removed for now — no Server form is currently open
+        // (men's Google form is closed; there's no women's Server form). Re-add when available.
 
         hero.appendChild(ctaGroup);
       } else if (content.register && content.register.length) {
@@ -399,7 +413,7 @@ window.NWKS = window.NWKS || {};
       }
 
       if (hasNativeForm) {
-        var formPageKeys = [formSpecKeys.attendee, formSpecKeys.server];
+        var formPageKeys = [formSpecKeys.attendee];
         formPage = buildFormPage(worldEl, door, formPageKeys);
       }
 
