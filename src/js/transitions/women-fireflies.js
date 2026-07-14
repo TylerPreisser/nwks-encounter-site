@@ -1,38 +1,44 @@
 window.NWKS = window.NWKS || {};
 NWKS.transitions = NWKS.transitions || {};
 
-/* Women · Fireflies — opaque-field-first masking so the swap is NEVER see-through.
- * Timeline (ms): field fades to FULLY OPAQUE by 300 → swap hidden at 320 →
- * fireflies drift/twinkle on the solid field → field fades out from 640 →
- * world revealed by 1080. At the swap instant the field alpha is 1.0, so the
- * gateway and world are never visible at the same time. Fireflies are crisp
- * warm-gold/white glows (additive) with a few soft bokeh for depth. */
+/* Women · Pixie Dust — baby-pink dust rising from the bottom over a LIGHT
+ * blush-white field that matches the women's page background, so the swap is
+ * masked yet the whole thing feels light/pink (never a dark crossfade).
+ *
+ * Timeline (ms): blush-white field fades to FULLY OPAQUE by 240 (masking the
+ * swap at 260) while pink dust begins rising → dust keeps floating up and
+ * twinkling → field fades out from 560 revealing the world (also light blush,
+ * so it's seamless), dust continuing upward → done ~980. Particles use NORMAL
+ * blend (additive would vanish on a light field) — a bright core + pink halo
+ * so they read as glowing dust on the pale background. */
 (function () {
   'use strict';
 
-  var DURATION = 780;      // snappy (fixes slow enter/back)
-  var FIELD_IN = 210;      // field 0 -> opaque (fast)
-  var SWAP_AT = 230;       // swap under full opacity
-  var FIELD_OUT = 470;     // field opaque -> 0 begins
+  var DURATION = 980;
+  var FIELD_IN = 240;    // field 0 -> opaque blush-white
+  var SWAP_AT = 260;     // swap under full opacity
+  var FIELD_OUT = 560;   // field opaque -> 0 begins (reveal)
   var TAU = Math.PI * 2;
 
-  function ease(t) { return t < 0 ? 0 : t > 1 ? 1 : t * t * (3 - 2 * t); } // smoothstep
+  function ease(t) { return t < 0 ? 0 : t > 1 ? 1 : t * t * (3 - 2 * t); }
 
-  function makeParticles(W, H, n) {
+  function makeDust(W, H, n) {
     var arr = [];
     for (var i = 0; i < n; i++) {
-      var bokeh = Math.random() < 0.28;
+      var bokeh = Math.random() < 0.22;
       arr.push({
         x: Math.random() * W,
-        y: Math.random() * H,
-        r: bokeh ? 14 + Math.random() * 26 : 1.4 + Math.random() * 3.2,
+        y: H * (0.08 + Math.random() * 1.18),    // spread up the screen + below the bottom
+        r: bokeh ? 10 + Math.random() * 20 : 1.8 + Math.random() * 3.8,
         bokeh: bokeh,
-        a: bokeh ? 0.10 + Math.random() * 0.10 : 0.55 + Math.random() * 0.45,
-        ax: 8 + Math.random() * 26, ay: 8 + Math.random() * 26,
-        fx: 0.4 + Math.random() * 0.9, fy: 0.4 + Math.random() * 0.9,
+        rise: (bokeh ? 34 : 72) + Math.random() * 80,   // px/sec upward
+        swayA: 10 + Math.random() * 34,
+        swayF: 0.5 + Math.random() * 1.0,
         ph: Math.random() * TAU,
-        twSpeed: 1.4 + Math.random() * 2.6, twPh: Math.random() * TAU,
-        col: Math.random() < 0.72 ? [255, 246, 214] : [255, 214, 226]
+        a: bokeh ? 0.24 + Math.random() * 0.16 : 0.72 + Math.random() * 0.28,
+        twS: 1.6 + Math.random() * 3.0,
+        twPh: Math.random() * TAU,
+        pink: Math.random() < 0.66            // most baby-pink, some white sparkle
       });
     }
     return arr;
@@ -40,7 +46,7 @@ NWKS.transitions = NWKS.transitions || {};
 
   NWKS.transitions['women-fireflies'] = {
     id: 'women-fireflies',
-    label: 'Fireflies',
+    label: 'Pixie Dust',
     door: 'women',
     run: function (coverEl, ctx) {
       return new Promise(function (resolve) {
@@ -54,7 +60,7 @@ NWKS.transitions = NWKS.transitions || {};
         if (!g) { ctx.swap(); resolve(); return; }
         g.scale(dpr, dpr);
 
-        var parts = makeParticles(W, H, Math.max(44, Math.min(96, Math.round(W * H / 15000))));
+        var dust = makeDust(W, H, Math.max(50, Math.min(120, Math.round(W * H / 12000))));
         var start = null, raf = 0, swapped = false;
 
         function fieldAlpha(t) {
@@ -66,34 +72,44 @@ NWKS.transitions = NWKS.transitions || {};
         function drawField(a) {
           g.save();
           g.globalAlpha = a;
-          var grad = g.createRadialGradient(W * 0.5, H * 0.46, 0, W * 0.5, H * 0.46, Math.max(W, H) * 0.75);
-          grad.addColorStop(0, '#2a1b33');
-          grad.addColorStop(0.55, '#1c1226');
-          grad.addColorStop(1, '#0e0814');
+          // light blush-white: white at top, soft baby-pink toward the bottom —
+          // matches the women's page background so the reveal is seamless.
+          var grad = g.createLinearGradient(0, 0, 0, H);
+          grad.addColorStop(0, '#FEFAFB');
+          grad.addColorStop(0.55, '#FCEDF2');
+          grad.addColorStop(1, '#F7DCE7');
           g.fillStyle = grad;
           g.fillRect(0, 0, W, H);
           g.restore();
         }
 
-        function drawFireflies(t, fa) {
-          var vis = ease(Math.min(1, fa * 1.15));
+        function drawDust(t, fa) {
+          var vis = ease(Math.min(1, fa * 1.25));
           if (vis <= 0) return;
+          var tsec = t / 1000;
           g.save();
-          g.globalCompositeOperation = 'lighter';
-          for (var i = 0; i < parts.length; i++) {
-            var p = parts[i];
-            var tsec = t / 1000;
-            var x = p.x + Math.sin(tsec * p.fx + p.ph) * p.ax;
-            var y = p.y + Math.cos(tsec * p.fy + p.ph * 1.3) * p.ay;
-            var tw = 0.55 + 0.45 * Math.sin(tsec * p.twSpeed + p.twPh);
-            var alpha = p.a * tw * vis;
-            if (alpha <= 0.01) continue;
+          for (var i = 0; i < dust.length; i++) {
+            var p = dust[i];
+            var y = p.y - p.rise * tsec;
+            if (y < -p.r) continue;
+            var x = p.x + Math.sin(tsec * p.swayF + p.ph) * p.swayA;
+            var tw = 0.6 + 0.4 * Math.sin(tsec * p.twS + p.twPh);
+            // only fade out very near the top edge, so risen dust stays visible
+            var heightFade = y > H * 0.12 ? 1 : ease(Math.max(0, y) / (H * 0.12));
+            var alpha = p.a * tw * vis * heightFade;
+            if (alpha <= 0.015) continue;
             var rad = p.r * (p.bokeh ? 1 : (0.85 + 0.3 * tw));
             var gr = g.createRadialGradient(x, y, 0, x, y, rad);
-            var c = p.col;
-            gr.addColorStop(0, 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + alpha + ')');
-            gr.addColorStop(p.bokeh ? 0.5 : 0.32, 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (alpha * 0.35) + ')');
-            gr.addColorStop(1, 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',0)');
+            if (p.pink) {
+              // bright white sparkle core → saturated baby-pink halo (pops on the pale field)
+              gr.addColorStop(0, 'rgba(255,255,255,' + alpha + ')');
+              gr.addColorStop(0.28, 'rgba(238,120,172,' + (alpha * 0.95) + ')');
+              gr.addColorStop(1, 'rgba(232,110,166,0)');
+            } else {
+              gr.addColorStop(0, 'rgba(255,255,255,' + alpha + ')');
+              gr.addColorStop(0.4, 'rgba(249,196,214,' + (alpha * 0.8) + ')');
+              gr.addColorStop(1, 'rgba(249,196,214,0)');
+            }
             g.fillStyle = gr;
             g.beginPath();
             g.arc(x, y, rad, 0, TAU);
@@ -113,7 +129,7 @@ NWKS.transitions = NWKS.transitions || {};
           var fa = fieldAlpha(t);
           g.clearRect(0, 0, W, H);
           drawField(fa);
-          drawFireflies(t, fa);
+          drawDust(t, fa);
           if (!swapped && t >= SWAP_AT) { swapped = true; ctx.swap(); }
           if (t < DURATION) { raf = requestAnimationFrame(frame); }
           else { if (!swapped) ctx.swap(); teardown(); resolve(); }

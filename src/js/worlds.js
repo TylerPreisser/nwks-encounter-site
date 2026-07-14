@@ -137,7 +137,7 @@ window.NWKS = window.NWKS || {};
 
       // ---- sticky header: event name + back control ----
       var header = el('header', { className: 'world-header' });
-      var back = el('button', { className: 'world-back', text: '← Back to gateway' });
+      var back = el('button', { className: 'world-back', text: '← Back to main page' });
       back.type = 'button';
       back.setAttribute('data-back', door);
       header.appendChild(back);
@@ -218,39 +218,15 @@ window.NWKS = window.NWKS || {};
 
       worldEl.appendChild(body);
 
-      // ---- Register block: when a native form spec exists, this is just the
-      // button(s) that open the full-screen form page (see buildFormPage above);
-      // otherwise the external link list. ----
-      if (content.register && content.register.length) {
+      // ---- Register: native-form doors (men/women) use ONLY the top hero CTA to
+      // open the full-screen form page — no redundant bottom register section
+      // (operator: "the register button's already at the top"). External-link
+      // doors (e.g. Unite) keep a small register link list here. ----
+      if (content.register && content.register.length && !hasNativeForm) {
         var registerSec = el('section', { className: 'world-section world-section--register' });
         registerSec.id = 'register';
         registerSec.appendChild(el('h2', { className: 'world-section__title', text: 'Register' }));
-
-        if (hasNativeForm) {
-          // Men's world: two buttons (Attendee + Server) — different Google Forms.
-          // Every other native-form door: one button for its single spec.
-          var pageButtons = door === 'men'
-            ? [
-                { key: 'menAttendee', label: content.register[0] ? content.register[0].label : 'Register as an Attendee' },
-                { key: 'menServer', label: content.register[1] ? content.register[1].label : 'Register as a Server' }
-              ]
-            : [
-                { key: formSpecKey, label: content.register[0] ? content.register[0].label : 'Register' }
-              ];
-
-          var nav = el('nav', { className: 'world-register' });
-          pageButtons.forEach(function (b) {
-            if (!(NWKS.forms.specs && NWKS.forms.specs[b.key])) return;
-            var btn = el('button', { className: 'world-register__btn', text: b.label });
-            btn.type = 'button';
-            btn.addEventListener('click', function () { if (formPage) formPage.open(b.key); });
-            nav.appendChild(btn);
-          });
-          registerSec.appendChild(nav);
-        } else {
-          registerSec.appendChild(registerNav(content));
-        }
-
+        registerSec.appendChild(registerNav(content));
         worldEl.appendChild(registerSec);
       }
 

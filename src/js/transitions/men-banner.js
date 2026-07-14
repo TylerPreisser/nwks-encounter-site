@@ -33,8 +33,8 @@ NWKS.transitions = NWKS.transitions || {};
 
   var CLOTH_WHITE = [255, 255, 255];   // pure white banner (operator: all-white)
   var TEXT_BLACK = '#0a0a0a';          // near-pure black FREEDOM text
-  var SHADOW_MIN = 0.00;               // keep the cloth bright white...
-  var SHADOW_MAX = 0.09;               // ...with only very subtle fold shading
+  var SHADOW_MIN = 0.00;               // FLAT pure-white cloth — no fold shading at all,
+  var SHADOW_MAX = 0.00;               // so there are zero vertical mesh bands/lines.
 
   function clamp01(n) { return n < 0 ? 0 : n > 1 ? 1 : n; }
   function easeOutQuad(t) { return 1 - (1 - t) * (1 - t); }

@@ -102,9 +102,9 @@
 .world-formpage__title{font-size:clamp(1.2rem,3vw,1.7rem);font-weight:600;letter-spacing:.02em;
   margin-bottom:1em}
 
-.world--men .world-formpage{background:var(--m-gun);color:var(--m-bone)}
-.world--men .world-formpage__header{background:rgba(27,29,23,.92);border-bottom-color:rgba(230,193,47,.25)}
-.world--men .world-formpage__back{color:var(--m-bone);border-color:var(--m-dim)}
+.world--men .world-formpage{background:#6E765F;color:#FAF8F0}
+.world--men .world-formpage__header{background:rgba(58,63,50,.96);border-bottom-color:rgba(230,193,47,.25)}
+.world--men .world-formpage__back{color:#FAF8F0;border-color:var(--m-dim)}
 .world--men .world-formpage__back:hover{background:var(--m-yellow);border-color:var(--m-yellow);color:var(--m-gun)}
 
 .world--women .world-formpage{background:var(--w2-bg);color:var(--w2-ink)}
@@ -121,17 +121,16 @@
    header), all text lifted to light (bone/dim) with yellow accents, per operator
    direction "make the whole Men's Encounter page the color of the top section and
    adjust the text accordingly." ================= */
-.world--men{background:var(--m-gun);color:var(--m-bone)}
-.world--men .world-header{background:rgba(27,29,23,.92);border-bottom-color:rgba(230,193,47,.25)}
-.world--men .world-back{color:var(--m-bone);border-color:var(--m-dim)}
+.world--men{background:#6E765F;color:#FAF8F0}
+.world--men .world-header{background:rgba(58,63,50,.96);border-bottom-color:rgba(230,193,47,.25)}
+.world--men .world-back{color:#FAF8F0;border-color:var(--m-dim)}
 .world--men .world-back:hover{background:var(--m-yellow);border-color:var(--m-yellow);color:var(--m-gun)}
-.world--men .world-header__name{color:var(--m-bone)}
-.world--men .world-hero{color:var(--m-bone);background:
-  radial-gradient(120% 90% at 30% 0%, rgba(255,255,255,.06), transparent 55%),
-  linear-gradient(160deg,var(--m-olive) 0%,var(--m-olive-deep) 60%,var(--m-gun) 100%)}
+.world--men .world-header__name{color:#FAF8F0}
+.world--men .world-hero{color:#FAF8F0;background:
+  radial-gradient(120% 90% at 50% 0%, rgba(255,255,255,.06), transparent 60%), #6E765F}
 .world--men .world-hero__logo{box-shadow:0 14px 34px rgba(0,0,0,.5);
   outline:2px solid rgba(230,193,47,.45);outline-offset:4px}
-.world--men .world-hero__title{color:var(--m-bone)}
+.world--men .world-hero__title{color:#FAF8F0}
 .world--men .world-hero__tagline{color:var(--m-yellow)}
 .world--men .world-hero__dates{color:var(--m-dim)}
 .world--men .world-cta{border-color:var(--m-yellow);color:var(--m-yellow)}
@@ -139,16 +138,16 @@
 
 /* body copy on the dark page: bone = primary text, dim = secondary, yellow = accents */
 .world--men .world-section{border-top-color:rgba(232,227,210,.14)}
-.world--men .world-section__title{color:var(--m-bone)}
-.world--men .world-p{color:var(--m-bone)}
-.world--men .world-list li{color:var(--m-bone)}
+.world--men .world-section__title{color:#FAF8F0}
+.world--men .world-p{color:#FAF8F0}
+.world--men .world-list li{color:#FAF8F0}
 .world--men .world-inline-link,.world--men .world-list li::before,
 .world--men .world-contact__link{color:var(--m-yellow)}
 .world--men .world-inline-link{border-bottom-color:var(--m-yellow)}
 .world--men .world-list li::before{background:var(--m-yellow)}
 .world--men .world-contact{border-bottom-color:rgba(232,227,210,.14)}
-.world--men .world-contact__name{color:var(--m-bone)}
-.world--men .world-register__btn{border-color:var(--m-dim);color:var(--m-bone)}
+.world--men .world-contact__name{color:#FAF8F0}
+.world--men .world-register__btn{border-color:var(--m-dim);color:#FAF8F0}
 .world--men .world-register__btn:hover{background:var(--m-yellow);border-color:var(--m-yellow);color:var(--m-gun)}
 .world--men .world-verse{color:var(--m-dim)}
 
