@@ -4,46 +4,63 @@ NWKS.transitions = NWKS.transitions || {};
 /* Owned by transitions-coder (Phase 2 non-geometric concept set). Follows the
    masked-swap contract (see src/js/transition-core.js for the full contract
    doc; men-shatter.js / women-veil.js are the reference implementations).
-   Real effect = "Freedom Banner": a wide yellow (--m-yellow) banner sweeps in
-   from the left with a woven, cloth-like wavy leading edge, unfurling until
-   it fully covers the viewport, with the word FREEDOM stamped across it once
-   it's wide enough to read. The DOM swaps at that covered instant, then the
-   banner draws back the same direction (a wavy trailing edge withdraws
-   left-to-right) to reveal whatever is now underneath. Same motion both
-   directions — 'exit' runs the identical sweep-and-draw-back against the
-   gateway instead of the world. Native Canvas 2D only (per-row wave offsets
-   simulate the cloth ripple; no libraries). Fast: ~700ms total. */
+   Real effect = "Freedom Banner": an all-white cloth flag with bold black
+   letter-spaced FREEDOM lettering unfurls across the screen (anchored off-
+   screen left, free/trailing edge on the right — like a real flag flying),
+   fully covers the viewport, the DOM swaps hidden underneath, then the same
+   cloth sweeps away the same direction to reveal what's now underneath.
+   Native Canvas 2D only, no libraries:
+     - cloth motion is a sum of two sine waves per vertical mesh column, with
+       amplitude growing toward the free (right) edge, so it reads as a real
+       flag rippling rather than a rigid sweeping rectangle;
+     - each column also derives a shading term from the wave's local slope
+       (dY/dx) so the flat white cloth reads as folded fabric with depth;
+     - FREEDOM is pre-rendered once to an offscreen canvas, then composited
+       back column-by-column with the SAME per-column vertical offset as the
+       cloth, so the lettering visibly rides the ripple;
+     - the leading/trailing coverage boundary is itself jittered by the same
+       wave field so the unfurl/withdraw edge is ragged cloth, not a hard
+       vertical line — actual full-viewport opacity is still guaranteed the
+       cheap way (an opaque inline background on coverEl during the cover
+       phase), so the wavy edge is purely decorative, never a real gap.
+   Same run() handles 'enter' and 'exit' — geometry is identical either way,
+   only the swapped DOM content differs. Total ~900ms. */
 (function () {
   'use strict';
 
-  var COVER_MS = 320;   // banner sweeps in, cloth ripples, to full coverage -> cover() + swap()
-  var UNCOVER_MS = 380;  // banner draws back the same direction -> uncover() + resolve()
+  var COVER_MS = 480;   // cloth unfurls left -> right to full coverage -> cover() + swap()
+  var UNCOVER_MS = 480;  // cloth withdraws the same direction -> uncover() + resolve()
 
-  function cssVar(name, fallback) {
-    var v = getComputedStyle(document.documentElement).getPropertyValue(name);
-    return (v && v.trim()) || fallback;
-  }
+  var CLOTH_WHITE = [255, 255, 255];   // pure white banner (operator: all-white)
+  var TEXT_BLACK = '#0a0a0a';          // near-pure black FREEDOM text
+  var SHADOW_MIN = 0.00;               // keep the cloth bright white...
+  var SHADOW_MAX = 0.09;               // ...with only very subtle fold shading
 
   function clamp01(n) { return n < 0 ? 0 : n > 1 ? 1 : n; }
-  function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+  function easeOutQuad(t) { return 1 - (1 - t) * (1 - t); }
   function easeInCubic(t) { return t * t * t; }
 
-  function stripCount(h) {
-    return Math.max(20, Math.min(48, Math.round(h / 16)));
+  function meshColumns(w) {
+    return Math.max(40, Math.min(200, Math.round(w / 7)));
   }
 
-  // Per-strip wave phase/amplitude so the leading/trailing edge ripples like
-  // cloth rather than sweeping as one flat rigid line.
-  function buildStrips(n) {
-    var strips = [];
-    for (var i = 0; i < n; i++) {
-      strips.push({
-        phase: Math.random() * Math.PI * 2,
-        freq: 1.4 + Math.random() * 1.2,
-        shade: Math.random()
-      });
+  // Manual letter-spaced text draw (portable — no reliance on ctx.letterSpacing).
+  function drawSpacedText(g, text, cx, cy, spacing) {
+    var widths = [];
+    var total = 0;
+    var i;
+    for (i = 0; i < text.length; i++) {
+      var wch = g.measureText(text[i]).width;
+      widths.push(wch);
+      total += wch;
     }
-    return strips;
+    total += spacing * (text.length - 1);
+    var x = cx - total / 2;
+    g.textAlign = 'left';
+    for (i = 0; i < text.length; i++) {
+      g.fillText(text[i], x, cy);
+      x += widths[i] + spacing;
+    }
   }
 
   function run(coverEl, ctx) {
@@ -69,57 +86,113 @@ NWKS.transitions = NWKS.transitions || {};
       }
       gfx.scale(dpr, dpr);
 
-      var yellow = cssVar('--m-yellow', '#E6C12F');
-      var gun = cssVar('--m-gun', '#1B1D17');
+      // Pre-render FREEDOM once to an offscreen canvas at the same device
+      // pixel ratio as the main canvas, so column slices can be drawImage'd
+      // back 1:1 with a per-column vertical offset (the cloth ripple).
+      var textCanvas = document.createElement('canvas');
+      textCanvas.width = Math.max(1, Math.round(w * dpr));
+      textCanvas.height = Math.max(1, Math.round(h * dpr));
+      var tgfx = textCanvas.getContext('2d');
+      tgfx.scale(dpr, dpr);
+      tgfx.fillStyle = TEXT_BLACK;
+      var fontSize = Math.round(Math.min(w, h) * 0.115);
+      tgfx.font = '900 ' + fontSize + 'px "Arial Black", Arial, sans-serif';
+      tgfx.textBaseline = 'middle';
+      drawSpacedText(tgfx, 'FREEDOM', w / 2, h / 2, Math.round(fontSize * 0.22));
 
-      var n = stripCount(h);
-      var stripH = h / n;
-      var strips = buildStrips(n);
-      var amplitude = Math.min(46, w * 0.035);
+      var cols = meshColumns(w);
+      var colW = w / cols;
+      // Integer-pixel column boundaries — adjacent fillRect/drawImage calls at
+      // fractional pixel edges get anti-aliased, and with ~cols thin strips
+      // that AA seam repeats every column and reads as a fine mechanical
+      // banding pattern instead of a smooth fold gradient. Snapping every
+      // boundary to a whole pixel (shared between neighbors, no overlap/gap)
+      // removes that seam entirely.
+      var colPix = [];
+      var ci;
+      for (ci = 0; ci <= cols; ci++) colPix[ci] = Math.round(ci * colW);
 
-      // Solid backdrop for the cover phase: the wavy leading edge means the
-      // canvas alone isn't literally 100% opaque at every scanline until the
-      // edge has fully swept past, so a flat backdrop guarantees genuinely
-      // full coverage at the swap instant (same technique as men-shatter.js).
-      coverEl.style.background = gun;
+      var ampText = Math.min(34, h * 0.04);   // vertical ripple amplitude at the free edge
+      var ampEdge = Math.min(30, w * 0.025);  // horizontal jitter amplitude of the coverage boundary
+      var edgeSpan = w + ampEdge * 2;
 
-      var totalMs = COVER_MS + UNCOVER_MS;
+      // waveY — vertical cloth displacement for a column, amplitude growing
+      // toward the free (right, high xFrac) edge; two combined sine terms so
+      // it reads as real fabric rather than one rigid ripple.
+      function waveY(xFrac, t) {
+        var amp = ampText * Math.pow(clamp01(xFrac), 1.3);
+        return amp * Math.sin(xFrac * 9.2 + t * 0.0052) +
+          amp * 0.45 * Math.sin(xFrac * 15.7 + t * 0.0083 + 1.9);
+      }
+
+      // edgeJitter — small independent wave used only to ragged-ify the
+      // coverage boundary so the unfurl/withdraw front looks like moving
+      // cloth, not a straight sweeping line.
+      function edgeJitter(xFrac, t) {
+        var amp = ampEdge * Math.pow(clamp01(xFrac), 1.1);
+        return amp * Math.sin(xFrac * 7.3 + t * 0.006 + 0.6) +
+          amp * 0.4 * Math.sin(xFrac * 13.1 + t * 0.0095 + 2.4);
+      }
+
       var didSwap = false;
       var rafId = null;
       var start = null;
+      var totalMs = COVER_MS + UNCOVER_MS;
+      var eps = 1 / cols;
 
-      // edgeX(row, base, t) — wavy x position of the banner's moving edge for
-      // one horizontal strip, base is the unrippled sweep position.
-      function edgeX(strip, base, t) {
-        return base + Math.sin(t * 0.006 * strip.freq + strip.phase) * amplitude;
-      }
+      coverEl.style.background = 'rgb(' + CLOTH_WHITE.join(',') + ')';
 
-      function drawBanner(t, base, direction) {
-        // direction: 'in' -> band spans [0, edge]; 'out' -> band spans [edge, w]
+      // phase: 'in' -> boundary grows left->right, covered = colX-jitter <= edgePos
+      //        'out' -> boundary grows left->right, covered = colX-jitter >= edgePos (remaining cloth recedes right)
+      function drawCloth(t, phase, edgePos, textAlpha) {
         gfx.clearRect(0, 0, w, h);
-        for (var i = 0; i < n; i++) {
-          var strip = strips[i];
-          var y = i * stripH;
-          var edge = clamp01((edgeX(strip, base, t)) / w) * w;
-          var x0 = direction === 'in' ? 0 : Math.max(0, Math.min(w, edge));
-          var x1 = direction === 'in' ? Math.max(0, Math.min(w, edge)) : w;
-          var bandW = x1 - x0;
-          if (bandW <= 0) continue;
-          gfx.fillStyle = strip.shade > 0.82 ? '#c9a628' : yellow;
-          gfx.fillRect(x0, y - 0.5, bandW, stripH + 1);
-        }
-      }
+        gfx.globalAlpha = 1;
+        var i, colX, colX1, colWpx, xFrac, threshold, visible;
+        for (i = 0; i < cols; i++) {
+          colX = colPix[i];
+          colX1 = colPix[i + 1];
+          colWpx = colX1 - colX;
+          xFrac = colX / w;
+          threshold = colX - edgeJitter(xFrac, t);
+          visible = phase === 'in' ? threshold <= edgePos : threshold >= edgePos;
+          if (!visible) continue;
 
-      function drawLabel(alpha) {
-        if (alpha <= 0.01) return;
-        gfx.save();
-        gfx.globalAlpha = clamp01(alpha);
-        gfx.fillStyle = gun;
-        gfx.font = '700 ' + Math.round(Math.min(w, h) * 0.11) + 'px system-ui, -apple-system, sans-serif';
-        gfx.textAlign = 'center';
-        gfx.textBaseline = 'middle';
-        gfx.fillText('FREEDOM', w / 2, h / 2);
-        gfx.restore();
+          var y0 = waveY(xFrac, t);
+          var y1 = waveY(Math.min(1, xFrac + eps), t);
+          var slope = (y1 - y0) / colW;
+          // Smooth (no hard saturation) signed map: slope 0 -> mid-tone, positive
+          // slope -> slightly darker fold, negative -> slightly lighter — subtle
+          // grey folds/highlights rather than a hard-edged banding pattern.
+          var shadeT = clamp01(0.5 + slope * 1.6);
+          var shadeAlpha = SHADOW_MIN + shadeT * (SHADOW_MAX - SHADOW_MIN);
+          var r = Math.round(CLOTH_WHITE[0] * (1 - shadeAlpha));
+          var g = Math.round(CLOTH_WHITE[1] * (1 - shadeAlpha));
+          var b = Math.round(CLOTH_WHITE[2] * (1 - shadeAlpha));
+          gfx.fillStyle = 'rgb(' + r + ',' + g + ',' + b + ')';
+          gfx.fillRect(colX, 0, colWpx, h);
+        }
+
+        if (textAlpha > 0.01) {
+          gfx.globalAlpha = clamp01(textAlpha);
+          var sx, sw;
+          for (i = 0; i < cols; i++) {
+            colX = colPix[i];
+            colX1 = colPix[i + 1];
+            colWpx = colX1 - colX;
+            xFrac = colX / w;
+            threshold = colX - edgeJitter(xFrac, t);
+            visible = phase === 'in' ? threshold <= edgePos : threshold >= edgePos;
+            if (!visible) continue;
+            sx = Math.round(colX * dpr);
+            sw = Math.round(colWpx * dpr);
+            gfx.drawImage(
+              textCanvas,
+              sx, 0, sw, textCanvas.height,
+              colX, waveY(xFrac, t), colWpx, h
+            );
+          }
+          gfx.globalAlpha = 1;
+        }
       }
 
       function frame(ts) {
@@ -128,23 +201,18 @@ NWKS.transitions = NWKS.transitions || {};
 
         if (t < COVER_MS) {
           var pIn = clamp01(t / COVER_MS);
-          var easedIn = easeOutCubic(pIn);
-          var base = easedIn * (w + amplitude * 2) - amplitude;
-          drawBanner(t, base, 'in');
-          drawLabel(clamp01((pIn - 0.35) / 0.4));
+          var edgePos = easeOutQuad(pIn) * edgeSpan - ampEdge;
+          var textAlpha = clamp01((pIn - 0.30) / 0.45);
+          drawCloth(t, 'in', edgePos, textAlpha);
         } else {
           if (!didSwap) {
             didSwap = true;
-            // Authoritative mask: guarantee full coverage regardless of the
-            // wavy-edge sweep above, THEN swap while genuinely hidden, THEN
-            // release the safety mask immediately — the banner (already at
-            // full width this exact frame) takes over as the visible cover
-            // so its draw-back is actually seen, not hidden behind a flat
-            // mask for the whole back half of the effect.
-            gfx.clearRect(0, 0, w, h);
-            gfx.fillStyle = yellow;
-            gfx.fillRect(0, 0, w, h);
-            drawLabel(1);
+            // Authoritative mask: the inline white background on coverEl has
+            // guaranteed full opacity throughout the cover phase regardless
+            // of the ragged wave edge, so the swap is genuinely hidden. Swap
+            // now, release harness control, then let the cloth canvas (drawn
+            // at full coverage this exact frame) take over as the visible
+            // surface so its withdrawal is actually seen.
             ctx.cover();
             ctx.swap();
             ctx.uncover();
@@ -152,10 +220,8 @@ NWKS.transitions = NWKS.transitions || {};
           }
           var tOut = t - COVER_MS;
           var pOut = clamp01(tOut / UNCOVER_MS);
-          var easedOut = easeInCubic(pOut);
-          var baseOut = easedOut * (w + amplitude * 2) - amplitude;
-          drawBanner(t, baseOut, 'out');
-          drawLabel(1 - clamp01(pOut / 0.3));
+          var edgePosOut = easeInCubic(pOut) * edgeSpan - ampEdge;
+          drawCloth(t, 'out', edgePosOut, 1);
         }
 
         if (t >= totalMs) {
