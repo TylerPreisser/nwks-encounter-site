@@ -1,0 +1,30 @@
+/* fonts.css — owned by worlds-coder (Women's Encounter restyle, Phase 2).
+   PRETTIER type system for the Women's world ONLY — elegant, distinct from the Men's
+   all-serif Iowan Old Style. Self-contained: NO CDN / Google Fonts / runtime network
+   font requests (90% of visitors are iPhone/Safari, so this must never depend on a fetch).
+
+   Chosen: Apple-first system stack (zero weight, zero bytes, instant paint).
+   'Bodoni 72' and 'Avenir Next' both ship natively on iOS + macOS (Safari resolves them
+   with no download), so this is effectively free while still reading as a deliberate,
+   editorial pairing rather than the default UI font:
+     display (headings/tagline) -> 'Bodoni 72','Didot','Hoefler Text',Georgia,serif
+     body / UI (paragraphs, nav, buttons, contacts) -> 'Avenir Next','Avenir',
+       -apple-system,system-ui,sans-serif
+   Fallback chain still resolves to a normal serif/sans everywhere else (Georgia / system-ui),
+   so non-Apple browsers never break — they just don't get the exact display face.
+
+   NOTE: this file is now linked from src/index.html after tokens.css and before worlds.css.
+   These custom properties (--w2-font-display / --w2-font-body) are also duplicated locally
+   inside the .world--women rule in worlds.css so the
+   Women's world already renders correctly today without this file being wired in. Once wired,
+   worlds.css can drop its local duplicate and reference these instead.
+
+   If a small embedded display serif is ever wanted instead of the Apple-first stack, add a
+   single @font-face here (base64 woff2, open-license, keep it small — a few dozen KB) scoped
+   only to --w2-font-display, and only for Women's headings. Not done here: the Apple-first
+   stack already delivers a genuinely different, elegant look at zero cost. */
+
+:root{
+  --w2-font-display:'Bodoni 72','Didot','Hoefler Text',Georgia,serif;
+  --w2-font-body:'Avenir Next','Avenir',-apple-system,system-ui,sans-serif;
+}

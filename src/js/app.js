@@ -1,14 +1,14 @@
 window.NWKS = window.NWKS || {};
 
-/* Boot + core enter(door) orchestration. Depends on NWKS.registry, NWKS.transitions,
-   NWKS.worlds, NWKS.content — loaded before this script. */
+/* Boot + core enter(door)/exit(door) orchestration. Depends on NWKS.registry,
+   NWKS.transitions, NWKS.tx (transition-core.js), NWKS.worlds, NWKS.content —
+   all loaded before this script (see load-order rule in transition-core.js). */
 (function () {
   'use strict';
 
-  var stage = document.getElementById('stage');
   var intro = document.getElementById('intro');
-  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var openDoor = null;
+  var busy = false; // guards re-entrant enter/exit while a masked-swap animation is in flight
 
   // ---- boot: intro sequence removal (CSS animates it out; detach after it's done) ----
   if (intro) {
@@ -62,49 +62,84 @@ window.NWKS = window.NWKS || {};
   });
 
   // ---- core orchestration ----
+  // Both enter and exit route through NWKS.tx.run(), the masked-swap harness:
+  // the cover layer fully hides the screen BEFORE the DOM swap happens, so
+  // nothing is ever revealed-then-hidden. Same path both directions means
+  // Back animates too, at the same fast (~600-800ms) speed as entry.
   function enter(door) {
-    if (openDoor) return; // a world is already open; ignore re-entry
+    if (openDoor || busy) return; // a world is already open, or a transition is mid-flight
     var worldEl = document.getElementById('world-' + door);
     if (!worldEl) return;
-    var doorEl = document.querySelector('.half[data-door="' + door + '"]');
 
-    // 1) populate the world
+    busy = true;
+
+    // populate the world's content before it can ever become visible
     if (NWKS.worlds && typeof NWKS.worlds.render === 'function') {
       NWKS.worlds.render(door);
     }
 
-    // 2) resolve the active transition module for this door
     var conceptId = NWKS.registry ? NWKS.registry.getActive(door) : null;
-    var module = conceptId && NWKS.transitions ? NWKS.transitions[conceptId] : null;
-    if (module && module.door !== door) module = null; // guard: mismatched/unregistered door (e.g. unite)
 
-    var canAnimate = !reduce && typeof document.startViewTransition === 'function' && !!module;
-
-    function present() {
+    NWKS.tx.run(conceptId, { dir: 'enter', door: door }).then(function () {
+      busy = false;
       openDoor = door;
-      if (stage) stage.classList.add('world-open');
-      // 4) push history so browser Back returns to gateway
+      // push history so browser Back returns to gateway (reversed via popstate -> exit)
       history.pushState({ nwksDoor: door }, document.title, '');
       worldEl.setAttribute('tabindex', '-1');
       worldEl.focus();
-    }
-
-    // 3) reduced-motion / no-VT / no-module fallback → reveal instantly; else run the module
-    if (!canAnimate) {
-      worldEl.hidden = false;
-      present();
-      return;
-    }
-    module.run(doorEl, worldEl, { reduced: false }).then(present, present);
+    });
   }
 
   function exit(door) {
-    if (NWKS.worlds && typeof NWKS.worlds.close === 'function') {
-      NWKS.worlds.close(door);
-    }
-    if (stage) stage.classList.remove('world-open');
-    openDoor = null;
-    var doorEl = document.querySelector('.half[data-door="' + door + '"]');
-    if (doorEl) doorEl.focus();
+    if (busy) return;
+    busy = true;
+
+    var conceptId = NWKS.registry ? NWKS.registry.getActive(door) : null;
+
+    NWKS.tx.run(conceptId, { dir: 'exit', door: door }).then(function () {
+      busy = false;
+      openDoor = null;
+      if (NWKS.worlds && typeof NWKS.worlds.close === 'function') {
+        NWKS.worlds.close(door);
+      }
+      var doorEl = document.querySelector('.half[data-door="' + door + '"]');
+      if (doorEl) doorEl.focus();
+    });
   }
+
+  // ---- boot: visible concept switcher — lists registered concepts per door,
+  // built live from NWKS.transitions at boot (so it reflects however many
+  // concept files are wired up, no hardcoded ids). Picks feed
+  // NWKS.registry.setActive(); Enter then previews whatever is active. ----
+  function buildConceptSwitcher() {
+    var panel = document.getElementById('concept-switcher');
+    if (!panel || !NWKS.registry) return;
+
+    var switcherDoors = ['men', 'women'];
+    var any = false;
+
+    switcherDoors.forEach(function (door) {
+      var select = panel.querySelector('[data-door="' + door + '"]');
+      if (!select) return;
+      var ids = NWKS.registry.list(door);
+      if (!ids.length) return;
+
+      select.innerHTML = '';
+      ids.forEach(function (id) {
+        var concept = NWKS.transitions[id];
+        var opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = (concept && concept.label) || id;
+        select.appendChild(opt);
+      });
+      select.value = NWKS.registry.getActive(door);
+      select.addEventListener('change', function () {
+        NWKS.registry.setActive(door, select.value);
+      });
+      any = true;
+    });
+
+    if (any) panel.hidden = false;
+  }
+  buildConceptSwitcher();
 })();

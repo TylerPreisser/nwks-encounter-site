@@ -1,0 +1,97 @@
+/* forms.css — owned by [forms builder].
+   Native themed registration forms built by src/js/forms.js from
+   src/content/forms.js specs, mounted into the Register section of each
+   world (src/js/worlds.js). Scoped under .world--men / .world--women so it
+   inherits the shared light body background (--f-bg) from worlds.css and
+   layers on each door's accent color, same convention as world-list/
+   world-inline-link/world-register__btn already use in worlds.css.
+   Women-only: a soft baby-pink accent (--w-form-pink, local to this file —
+   tokens.css is not touched) per operator direction: white/pink/black, clean. */
+
+.nwks-form-mount{margin-top:1.6em;max-width:560px}
+.nwks-form{display:flex;flex-direction:column;gap:1.2em}
+
+.nwks-field,.nwks-field--choice{display:flex;flex-direction:column;gap:.45em;
+  border:none;margin:0;padding:0}
+.nwks-field__label{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;
+  font-weight:700;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--f-ink)}
+.nwks-field__help{font-size:.78rem;line-height:1.5;margin:0;opacity:.72}
+
+.nwks-field__input{font:inherit;font-size:.95rem;padding:.75em .9em;
+  border-radius:4px;border:1px solid var(--f-rule);background:#fff;color:var(--f-ink);
+  transition:.2s}
+.nwks-field__input--area{resize:vertical;min-height:5.5em}
+.nwks-field__input:focus{outline:2px solid var(--f-gold);outline-offset:1px;
+  border-color:var(--f-gold)}
+
+.nwks-field__options{display:flex;flex-direction:column;gap:.55em}
+.nwks-option{display:flex;align-items:center;flex-wrap:wrap;gap:.6em}
+.nwks-option__input{width:1.15em;height:1.15em;accent-color:var(--f-gold);
+  flex:0 0 auto}
+.nwks-option__label{font-size:.9rem;color:var(--f-ink)}
+.nwks-option__other-input{flex:1 1 180px;font:inherit;font-size:.88rem;
+  padding:.45em .65em;border-radius:3px;border:1px solid var(--f-rule);background:#fff}
+.nwks-option__other-input:disabled{opacity:.45}
+
+.nwks-form__submit{align-self:flex-start;margin-top:.3em;padding:1em 2.2em;
+  font-family:"Helvetica Neue",Arial,system-ui,sans-serif;font-weight:700;
+  letter-spacing:.2em;text-transform:uppercase;font-size:.72rem;border-radius:2px;
+  border:1px solid var(--f-gold);background:transparent;color:var(--f-gold);
+  cursor:pointer;transition:.25s}
+.nwks-form__submit:hover:not(:disabled){background:var(--f-gold);color:#fff}
+.nwks-form__submit:disabled{opacity:.55;cursor:default}
+
+.nwks-form__status{font-size:.85rem;min-height:1.3em;margin:0}
+.nwks-form__status--success{color:#3d6b3d;font-weight:600}
+.nwks-form__status--error{color:#a83c3c;font-weight:600}
+
+.nwks-form__fallback{font-size:.8rem;opacity:.85;margin:.4em 0 0}
+.nwks-form__fallback-link{color:var(--f-gold);font-weight:600;text-decoration:none;
+  border-bottom:1px solid var(--f-gold)}
+.nwks-form__fallback-link:hover{opacity:.75}
+
+.nwks-form--closed{padding:1.3em 1.4em;border:1px dashed var(--f-rule);
+  border-radius:6px;display:flex;flex-direction:column;gap:.7em}
+.nwks-form__closed-msg{margin:0;font-size:.92rem;line-height:1.6}
+
+/* ---- world-register toggle + fallback used by worlds.js on the men door ---- */
+.world-register__toggle{display:flex;flex-direction:column;gap:.8em;margin-top:1.6em}
+.world-register__toggle-btn{align-self:flex-start;font-family:"Helvetica Neue",Arial,
+  system-ui,sans-serif;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  font-size:.7rem;background:transparent;border:1px solid var(--f-rule);
+  border-radius:2px;padding:.7em 1.2em;cursor:pointer;color:var(--f-ink);transition:.25s}
+.world-register__toggle-btn:hover{border-color:var(--f-gold);color:var(--f-gold)}
+
+/* ================= MEN'S ACCENT (olive, matching worlds.css body accent) ============ */
+.world--men .nwks-field__input,.world--men .nwks-option__other-input{border-color:var(--m-dim)}
+.world--men .nwks-field__input:focus{outline-color:var(--m-olive);border-color:var(--m-olive)}
+.world--men .nwks-option__input{accent-color:var(--m-olive)}
+.world--men .nwks-form__submit{border-color:var(--m-olive);color:var(--m-olive)}
+.world--men .nwks-form__submit:hover:not(:disabled){background:var(--m-olive);color:#fff}
+.world--men .nwks-form__fallback-link{color:var(--m-olive);border-bottom-color:var(--m-olive)}
+.world--men .world-register__toggle-btn:hover{border-color:var(--m-olive);color:var(--m-olive)}
+
+/* ============ WOMEN'S ACCENT (white/baby-pink/black, clean & refined) =============== */
+.world--women{--w-form-pink:#F1D3DA;--w-form-pink-deep:#C98A9C}
+.world--women .nwks-field__input,.world--women .nwks-option__other-input{
+  border-color:var(--w-form-pink-deep);background:#fff}
+.world--women .nwks-field__input:focus{outline-color:var(--w-form-pink-deep);
+  border-color:var(--w-form-pink-deep)}
+.world--women .nwks-option__input{accent-color:var(--w-form-pink-deep)}
+.world--women .nwks-form__submit{border-color:var(--w-form-pink-deep);color:var(--w-ink);
+  background:var(--w-form-pink)}
+.world--women .nwks-form__submit:hover:not(:disabled){background:var(--w-form-pink-deep);
+  color:#fff}
+.world--women .nwks-form__fallback-link{color:var(--w-gold-deep);border-bottom-color:var(--w-form-pink-deep)}
+.world--women .world-register__toggle-btn:hover{border-color:var(--w-form-pink-deep);color:var(--w-gold-deep)}
+
+@media(max-width:760px){
+  .nwks-form-mount{max-width:100%}
+  .nwks-form__submit{width:100%;justify-content:center;text-align:center}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .nwks-field__input,.nwks-form__submit,.nwks-form__fallback-link,
+  .world-register__toggle-btn{transition:none}
+}

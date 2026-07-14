@@ -110,9 +110,18 @@ window.NWKS = window.NWKS || {};
       if (content.dates) {
         hero.appendChild(el('p', { className: 'world-hero__dates', text: content.dates }));
       }
+      var formSpecKey = door === 'men' ? 'menAttendee' : (door === 'women' ? 'women' : null);
+      var hasNativeForm = !!(formSpecKey && NWKS.forms && NWKS.forms.specs && NWKS.forms.specs[formSpecKey]);
+
       if (content.register && content.register.length) {
-        var cta = externalLink(content.register[0].label, content.register[0].href);
-        cta.className = 'world-cta';
+        var cta;
+        if (hasNativeForm) {
+          cta = el('a', { className: 'world-cta', text: content.register[0].label });
+          cta.href = '#register';
+        } else {
+          cta = externalLink(content.register[0].label, content.register[0].href);
+          cta.className = 'world-cta';
+        }
         hero.appendChild(cta);
       }
       worldEl.appendChild(hero);
@@ -158,12 +167,39 @@ window.NWKS = window.NWKS || {};
 
       worldEl.appendChild(body);
 
-      // ---- Register block (full list, in case the hero CTA is missed) ----
+      // ---- Register block: native in-site form when a spec exists (see
+      // src/content/forms.js + src/js/forms.js), else the external link list. ----
       if (content.register && content.register.length) {
         var registerSec = el('section', { className: 'world-section world-section--register' });
         registerSec.id = 'register';
         registerSec.appendChild(el('h2', { className: 'world-section__title', text: 'Register' }));
-        registerSec.appendChild(registerNav(content));
+
+        if (hasNativeForm) {
+          var formMount = el('div', { className: 'world-register__form' });
+          registerSec.appendChild(formMount);
+          NWKS.forms.render(formSpecKey, formMount);
+
+          // Men's world only: a second, initially-collapsed mount for Server
+          // registration (kept separate — different Google Form / fields).
+          if (door === 'men' && NWKS.forms.specs.menServer) {
+            var toggleWrap = el('div', { className: 'world-register__toggle' });
+            var toggleBtn = el('button', { className: 'world-register__toggle-btn',
+              text: 'Registering to serve instead?' });
+            toggleBtn.type = 'button';
+            var serverMount = el('div', { className: 'world-register__form' });
+            serverMount.hidden = true;
+            toggleBtn.addEventListener('click', function () {
+              serverMount.hidden = !serverMount.hidden;
+              if (!serverMount.hidden) NWKS.forms.render('menServer', serverMount);
+            });
+            toggleWrap.appendChild(toggleBtn);
+            toggleWrap.appendChild(serverMount);
+            registerSec.appendChild(toggleWrap);
+          }
+        } else {
+          registerSec.appendChild(registerNav(content));
+        }
+
         worldEl.appendChild(registerSec);
       }
 

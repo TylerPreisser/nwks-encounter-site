@@ -1,0 +1,37 @@
+/* transitions-men.css — static CSS for the men's-door non-geometric concept
+   set (src/js/transitions/men-dawn.js, men-banner.js, men-ink.js,
+   men-embers.js). Owned by transitions-coder. Shared harness base
+   (.nwks-tx-cover, .nwks-tx-canvas, reduced-motion kill-switch) lives in
+   src/styles/transitions.css — not duplicated or overridden here. Per-frame
+   values (opacity, transform, clip-path) are set inline by the modules; this
+   file owns only each concept's static layout/base visuals, class-prefixed
+   per concept so they can't collide with each other or with the women's
+   door set (src/styles/transitions-women.css). */
+
+/* ---- men-dawn ---- */
+/* The horizon-glow layer men-dawn.js animates (opacity/scale/translateY are
+   set per-frame in JS; the gradient itself — gold at the source fading
+   through olive toward the edges — is static here). Sized larger than the
+   viewport so its soft edges clear the corners at full scale. The canvas
+   rays layer needs no extra rules beyond the shared .nwks-tx-canvas base. */
+.mx-dawn__glow{position:absolute;left:-15%;right:-15%;bottom:-25%;height:150%;
+  transform-origin:50% 100%;
+  background:radial-gradient(65% 75% at 50% 100%,var(--m-yellow) 0%,var(--m-olive) 48%,var(--m-gun) 78%,transparent 100%);
+  opacity:0;pointer-events:none;will-change:opacity,transform}
+
+/* ---- men-banner ---- */
+/* Pure Canvas 2D (the woven leading/trailing edge and the FREEDOM label are
+   drawn per-frame — a wavy line can't be expressed as a static CSS shape).
+   No extra layers or rules needed beyond the shared .nwks-tx-canvas base. */
+
+/* ---- men-ink ---- */
+/* Pure Canvas 2D (blot radial gradients, flung droplets and smoke wisps are
+   all drawn per-frame). No extra layers or rules needed beyond the shared
+   .nwks-tx-canvas base. */
+
+/* ---- men-embers ---- */
+/* Pure Canvas 2D (the forge field, heat-shimmer lines and rising embers are
+   all drawn per-frame, using canvas shadowBlur for the ember glow rather
+   than a CSS blend layer, so the opaque cover-phase fill can't be
+   accidentally lightened by a blend mode). No extra layers or rules needed
+   beyond the shared .nwks-tx-canvas base. */

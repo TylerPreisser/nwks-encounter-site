@@ -1,0 +1,95 @@
+/* transitions-women.css — static per-concept layer styles for the women's
+   door entrance concepts (fireflies / petals / bloom / silk). Owned
+   exclusively by transitions-coder; every rule is class-prefixed wx-<concept>
+   so nothing here can collide with the men's shard field or any other DOM.
+   Per-frame values (clip-path, opacity, transform, filter, background-position)
+   are set inline by each concept's run(); this file only owns base layout and
+   static visual identity. Shares .nwks-tx-cover / .nwks-tx-canvas from
+   transitions.css for the harness cover layer + canvas sizing.
+
+   Palette: white + light baby pink + black + a whisper of soft gold — a
+   clean, pretty aesthetic. Deliberately NOT the men's olive/military look
+   (src/styles/tokens.css --m-*). */
+
+:root {
+  --wx-white: #FFFFFF;
+  --wx-pink-light: #F8D9E0;
+  --wx-pink: #F4C6D2;
+  --wx-black: #111111;
+  --wx-gold: #C9A96A;
+}
+
+/* shared base for every full-bleed layer a women's concept appends to coverEl */
+.wx-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  will-change: opacity, transform, clip-path, filter, background-position;
+}
+
+/* ---------- Fireflies (hero) ---------- */
+.wx-fireflies__bloom {
+  background: radial-gradient(48% 48% at 50% 50%,
+      rgba(255, 255, 255, .98) 0%,
+      rgba(248, 217, 224, .93) 44%,
+      rgba(244, 198, 210, .88) 76%,
+      rgba(244, 198, 210, .62) 100%);
+  clip-path: circle(0% at 50% 50%);
+  opacity: 0;
+  filter: blur(10px);
+}
+
+/* ---------- Petals ---------- */
+.wx-petals__wash {
+  background: linear-gradient(160deg,
+      rgba(255, 255, 255, .96) 0%,
+      rgba(248, 217, 224, .93) 52%,
+      rgba(244, 198, 210, .9) 100%);
+  opacity: 0;
+}
+
+/* ---------- Bloom ---------- */
+.wx-bloom__core {
+  background: radial-gradient(50% 50% at 50% 50%,
+      #FFFFFF 0%,
+      rgba(255, 255, 255, .97) 26%,
+      rgba(248, 217, 224, .95) 58%,
+      rgba(244, 198, 210, .9) 100%);
+  clip-path: circle(0% at 50% 50%);
+  opacity: 0;
+  filter: blur(6px);
+}
+
+.wx-bloom__glow {
+  background: radial-gradient(38% 38% at 50% 50%, rgba(255, 255, 255, .9), transparent 72%);
+  opacity: 0;
+  mix-blend-mode: screen;
+  transform: scale(.35);
+}
+
+/* ---------- Silk ---------- */
+.wx-silk__sheet {
+  background:
+    linear-gradient(100deg,
+      rgba(255, 255, 255, .98) 0%,
+      rgba(248, 217, 224, .95) 28%,
+      rgba(201, 169, 106, .3) 50%,
+      rgba(244, 198, 210, .95) 72%,
+      rgba(255, 255, 255, .98) 100%);
+  transform: translateX(-100%);
+  opacity: .4;
+}
+
+.wx-silk__sheen {
+  background: linear-gradient(115deg, transparent 32%, rgba(255, 255, 255, .6) 50%, transparent 68%);
+  background-size: 220% 100%;
+  background-position: -40% 50%;
+  opacity: 0;
+  mix-blend-mode: screen;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wx-layer {
+    display: none;
+  }
+}

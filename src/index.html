@@ -5,9 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NWKS Encounter — Concept: Animated Gateway</title>
 <link rel="stylesheet" href="styles/tokens.css">
+<link rel="stylesheet" href="styles/fonts.css">
 <link rel="stylesheet" href="styles/gateway.css">
 <link rel="stylesheet" href="styles/worlds.css">
+<link rel="stylesheet" href="styles/forms.css">
 <link rel="stylesheet" href="styles/transitions.css">
+<link rel="stylesheet" href="styles/transitions-men.css">
+<link rel="stylesheet" href="styles/transitions-women.css">
 </head>
 <body>
 
@@ -39,16 +43,29 @@
     </div>
   </section>
 
-  <!-- concept switcher stub — data-attrs only, not functional until a later phase -->
-  <div class="concept-switcher" id="concept-switcher" data-men-active="men-shatter" data-women-active="women-veil" hidden></div>
-
-  <div class="frame frame-top">
-    <span class="nm">NWKS<span class="dot"></span>Encounter</span>
-    <a class="unite-link" id="unite-link" href="#unite">Unite</a>
+  <!-- Visible concept switcher: lets the operator pick the active transition
+       concept per door before hitting Enter. Options are built live at boot
+       from NWKS.transitions (see app.js buildConceptSwitcher()) — nothing
+       here is hardcoded to men-shatter/women-veil, so it grows automatically
+       as more concept files register. Stays hidden if JS never populates it. -->
+  <div class=”concept-switcher” id=”concept-switcher” data-hook=”concept-switcher” hidden>
+    <div class=”concept-switcher__row”>
+      <label class=”concept-switcher__label” for=”concept-switcher-men”>Men's FX</label>
+      <select class=”concept-switcher__select” id=”concept-switcher-men” data-door=”men”></select>
+    </div>
+    <div class=”concept-switcher__row”>
+      <label class=”concept-switcher__label” for=”concept-switcher-women”>Women's FX</label>
+      <select class=”concept-switcher__select” id=”concept-switcher-women” data-door=”women”></select>
+    </div>
   </div>
-  <div class="frame frame-bottom">
-    <span class="vs">“It is for freedom that Christ has set us free.”</span>
-    <span class="ref">Galatians 5:1</span>
+
+  <div class=”frame frame-top”>
+    <span class=”nm”>NWKS<span class=”dot”></span>Encounter</span>
+    <a class=”unite-link” id=”unite-link” href=”#unite”>Unite</a>
+  </div>
+  <div class=”frame frame-bottom”>
+    <span class=”vs”>”It is for freedom that Christ has set us free. Stand firm, then, and do not let yourselves be burdened again by a yoke of slavery.”</span>
+    <span class=”ref”>Galatians 5:1</span>
   </div>
 
   <main id="world-men" class="world" hidden aria-label="Men's Encounter world"></main>
@@ -56,13 +73,31 @@
   <main id="world-unite" class="world" hidden aria-label="Unite world"></main>
 </div>
 
+<!-- LOAD ORDER RULE (see src/js/transition-core.js for the full contract doc):
+     registry.js (creates NWKS.transitions={}) -> content/worlds -> transition-core.js
+     (defines NWKS.tx) -> transitions/*.js (any order/count — each self-registers
+     into NWKS.transitions) -> app.js (must load LAST; calls NWKS.tx.run(...) and
+     builds the concept switcher from whatever registered above). Adding a new
+     concept = add one more script tag for js/transitions/your-file.js anywhere
+     in the transitions/*.js block below. -->
 <script src="js/registry.js"></script>
 <script src="content/men.js"></script>
 <script src="content/women.js"></script>
 <script src="content/unite.js"></script>
+<script src="content/forms.js"></script>
 <script src="js/worlds.js"></script>
+<script src="js/forms.js"></script>
+<script src="js/transition-core.js"></script>
 <script src="js/transitions/men-shatter.js"></script>
+<script src="js/transitions/men-dawn.js"></script>
+<script src="js/transitions/men-banner.js"></script>
+<script src="js/transitions/men-ink.js"></script>
+<script src="js/transitions/men-embers.js"></script>
 <script src="js/transitions/women-veil.js"></script>
+<script src="js/transitions/women-fireflies.js"></script>
+<script src="js/transitions/women-petals.js"></script>
+<script src="js/transitions/women-bloom.js"></script>
+<script src="js/transitions/women-silk.js"></script>
 <script src="js/app.js"></script>
 
 </body>

@@ -1,32 +1,37 @@
-/* transitions.css — owned by transitions-coder.
-   Static layers/positioning for the signature entrance modules in
-   src/js/transitions/*.js. Per-frame values (opacity, clip-path, transform) are
-   set inline by the modules; this file owns layout, base visuals and the
-   reduced-motion kill-switch. */
+/* transitions.css — shared by transition-core.js (harness) + transitions/*.js
+   (concepts). Concepts add their own sections below the harness base; keep
+   each concept's rules scoped to its own class prefix so they can't collide.
+   Per-frame values (opacity, clip-path, transform) are set inline by the
+   modules; this file owns layout, base visuals and the reduced-motion
+   kill-switch. */
 
-/* ---------- world reveal states (used by every transition module) ---------- */
-/* While a module's animation is in flight the world is un-hidden but pinned as
-   a full-viewport overlay so it never distorts the gateway's flex layout before
-   app.js adds .stage.world-open (which hides the .half panels for good). */
-.world.nwks-world--transitioning{position:fixed !important;inset:0;z-index:400;overflow-y:auto;-webkit-overflow-scrolling:touch}
-.world.nwks-world--shown{ }
+/* ---------- HARNESS: the cover layer (owned by transition-core.js) ---------- */
+/* Every masked-swap transition runs inside one of these: fixed, full-viewport,
+   above everything, invisible until a concept (or the harness's own safety
+   net) makes it opaque. Concepts append their own child layers/canvases here
+   and animate coverEl itself; nothing else in the DOM should ever need a
+   transition-specific z-index. */
+.nwks-tx-cover{position:fixed;inset:0;z-index:999999;pointer-events:none;
+  opacity:0;background:#0b0b09}
+.nwks-tx-cover--opaque{opacity:1}
+.nwks-tx-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;
+  pointer-events:none}
+
+@media(prefers-reduced-motion:reduce){
+  .nwks-tx-cover{display:none}
+}
 
 /* ---------- Men · Shatter (Canvas 2D shard field) ---------- */
-.nwks-transition-canvas{position:fixed;inset:0;z-index:900;display:block;pointer-events:none;will-change:transform,opacity}
+/* No extra layout needed beyond .nwks-tx-canvas above — men-shatter.js draws
+   everything (shards + crack flash) into one canvas sized to the viewport. */
 
 /* ---------- Women · Veil lift (layered gradient + clip-path + gold motes) ---------- */
-.nwks-veil-overlay{position:fixed;inset:0;z-index:900;overflow:hidden;pointer-events:none}
 .nwks-veil-layer{position:absolute;inset:-6% -6%;
   background:
     linear-gradient(180deg,rgba(250,246,241,.98) 0%,rgba(250,246,241,.93) 42%,rgba(239,231,220,.86) 100%),
     repeating-linear-gradient(115deg,rgba(181,152,79,.06) 0 3px,transparent 3px 9px);
-  clip-path:inset(0 0 0 0);transform:translateY(0);filter:blur(0);
+  clip-path:inset(50% 50% 50% 50%);transform:translateY(0);filter:blur(8px);opacity:0;
   will-change:clip-path,opacity,filter,transform}
 .nwks-veil-light{position:absolute;inset:0;
   background:radial-gradient(60% 55% at 50% 100%,rgba(181,152,79,.6),transparent 72%);
   opacity:0;mix-blend-mode:screen;will-change:opacity,transform}
-.nwks-veil-canvas{position:absolute;inset:0;width:100%;height:100%}
-
-@media(prefers-reduced-motion:reduce){
-  .nwks-transition-canvas,.nwks-veil-overlay{display:none}
-}

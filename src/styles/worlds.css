@@ -2,7 +2,8 @@
    Styles for #world-men / #world-women / #world-unite content built by src/js/worlds.js
    from src/content/*.js. Shares tokens.css (--f-*, --m-*, --w-*, --serif).
    Themes: Men's = olive/gunmetal + yellow FREEDOM accent (rugged hero, calm readable body).
-           Women's = pearl/gold, extra-refined polish (per operator direction).
+           Women's = white + light baby pink + black, elegant + distinct type system
+           (--w2-* tokens scoped below; see src/styles/fonts.css for the type-system source).
            Unite = lightweight, shared warm-stone tokens only. */
 
 .world{background:var(--f-bg);color:var(--f-ink);font-family:var(--serif)}
@@ -102,29 +103,49 @@
 .world--men .world-list li::before{background:var(--m-olive)}
 .world--men .world-register__btn:hover{background:var(--m-olive);border-color:var(--m-olive)}
 
-/* ================= WOMEN'S THEME (extra polish) ================= */
-.world--women .world-header{background:rgba(250,246,241,.94);border-bottom-color:rgba(181,152,79,.3)}
-.world--women .world-back{color:var(--w-ink);border-color:var(--w-gold)}
-.world--women .world-back:hover{background:var(--w-gold);border-color:var(--w-gold);color:#fff}
-.world--women .world-hero{color:var(--w-ink);background:
-  radial-gradient(90% 80% at 70% 0%, rgba(181,152,79,.18), transparent 60%),
-  linear-gradient(200deg,var(--w-pearl) 0%,var(--w-pearl-deep) 100%)}
-.world--women .world-hero__logo{outline:2px solid rgba(181,152,79,.55);outline-offset:5px;
-  box-shadow:0 16px 40px rgba(140,114,47,.22)}
+/* ================= WOMEN'S THEME — white + light baby pink + black, elegant & distinct =================
+   Local tokens (--w2-*) are self-contained here so this scope never depends on the men's palette.
+   --w2-pink / --w2-pink-soft = light baby pink, decorative only (hairlines, glows, dividers).
+   --w2-pink-deep = a readable dusty rose (~5.1:1 contrast on white) used for text-bearing accents
+   (links, CTA, bullets) so accessibility doesn't ride on the pale swatch. --w2-ink = near-black body
+   copy. Type system: display serif for headings/tagline, clean sans for UI + body — see fonts.css. */
+.world--women{
+  --w2-bg:#FFFFFF; --w2-pink:#F8D9E0; --w2-pink-soft:#FBE9EE; --w2-pink-deep:#B5495F;
+  --w2-ink:#141414; --w2-dim:#6B5B5E; --w2-rule:#F3D7DE;
+  --w2-font-display:'Bodoni 72','Didot','Hoefler Text',Georgia,serif;
+  --w2-font-body:'Avenir Next','Avenir',-apple-system,system-ui,sans-serif;
+  background:var(--w2-bg);color:var(--w2-ink);font-family:var(--w2-font-body)}
+.world--women .world-hero__title,.world--women .world-section__title{
+  font-family:var(--w2-font-display);font-weight:400}
+.world--women .world-header{background:rgba(255,255,255,.92);border-bottom-color:var(--w2-rule)}
+.world--women .world-back{color:var(--w2-ink);border-color:var(--w2-pink-deep);
+  font-family:var(--w2-font-body)}
+.world--women .world-back:hover{background:var(--w2-pink-deep);border-color:var(--w2-pink-deep);color:#fff}
+.world--women .world-header__name{color:var(--w2-ink);font-family:var(--w2-font-body)}
+.world--women .world-hero{color:var(--w2-ink);background:
+  radial-gradient(90% 80% at 50% 0%, var(--w2-pink-soft), transparent 62%), #fff}
+.world--women .world-hero__logo{outline:2px solid var(--w2-pink);outline-offset:6px;
+  box-shadow:0 16px 40px rgba(181,73,95,.16)}
 .world--women .world-hero__title{letter-spacing:.03em}
-.world--women .world-hero__tagline{color:var(--w-gold-deep)}
-.world--women .world-hero__dates{color:var(--w-dim)}
-.world--women .world-cta{border-color:var(--w-gold);color:var(--w-gold-deep)}
-.world--women .world-cta:hover{background:var(--w-gold);border-color:var(--w-gold);color:#fff}
-.world--women .world-section{position:relative}
+.world--women .world-hero__tagline{color:var(--w2-pink-deep);font-family:var(--w2-font-display);
+  font-style:italic;letter-spacing:.01em}
+.world--women .world-hero__dates{color:var(--w2-dim);font-family:var(--w2-font-body)}
+.world--women .world-cta{border-color:var(--w2-pink-deep);color:var(--w2-pink-deep);
+  font-family:var(--w2-font-body)}
+.world--women .world-cta:hover{background:var(--w2-pink-deep);border-color:var(--w2-pink-deep);color:#fff}
+.world--women .world-section{position:relative;border-top-color:var(--w2-rule)}
 .world--women .world-section::after{content:"";position:absolute;left:0;bottom:0;width:2.2em;
-  height:1px;background:var(--w-gold)}
+  height:1px;background:var(--w2-pink-deep)}
+.world--women .world-p,.world--women .world-list li,.world--women .world-contact__name{
+  font-family:var(--w2-font-body)}
 .world--women .world-inline-link,.world--women .world-list li::before,
-.world--women .world-contact__link{color:var(--w-gold-deep)}
-.world--women .world-inline-link{border-bottom-color:var(--w-gold)}
-.world--women .world-list li::before{background:var(--w-gold)}
-.world--women .world-register__btn:hover{background:var(--w-gold);border-color:var(--w-gold)}
-.world--women .world-verse{color:var(--w-gold-deep)}
+.world--women .world-contact__link{color:var(--w2-pink-deep);font-family:var(--w2-font-body)}
+.world--women .world-inline-link{border-bottom-color:var(--w2-pink-deep)}
+.world--women .world-list li::before{background:var(--w2-pink-deep)}
+.world--women .world-register__btn{color:var(--w2-ink);border-color:var(--w2-rule);
+  font-family:var(--w2-font-body)}
+.world--women .world-register__btn:hover{background:var(--w2-pink-deep);border-color:var(--w2-pink-deep);color:#fff}
+.world--women .world-verse{color:var(--w2-pink-deep);font-family:var(--w2-font-display);font-style:italic}
 
 /* ================= UNITE THEME (lightweight) ================= */
 .world--unite .world-hero{background:linear-gradient(180deg,var(--f-bg),var(--f-bg2))}

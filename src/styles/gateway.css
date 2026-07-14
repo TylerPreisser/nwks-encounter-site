@@ -122,6 +122,32 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
 .world{position:relative;width:100%;min-height:100vh;min-height:100dvh;overflow-y:auto}
 .world[hidden]{display:none}
 
+/* ---------- CONCEPT SWITCHER (operator control, tasteful + out of the way) ---------- */
+/* Lets the operator pick which registered transition concept plays per door
+   before hitting Enter. Options are populated live by app.js from whatever's
+   registered in NWKS.transitions. data-hook="concept-switcher" on the panel
+   makes it trivial to hide later (display:none[data-hook="concept-switcher"]). */
+.concept-switcher{position:absolute;left:1.1em;bottom:1.1em;z-index:20;
+  display:flex;flex-direction:column;gap:.5em;padding:.7em .85em;
+  background:rgba(15,14,11,.66);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.14);
+  border-radius:6px;opacity:0;animation:fadeIn 1s ease 3.4s forwards}
+.concept-switcher[hidden]{display:none}
+.stage.world-open .concept-switcher{display:none}
+.concept-switcher__row{display:flex;align-items:center;gap:.6em}
+.concept-switcher__label{font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;
+  font-weight:700;color:var(--m-dim);width:5.4em;flex:0 0 auto}
+.concept-switcher__select{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;
+  font-size:.68rem;letter-spacing:.03em;color:#fff;background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.22);border-radius:3px;padding:.35em .5em;
+  cursor:pointer;max-width:11.5em}
+.concept-switcher__select:focus{outline:2px solid var(--f-gold);outline-offset:1px}
+@media(max-width:760px){
+  .concept-switcher{left:.6em;bottom:.6em;right:.6em}
+}
+@media(prefers-reduced-motion:reduce){
+  .concept-switcher{opacity:1;animation:none}
+}
+
 /* ---------- MOBILE ---------- */
 .scrollhint{display:none;position:absolute;left:50%;bottom:calc(78px + 2vh);transform:translateX(-50%);
   z-index:7;flex-direction:column;align-items:center;gap:.4em;color:var(--m-bone);opacity:.85;

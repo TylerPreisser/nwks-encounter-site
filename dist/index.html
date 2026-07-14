@@ -18,6 +18,39 @@
 
 </style>
 <style>
+/* fonts.css — owned by worlds-coder (Women's Encounter restyle, Phase 2).
+   PRETTIER type system for the Women's world ONLY — elegant, distinct from the Men's
+   all-serif Iowan Old Style. Self-contained: NO CDN / Google Fonts / runtime network
+   font requests (90% of visitors are iPhone/Safari, so this must never depend on a fetch).
+
+   Chosen: Apple-first system stack (zero weight, zero bytes, instant paint).
+   'Bodoni 72' and 'Avenir Next' both ship natively on iOS + macOS (Safari resolves them
+   with no download), so this is effectively free while still reading as a deliberate,
+   editorial pairing rather than the default UI font:
+     display (headings/tagline) -> 'Bodoni 72','Didot','Hoefler Text',Georgia,serif
+     body / UI (paragraphs, nav, buttons, contacts) -> 'Avenir Next','Avenir',
+       -apple-system,system-ui,sans-serif
+   Fallback chain still resolves to a normal serif/sans everywhere else (Georgia / system-ui),
+   so non-Apple browsers never break — they just don't get the exact display face.
+
+   NOTE: this file is now linked from src/index.html after tokens.css and before worlds.css.
+   These custom properties (--w2-font-display / --w2-font-body) are also duplicated locally
+   inside the .world--women rule in worlds.css so the
+   Women's world already renders correctly today without this file being wired in. Once wired,
+   worlds.css can drop its local duplicate and reference these instead.
+
+   If a small embedded display serif is ever wanted instead of the Apple-first stack, add a
+   single @font-face here (base64 woff2, open-license, keep it small — a few dozen KB) scoped
+   only to --w2-font-display, and only for Women's headings. Not done here: the Apple-first
+   stack already delivers a genuinely different, elegant look at zero cost. */
+
+:root{
+  --w2-font-display:'Bodoni 72','Didot','Hoefler Text',Georgia,serif;
+  --w2-font-body:'Avenir Next','Avenir',-apple-system,system-ui,sans-serif;
+}
+
+</style>
+<style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
 body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;color:#fff;
@@ -142,6 +175,32 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
 .world{position:relative;width:100%;min-height:100vh;min-height:100dvh;overflow-y:auto}
 .world[hidden]{display:none}
 
+/* ---------- CONCEPT SWITCHER (operator control, tasteful + out of the way) ---------- */
+/* Lets the operator pick which registered transition concept plays per door
+   before hitting Enter. Options are populated live by app.js from whatever's
+   registered in NWKS.transitions. data-hook="concept-switcher" on the panel
+   makes it trivial to hide later (display:none[data-hook="concept-switcher"]). */
+.concept-switcher{position:absolute;left:1.1em;bottom:1.1em;z-index:20;
+  display:flex;flex-direction:column;gap:.5em;padding:.7em .85em;
+  background:rgba(15,14,11,.66);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.14);
+  border-radius:6px;opacity:0;animation:fadeIn 1s ease 3.4s forwards}
+.concept-switcher[hidden]{display:none}
+.stage.world-open .concept-switcher{display:none}
+.concept-switcher__row{display:flex;align-items:center;gap:.6em}
+.concept-switcher__label{font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;
+  font-weight:700;color:var(--m-dim);width:5.4em;flex:0 0 auto}
+.concept-switcher__select{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;
+  font-size:.68rem;letter-spacing:.03em;color:#fff;background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.22);border-radius:3px;padding:.35em .5em;
+  cursor:pointer;max-width:11.5em}
+.concept-switcher__select:focus{outline:2px solid var(--f-gold);outline-offset:1px}
+@media(max-width:760px){
+  .concept-switcher{left:.6em;bottom:.6em;right:.6em}
+}
+@media(prefers-reduced-motion:reduce){
+  .concept-switcher{opacity:1;animation:none}
+}
+
 /* ---------- MOBILE ---------- */
 .scrollhint{display:none;position:absolute;left:50%;bottom:calc(78px + 2vh);transform:translateX(-50%);
   z-index:7;flex-direction:column;align-items:center;gap:.4em;color:var(--m-bone);opacity:.85;
@@ -167,7 +226,8 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
    Styles for #world-men / #world-women / #world-unite content built by src/js/worlds.js
    from src/content/*.js. Shares tokens.css (--f-*, --m-*, --w-*, --serif).
    Themes: Men's = olive/gunmetal + yellow FREEDOM accent (rugged hero, calm readable body).
-           Women's = pearl/gold, extra-refined polish (per operator direction).
+           Women's = white + light baby pink + black, elegant + distinct type system
+           (--w2-* tokens scoped below; see src/styles/fonts.css for the type-system source).
            Unite = lightweight, shared warm-stone tokens only. */
 
 .world{background:var(--f-bg);color:var(--f-ink);font-family:var(--serif)}
@@ -267,29 +327,49 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
 .world--men .world-list li::before{background:var(--m-olive)}
 .world--men .world-register__btn:hover{background:var(--m-olive);border-color:var(--m-olive)}
 
-/* ================= WOMEN'S THEME (extra polish) ================= */
-.world--women .world-header{background:rgba(250,246,241,.94);border-bottom-color:rgba(181,152,79,.3)}
-.world--women .world-back{color:var(--w-ink);border-color:var(--w-gold)}
-.world--women .world-back:hover{background:var(--w-gold);border-color:var(--w-gold);color:#fff}
-.world--women .world-hero{color:var(--w-ink);background:
-  radial-gradient(90% 80% at 70% 0%, rgba(181,152,79,.18), transparent 60%),
-  linear-gradient(200deg,var(--w-pearl) 0%,var(--w-pearl-deep) 100%)}
-.world--women .world-hero__logo{outline:2px solid rgba(181,152,79,.55);outline-offset:5px;
-  box-shadow:0 16px 40px rgba(140,114,47,.22)}
+/* ================= WOMEN'S THEME — white + light baby pink + black, elegant & distinct =================
+   Local tokens (--w2-*) are self-contained here so this scope never depends on the men's palette.
+   --w2-pink / --w2-pink-soft = light baby pink, decorative only (hairlines, glows, dividers).
+   --w2-pink-deep = a readable dusty rose (~5.1:1 contrast on white) used for text-bearing accents
+   (links, CTA, bullets) so accessibility doesn't ride on the pale swatch. --w2-ink = near-black body
+   copy. Type system: display serif for headings/tagline, clean sans for UI + body — see fonts.css. */
+.world--women{
+  --w2-bg:#FFFFFF; --w2-pink:#F8D9E0; --w2-pink-soft:#FBE9EE; --w2-pink-deep:#B5495F;
+  --w2-ink:#141414; --w2-dim:#6B5B5E; --w2-rule:#F3D7DE;
+  --w2-font-display:'Bodoni 72','Didot','Hoefler Text',Georgia,serif;
+  --w2-font-body:'Avenir Next','Avenir',-apple-system,system-ui,sans-serif;
+  background:var(--w2-bg);color:var(--w2-ink);font-family:var(--w2-font-body)}
+.world--women .world-hero__title,.world--women .world-section__title{
+  font-family:var(--w2-font-display);font-weight:400}
+.world--women .world-header{background:rgba(255,255,255,.92);border-bottom-color:var(--w2-rule)}
+.world--women .world-back{color:var(--w2-ink);border-color:var(--w2-pink-deep);
+  font-family:var(--w2-font-body)}
+.world--women .world-back:hover{background:var(--w2-pink-deep);border-color:var(--w2-pink-deep);color:#fff}
+.world--women .world-header__name{color:var(--w2-ink);font-family:var(--w2-font-body)}
+.world--women .world-hero{color:var(--w2-ink);background:
+  radial-gradient(90% 80% at 50% 0%, var(--w2-pink-soft), transparent 62%), #fff}
+.world--women .world-hero__logo{outline:2px solid var(--w2-pink);outline-offset:6px;
+  box-shadow:0 16px 40px rgba(181,73,95,.16)}
 .world--women .world-hero__title{letter-spacing:.03em}
-.world--women .world-hero__tagline{color:var(--w-gold-deep)}
-.world--women .world-hero__dates{color:var(--w-dim)}
-.world--women .world-cta{border-color:var(--w-gold);color:var(--w-gold-deep)}
-.world--women .world-cta:hover{background:var(--w-gold);border-color:var(--w-gold);color:#fff}
-.world--women .world-section{position:relative}
+.world--women .world-hero__tagline{color:var(--w2-pink-deep);font-family:var(--w2-font-display);
+  font-style:italic;letter-spacing:.01em}
+.world--women .world-hero__dates{color:var(--w2-dim);font-family:var(--w2-font-body)}
+.world--women .world-cta{border-color:var(--w2-pink-deep);color:var(--w2-pink-deep);
+  font-family:var(--w2-font-body)}
+.world--women .world-cta:hover{background:var(--w2-pink-deep);border-color:var(--w2-pink-deep);color:#fff}
+.world--women .world-section{position:relative;border-top-color:var(--w2-rule)}
 .world--women .world-section::after{content:"";position:absolute;left:0;bottom:0;width:2.2em;
-  height:1px;background:var(--w-gold)}
+  height:1px;background:var(--w2-pink-deep)}
+.world--women .world-p,.world--women .world-list li,.world--women .world-contact__name{
+  font-family:var(--w2-font-body)}
 .world--women .world-inline-link,.world--women .world-list li::before,
-.world--women .world-contact__link{color:var(--w-gold-deep)}
-.world--women .world-inline-link{border-bottom-color:var(--w-gold)}
-.world--women .world-list li::before{background:var(--w-gold)}
-.world--women .world-register__btn:hover{background:var(--w-gold);border-color:var(--w-gold)}
-.world--women .world-verse{color:var(--w-gold-deep)}
+.world--women .world-contact__link{color:var(--w2-pink-deep);font-family:var(--w2-font-body)}
+.world--women .world-inline-link{border-bottom-color:var(--w2-pink-deep)}
+.world--women .world-list li::before{background:var(--w2-pink-deep)}
+.world--women .world-register__btn{color:var(--w2-ink);border-color:var(--w2-rule);
+  font-family:var(--w2-font-body)}
+.world--women .world-register__btn:hover{background:var(--w2-pink-deep);border-color:var(--w2-pink-deep);color:#fff}
+.world--women .world-verse{color:var(--w2-pink-deep);font-family:var(--w2-font-display);font-style:italic}
 
 /* ================= UNITE THEME (lightweight) ================= */
 .world--unite .world-hero{background:linear-gradient(180deg,var(--f-bg),var(--f-bg2))}
@@ -313,37 +393,280 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
 
 </style>
 <style>
-/* transitions.css — owned by transitions-coder.
-   Static layers/positioning for the signature entrance modules in
-   src/js/transitions/*.js. Per-frame values (opacity, clip-path, transform) are
-   set inline by the modules; this file owns layout, base visuals and the
-   reduced-motion kill-switch. */
+/* forms.css — owned by [forms builder].
+   Native themed registration forms built by src/js/forms.js from
+   src/content/forms.js specs, mounted into the Register section of each
+   world (src/js/worlds.js). Scoped under .world--men / .world--women so it
+   inherits the shared light body background (--f-bg) from worlds.css and
+   layers on each door's accent color, same convention as world-list/
+   world-inline-link/world-register__btn already use in worlds.css.
+   Women-only: a soft baby-pink accent (--w-form-pink, local to this file —
+   tokens.css is not touched) per operator direction: white/pink/black, clean. */
 
-/* ---------- world reveal states (used by every transition module) ---------- */
-/* While a module's animation is in flight the world is un-hidden but pinned as
-   a full-viewport overlay so it never distorts the gateway's flex layout before
-   app.js adds .stage.world-open (which hides the .half panels for good). */
-.world.nwks-world--transitioning{position:fixed !important;inset:0;z-index:400;overflow-y:auto;-webkit-overflow-scrolling:touch}
-.world.nwks-world--shown{ }
+.nwks-form-mount{margin-top:1.6em;max-width:560px}
+.nwks-form{display:flex;flex-direction:column;gap:1.2em}
+
+.nwks-field,.nwks-field--choice{display:flex;flex-direction:column;gap:.45em;
+  border:none;margin:0;padding:0}
+.nwks-field__label{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;
+  font-weight:700;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--f-ink)}
+.nwks-field__help{font-size:.78rem;line-height:1.5;margin:0;opacity:.72}
+
+.nwks-field__input{font:inherit;font-size:.95rem;padding:.75em .9em;
+  border-radius:4px;border:1px solid var(--f-rule);background:#fff;color:var(--f-ink);
+  transition:.2s}
+.nwks-field__input--area{resize:vertical;min-height:5.5em}
+.nwks-field__input:focus{outline:2px solid var(--f-gold);outline-offset:1px;
+  border-color:var(--f-gold)}
+
+.nwks-field__options{display:flex;flex-direction:column;gap:.55em}
+.nwks-option{display:flex;align-items:center;flex-wrap:wrap;gap:.6em}
+.nwks-option__input{width:1.15em;height:1.15em;accent-color:var(--f-gold);
+  flex:0 0 auto}
+.nwks-option__label{font-size:.9rem;color:var(--f-ink)}
+.nwks-option__other-input{flex:1 1 180px;font:inherit;font-size:.88rem;
+  padding:.45em .65em;border-radius:3px;border:1px solid var(--f-rule);background:#fff}
+.nwks-option__other-input:disabled{opacity:.45}
+
+.nwks-form__submit{align-self:flex-start;margin-top:.3em;padding:1em 2.2em;
+  font-family:"Helvetica Neue",Arial,system-ui,sans-serif;font-weight:700;
+  letter-spacing:.2em;text-transform:uppercase;font-size:.72rem;border-radius:2px;
+  border:1px solid var(--f-gold);background:transparent;color:var(--f-gold);
+  cursor:pointer;transition:.25s}
+.nwks-form__submit:hover:not(:disabled){background:var(--f-gold);color:#fff}
+.nwks-form__submit:disabled{opacity:.55;cursor:default}
+
+.nwks-form__status{font-size:.85rem;min-height:1.3em;margin:0}
+.nwks-form__status--success{color:#3d6b3d;font-weight:600}
+.nwks-form__status--error{color:#a83c3c;font-weight:600}
+
+.nwks-form__fallback{font-size:.8rem;opacity:.85;margin:.4em 0 0}
+.nwks-form__fallback-link{color:var(--f-gold);font-weight:600;text-decoration:none;
+  border-bottom:1px solid var(--f-gold)}
+.nwks-form__fallback-link:hover{opacity:.75}
+
+.nwks-form--closed{padding:1.3em 1.4em;border:1px dashed var(--f-rule);
+  border-radius:6px;display:flex;flex-direction:column;gap:.7em}
+.nwks-form__closed-msg{margin:0;font-size:.92rem;line-height:1.6}
+
+/* ---- world-register toggle + fallback used by worlds.js on the men door ---- */
+.world-register__toggle{display:flex;flex-direction:column;gap:.8em;margin-top:1.6em}
+.world-register__toggle-btn{align-self:flex-start;font-family:"Helvetica Neue",Arial,
+  system-ui,sans-serif;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  font-size:.7rem;background:transparent;border:1px solid var(--f-rule);
+  border-radius:2px;padding:.7em 1.2em;cursor:pointer;color:var(--f-ink);transition:.25s}
+.world-register__toggle-btn:hover{border-color:var(--f-gold);color:var(--f-gold)}
+
+/* ================= MEN'S ACCENT (olive, matching worlds.css body accent) ============ */
+.world--men .nwks-field__input,.world--men .nwks-option__other-input{border-color:var(--m-dim)}
+.world--men .nwks-field__input:focus{outline-color:var(--m-olive);border-color:var(--m-olive)}
+.world--men .nwks-option__input{accent-color:var(--m-olive)}
+.world--men .nwks-form__submit{border-color:var(--m-olive);color:var(--m-olive)}
+.world--men .nwks-form__submit:hover:not(:disabled){background:var(--m-olive);color:#fff}
+.world--men .nwks-form__fallback-link{color:var(--m-olive);border-bottom-color:var(--m-olive)}
+.world--men .world-register__toggle-btn:hover{border-color:var(--m-olive);color:var(--m-olive)}
+
+/* ============ WOMEN'S ACCENT (white/baby-pink/black, clean & refined) =============== */
+.world--women{--w-form-pink:#F1D3DA;--w-form-pink-deep:#C98A9C}
+.world--women .nwks-field__input,.world--women .nwks-option__other-input{
+  border-color:var(--w-form-pink-deep);background:#fff}
+.world--women .nwks-field__input:focus{outline-color:var(--w-form-pink-deep);
+  border-color:var(--w-form-pink-deep)}
+.world--women .nwks-option__input{accent-color:var(--w-form-pink-deep)}
+.world--women .nwks-form__submit{border-color:var(--w-form-pink-deep);color:var(--w-ink);
+  background:var(--w-form-pink)}
+.world--women .nwks-form__submit:hover:not(:disabled){background:var(--w-form-pink-deep);
+  color:#fff}
+.world--women .nwks-form__fallback-link{color:var(--w-gold-deep);border-bottom-color:var(--w-form-pink-deep)}
+.world--women .world-register__toggle-btn:hover{border-color:var(--w-form-pink-deep);color:var(--w-gold-deep)}
+
+@media(max-width:760px){
+  .nwks-form-mount{max-width:100%}
+  .nwks-form__submit{width:100%;justify-content:center;text-align:center}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .nwks-field__input,.nwks-form__submit,.nwks-form__fallback-link,
+  .world-register__toggle-btn{transition:none}
+}
+
+</style>
+<style>
+/* transitions.css — shared by transition-core.js (harness) + transitions/*.js
+   (concepts). Concepts add their own sections below the harness base; keep
+   each concept's rules scoped to its own class prefix so they can't collide.
+   Per-frame values (opacity, clip-path, transform) are set inline by the
+   modules; this file owns layout, base visuals and the reduced-motion
+   kill-switch. */
+
+/* ---------- HARNESS: the cover layer (owned by transition-core.js) ---------- */
+/* Every masked-swap transition runs inside one of these: fixed, full-viewport,
+   above everything, invisible until a concept (or the harness's own safety
+   net) makes it opaque. Concepts append their own child layers/canvases here
+   and animate coverEl itself; nothing else in the DOM should ever need a
+   transition-specific z-index. */
+.nwks-tx-cover{position:fixed;inset:0;z-index:999999;pointer-events:none;
+  opacity:0;background:#0b0b09}
+.nwks-tx-cover--opaque{opacity:1}
+.nwks-tx-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;
+  pointer-events:none}
+
+@media(prefers-reduced-motion:reduce){
+  .nwks-tx-cover{display:none}
+}
 
 /* ---------- Men · Shatter (Canvas 2D shard field) ---------- */
-.nwks-transition-canvas{position:fixed;inset:0;z-index:900;display:block;pointer-events:none;will-change:transform,opacity}
+/* No extra layout needed beyond .nwks-tx-canvas above — men-shatter.js draws
+   everything (shards + crack flash) into one canvas sized to the viewport. */
 
 /* ---------- Women · Veil lift (layered gradient + clip-path + gold motes) ---------- */
-.nwks-veil-overlay{position:fixed;inset:0;z-index:900;overflow:hidden;pointer-events:none}
 .nwks-veil-layer{position:absolute;inset:-6% -6%;
   background:
     linear-gradient(180deg,rgba(250,246,241,.98) 0%,rgba(250,246,241,.93) 42%,rgba(239,231,220,.86) 100%),
     repeating-linear-gradient(115deg,rgba(181,152,79,.06) 0 3px,transparent 3px 9px);
-  clip-path:inset(0 0 0 0);transform:translateY(0);filter:blur(0);
+  clip-path:inset(50% 50% 50% 50%);transform:translateY(0);filter:blur(8px);opacity:0;
   will-change:clip-path,opacity,filter,transform}
 .nwks-veil-light{position:absolute;inset:0;
   background:radial-gradient(60% 55% at 50% 100%,rgba(181,152,79,.6),transparent 72%);
   opacity:0;mix-blend-mode:screen;will-change:opacity,transform}
-.nwks-veil-canvas{position:absolute;inset:0;width:100%;height:100%}
 
-@media(prefers-reduced-motion:reduce){
-  .nwks-transition-canvas,.nwks-veil-overlay{display:none}
+</style>
+<style>
+/* transitions-men.css — static CSS for the men's-door non-geometric concept
+   set (src/js/transitions/men-dawn.js, men-banner.js, men-ink.js,
+   men-embers.js). Owned by transitions-coder. Shared harness base
+   (.nwks-tx-cover, .nwks-tx-canvas, reduced-motion kill-switch) lives in
+   src/styles/transitions.css — not duplicated or overridden here. Per-frame
+   values (opacity, transform, clip-path) are set inline by the modules; this
+   file owns only each concept's static layout/base visuals, class-prefixed
+   per concept so they can't collide with each other or with the women's
+   door set (src/styles/transitions-women.css). */
+
+/* ---- men-dawn ---- */
+/* The horizon-glow layer men-dawn.js animates (opacity/scale/translateY are
+   set per-frame in JS; the gradient itself — gold at the source fading
+   through olive toward the edges — is static here). Sized larger than the
+   viewport so its soft edges clear the corners at full scale. The canvas
+   rays layer needs no extra rules beyond the shared .nwks-tx-canvas base. */
+.mx-dawn__glow{position:absolute;left:-15%;right:-15%;bottom:-25%;height:150%;
+  transform-origin:50% 100%;
+  background:radial-gradient(65% 75% at 50% 100%,var(--m-yellow) 0%,var(--m-olive) 48%,var(--m-gun) 78%,transparent 100%);
+  opacity:0;pointer-events:none;will-change:opacity,transform}
+
+/* ---- men-banner ---- */
+/* Pure Canvas 2D (the woven leading/trailing edge and the FREEDOM label are
+   drawn per-frame — a wavy line can't be expressed as a static CSS shape).
+   No extra layers or rules needed beyond the shared .nwks-tx-canvas base. */
+
+/* ---- men-ink ---- */
+/* Pure Canvas 2D (blot radial gradients, flung droplets and smoke wisps are
+   all drawn per-frame). No extra layers or rules needed beyond the shared
+   .nwks-tx-canvas base. */
+
+/* ---- men-embers ---- */
+/* Pure Canvas 2D (the forge field, heat-shimmer lines and rising embers are
+   all drawn per-frame, using canvas shadowBlur for the ember glow rather
+   than a CSS blend layer, so the opaque cover-phase fill can't be
+   accidentally lightened by a blend mode). No extra layers or rules needed
+   beyond the shared .nwks-tx-canvas base. */
+
+</style>
+<style>
+/* transitions-women.css — static per-concept layer styles for the women's
+   door entrance concepts (fireflies / petals / bloom / silk). Owned
+   exclusively by transitions-coder; every rule is class-prefixed wx-<concept>
+   so nothing here can collide with the men's shard field or any other DOM.
+   Per-frame values (clip-path, opacity, transform, filter, background-position)
+   are set inline by each concept's run(); this file only owns base layout and
+   static visual identity. Shares .nwks-tx-cover / .nwks-tx-canvas from
+   transitions.css for the harness cover layer + canvas sizing.
+
+   Palette: white + light baby pink + black + a whisper of soft gold — a
+   clean, pretty aesthetic. Deliberately NOT the men's olive/military look
+   (src/styles/tokens.css --m-*). */
+
+:root {
+  --wx-white: #FFFFFF;
+  --wx-pink-light: #F8D9E0;
+  --wx-pink: #F4C6D2;
+  --wx-black: #111111;
+  --wx-gold: #C9A96A;
+}
+
+/* shared base for every full-bleed layer a women's concept appends to coverEl */
+.wx-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  will-change: opacity, transform, clip-path, filter, background-position;
+}
+
+/* ---------- Fireflies (hero) ---------- */
+.wx-fireflies__bloom {
+  background: radial-gradient(48% 48% at 50% 50%,
+      rgba(255, 255, 255, .98) 0%,
+      rgba(248, 217, 224, .93) 44%,
+      rgba(244, 198, 210, .88) 76%,
+      rgba(244, 198, 210, .62) 100%);
+  clip-path: circle(0% at 50% 50%);
+  opacity: 0;
+  filter: blur(10px);
+}
+
+/* ---------- Petals ---------- */
+.wx-petals__wash {
+  background: linear-gradient(160deg,
+      rgba(255, 255, 255, .96) 0%,
+      rgba(248, 217, 224, .93) 52%,
+      rgba(244, 198, 210, .9) 100%);
+  opacity: 0;
+}
+
+/* ---------- Bloom ---------- */
+.wx-bloom__core {
+  background: radial-gradient(50% 50% at 50% 50%,
+      #FFFFFF 0%,
+      rgba(255, 255, 255, .97) 26%,
+      rgba(248, 217, 224, .95) 58%,
+      rgba(244, 198, 210, .9) 100%);
+  clip-path: circle(0% at 50% 50%);
+  opacity: 0;
+  filter: blur(6px);
+}
+
+.wx-bloom__glow {
+  background: radial-gradient(38% 38% at 50% 50%, rgba(255, 255, 255, .9), transparent 72%);
+  opacity: 0;
+  mix-blend-mode: screen;
+  transform: scale(.35);
+}
+
+/* ---------- Silk ---------- */
+.wx-silk__sheet {
+  background:
+    linear-gradient(100deg,
+      rgba(255, 255, 255, .98) 0%,
+      rgba(248, 217, 224, .95) 28%,
+      rgba(201, 169, 106, .3) 50%,
+      rgba(244, 198, 210, .95) 72%,
+      rgba(255, 255, 255, .98) 100%);
+  transform: translateX(-100%);
+  opacity: .4;
+}
+
+.wx-silk__sheen {
+  background: linear-gradient(115deg, transparent 32%, rgba(255, 255, 255, .6) 50%, transparent 68%);
+  background-size: 220% 100%;
+  background-position: -40% 50%;
+  opacity: 0;
+  mix-blend-mode: screen;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wx-layer {
+    display: none;
+  }
 }
 
 </style>
@@ -378,16 +701,29 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
     </div>
   </section>
 
-  <!-- concept switcher stub — data-attrs only, not functional until a later phase -->
-  <div class="concept-switcher" id="concept-switcher" data-men-active="men-shatter" data-women-active="women-veil" hidden></div>
-
-  <div class="frame frame-top">
-    <span class="nm">NWKS<span class="dot"></span>Encounter</span>
-    <a class="unite-link" id="unite-link" href="#unite">Unite</a>
+  <!-- Visible concept switcher: lets the operator pick the active transition
+       concept per door before hitting Enter. Options are built live at boot
+       from NWKS.transitions (see app.js buildConceptSwitcher()) — nothing
+       here is hardcoded to men-shatter/women-veil, so it grows automatically
+       as more concept files register. Stays hidden if JS never populates it. -->
+  <div class=”concept-switcher” id=”concept-switcher” data-hook=”concept-switcher” hidden>
+    <div class=”concept-switcher__row”>
+      <label class=”concept-switcher__label” for=”concept-switcher-men”>Men's FX</label>
+      <select class=”concept-switcher__select” id=”concept-switcher-men” data-door=”men”></select>
+    </div>
+    <div class=”concept-switcher__row”>
+      <label class=”concept-switcher__label” for=”concept-switcher-women”>Women's FX</label>
+      <select class=”concept-switcher__select” id=”concept-switcher-women” data-door=”women”></select>
+    </div>
   </div>
-  <div class="frame frame-bottom">
-    <span class="vs">“It is for freedom that Christ has set us free.”</span>
-    <span class="ref">Galatians 5:1</span>
+
+  <div class=”frame frame-top”>
+    <span class=”nm”>NWKS<span class=”dot”></span>Encounter</span>
+    <a class=”unite-link” id=”unite-link” href=”#unite”>Unite</a>
+  </div>
+  <div class=”frame frame-bottom”>
+    <span class=”vs”>”It is for freedom that Christ has set us free. Stand firm, then, and do not let yourselves be burdened again by a yoke of slavery.”</span>
+    <span class=”ref”>Galatians 5:1</span>
   </div>
 
   <main id="world-men" class="world" hidden aria-label="Men's Encounter world"></main>
@@ -395,27 +731,39 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
   <main id="world-unite" class="world" hidden aria-label="Unite world"></main>
 </div>
 
+<!-- LOAD ORDER RULE (see src/js/transition-core.js for the full contract doc):
+     registry.js (creates NWKS.transitions={}) -> content/worlds -> transition-core.js
+     (defines NWKS.tx) -> transitions/*.js (any order/count — each self-registers
+     into NWKS.transitions) -> app.js (must load LAST; calls NWKS.tx.run(...) and
+     builds the concept switcher from whatever registered above). Adding a new
+     concept = add one more script tag for js/transitions/your-file.js anywhere
+     in the transitions/*.js block below. -->
 <script>
 window.NWKS = window.NWKS || {};
 
 /* Transition registry.
-   Contract (owned by transitions-coder per module):
+   Contract (owned by transitions-coder per module; full detail + rationale in
+   src/js/transition-core.js, which every module is validated against):
    NWKS.transitions['<id>'] = {
      id, label, door: 'men'|'women',
-     run(fromPanelEl, toWorldEl, {reduced}) => Promise<void>
-       // performs the signature animation and resolves when the world is fully shown
+     run(coverEl, ctx) => Promise<void>
+       // ctx = { dir:'enter'|'exit', door, reduced, cover(), swap(), uncover() }
+       // animates coverEl to FULLY cover the screen, calls ctx.swap() at the
+       // covered midpoint (the only sanctioned DOM swap), then uncovers and
+       // resolves. Must handle both dir values. Target: ~600-800ms total.
    };
 */
 NWKS.transitions = NWKS.transitions || {};
 
 NWKS.registry = {
-  // Which concept is active for a given door. Phase 1 default: the recommended
-  // concept from each door's variation set (M1 shatter, W1 veil).
-  _active: { men: 'men-shatter', women: 'women-veil' },
+  // Which concept is active for a given door. Defaults chosen away from the
+  // geometric shatter (operator disliked it): Men's = Dawn, Women's = Fireflies.
+  // The concept switcher lets the operator flip through all registered options.
+  _active: { men: 'men-dawn', women: 'women-fireflies' },
 
   getActive: function (door) {
     if (this._active[door]) return this._active[door];
-    return door === 'women' ? 'women-veil' : 'men-shatter';
+    return door === 'women' ? 'women-fireflies' : 'men-dawn';
   },
 
   setActive: function (door, id) {
@@ -615,6 +963,112 @@ NWKS.content.unite = {
 </script>
 <script>
 window.NWKS = window.NWKS || {};
+NWKS.forms = NWKS.forms || {};
+
+/* Owned by [forms builder]. Field data extracted from the live Google Forms'
+   FB_PUBLIC_LOAD_DATA_ blob (raw HTML fetch, not a summary) — entry.<id> names
+   are the real POST field names the deployed formResponse endpoint expects.
+   Contract consumed by src/js/forms.js:
+     NWKS.forms.specs.<key> = {
+       title, officialUrl, action,           // action = the real .../formResponse URL
+       fields: [{ name:'entry.<id>', label, type, required, options, help, otherEntry }]
+     }
+   type is one of: text | textarea | radio | checkbox | dropdown | date.
+   otherEntry (radio/checkbox only): when set, one option is a free-text "Other"
+   choice — its value must be posted as "__other_option__" and the typed text
+   goes under the name in otherEntry. */
+NWKS.forms.specs = {
+  menAttendee: {
+    title: "Men's Encounter — Attendee Registration",
+    officialUrl: 'https://docs.google.com/forms/d/e/1FAIpQLSdZoPlopEZyHpBLl4EnXZuiB8X6vCDAR5v7Nw726rgtFQiNQw/viewform',
+    action: 'https://docs.google.com/forms/d/e/1FAIpQLSdZoPlopEZyHpBLl4EnXZuiB8X6vCDAR5v7Nw726rgtFQiNQw/formResponse',
+    fields: [
+      { name: 'entry.190691667', label: 'First Name', type: 'text', required: true },
+      { name: 'entry.642074978', label: 'Last Name', type: 'text', required: true },
+      { name: 'entry.87341896', label: 'Email Address', type: 'text', required: true,
+        help: 'We will send registration and event details via email, please leave accurate email address' },
+      { name: 'entry.1533571593', label: 'Phone Number', type: 'text', required: true },
+      { name: 'entry.1143291371', label: 'Phone Type', type: 'radio', required: true,
+        options: ['Cell', 'Home', 'Work', 'Other'] },
+      { name: 'entry.2074644504', label: 'Address', type: 'text', required: true },
+      { name: 'entry.1859103300', label: 'City', type: 'text', required: true },
+      { name: 'entry.1502107739', label: 'State', type: 'text', required: true },
+      { name: 'entry.1408504039', label: 'Launch Location', type: 'radio', required: true,
+        options: ['Hays', 'Norton', 'Plainville', 'Hoxie', 'Colby', 'Gove', 'Sterling', 'Wakeeney'] },
+      { name: 'entry.795573491', label: 'Shirt Size', type: 'radio', required: true,
+        options: ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'XXXXL'] },
+      { name: 'entry.1224445372', label: 'What Church do you attend, if any?', type: 'text', required: true },
+      { name: 'entry.875492866', label: 'How many times have you attended a Mens Encounter?', type: 'radio', required: true,
+        options: ['This will be my first time!', '1', '2', 'More than 2'] },
+      { name: 'entry.1596599000', label: 'Who invited you or how did you hear about Mens Encounter?', type: 'text', required: true },
+      { name: 'entry.1153130695', label: 'Contact Name', type: 'text', required: true,
+        help: 'We would like to speak with your spouse, family, and/or friend(s) 2 weeks before Encounter to ask them to pray for and encourage you. Please provide one contact below. Spouse is preferred.' },
+      { name: 'entry.1664846639', label: 'Contact Phone Number', type: 'text', required: true },
+      { name: 'entry.1611159078', label: 'Do you have any dietary or health restrictions?', type: 'text', required: false,
+        help: 'For example: need wheelchair access, diabetic diet, food allergies, cannot climb stairs, bottom bunk, etc.' },
+      { name: 'entry.417921974', label: 'Do you have any questions or concerns?', type: 'textarea', required: false }
+    ]
+  },
+
+  /* The Men's Server Google Form (1FAIpQLSfumN5SAwGVA32X0D9k2r45hZCcd6zlAkZGv3AgWOFa_3_y6A)
+     currently redirects to /closedform ("no longer accepting responses") — Google
+     does not serve the field HTML/FB_PUBLIC_LOAD_DATA_ for a closed form, so no
+     entry.<id> could be confirmed. Per the hard rule against guessing entry ids,
+     this spec intentionally ships with no fields; src/js/forms.js renders a
+     "currently closed" notice + link instead of a fake form. Re-run the same
+     extraction once the form reopens to fill this in. */
+  menServer: {
+    title: "Men's Encounter — Server Registration",
+    officialUrl: 'https://docs.google.com/forms/d/e/1FAIpQLSfumN5SAwGVA32X0D9k2r45hZCcd6zlAkZGv3AgWOFa_3_y6A/viewform',
+    closed: true,
+    closedMessage: 'Server registration is currently closed (the form is not accepting responses right now).'
+  },
+
+  women: {
+    title: "Women's Encounter — Attendee Registration",
+    officialUrl: 'https://docs.google.com/forms/d/e/1FAIpQLSeu_lSUUUpIOo02DgiUJvY142miFqUbc3sqEKhEz-EK4P8psA/viewform',
+    action: 'https://docs.google.com/forms/d/e/1FAIpQLSeu_lSUUUpIOo02DgiUJvY142miFqUbc3sqEKhEz-EK4P8psA/formResponse',
+    fields: [
+      { name: 'entry.1905834370', label: 'First Name', type: 'text', required: true },
+      { name: 'entry.186114797', label: 'Last name', type: 'text', required: true },
+      { name: 'entry.1201758753', label: 'Select a Launch Point location', type: 'radio', required: true,
+        options: ['Colby', 'Gove', 'Hays', 'Hoxie', 'Norton', 'Plainville', 'Sterling', 'Wakeeney'] },
+      { name: 'entry.235503560', label: 'Who invited you to Encounter? Please give a first & last name(s).', type: 'text', required: false },
+      { name: 'entry.784708643', label: 'Email Address', type: 'text', required: true,
+        help: 'NOTE: Encounter communication occurs via email, please check your inbox frequently.' },
+      { name: 'entry.1845349990', label: 'Confirm Email Address', type: 'text', required: true },
+      { name: 'entry.1073408382', label: "Have you attended Women's Encounter previously?", type: 'checkbox', required: true,
+        options: [
+          "1st Time Attendee - Never attended Women's Encounter",
+          "I have attended a previous Women's Encounter - I understand that 1st time attendees will get priority",
+          'I have attended previously but had a major life event & would be beneficial to attend again'
+        ] },
+      { name: 'entry.363544414', label: 'IF you have had a major life event and need to attend as an Attendee again, please write a note to Leadership explaining said event.', type: 'textarea', required: false },
+      { name: 'entry.605524732', label: 'Your Phone Number - Cell Preferred', type: 'text', required: true },
+      { name: 'entry.250143732', label: 'If not a cell #, please check box below', type: 'checkbox', required: false,
+        options: ['Land Line'] },
+      { name: 'entry.506511904', label: 'Your Address', type: 'text', required: true },
+      { name: 'entry.1900174953', label: 'City', type: 'text', required: true },
+      { name: 'entry.247635305', label: 'State', type: 'text', required: true },
+      { name: 'entry.145104583', label: 'Zip', type: 'text', required: true },
+      { name: 'entry.54983700', label: 'What church do you attend, if any?', type: 'text', required: false },
+      { name: 'entry.224992736', label: 'Contact Name', type: 'text', required: true,
+        help: 'We would like to speak with your spouse, family, and/or friend(s) before Encounter to ask them to pray for and encourage you. Please provide one contact below. Spouse is preferred.' },
+      { name: 'entry.398378885', label: "Contact Person's Phone Number", type: 'text', required: true },
+      { name: 'entry.1770598054', label: 'T-Shirt Size', type: 'radio', required: true,
+        options: ['Small', 'Medium', 'Large', 'X-Large', 'XX-Large', 'XXX-Large', 'Other'],
+        otherEntry: 'entry.1770598054.other_option_response',
+        help: 'There will be T-shirts available onsite for purchase.' },
+      { name: 'entry.2109726452', label: 'What kind of sandwich do you prefer?', type: 'radio', required: true,
+        options: ['Ham/bun', 'Ham/lettuce wrapped unwich', 'Turkey/bun', 'Turkey/lettuce wrapped unwich', 'Veggie/bun', 'Veggie/lettuce wrapped unwich'] },
+      { name: 'entry.1554249951', label: 'Do you have any questions or concerns?', type: 'textarea', required: false }
+    ]
+  }
+};
+
+</script>
+<script>
+window.NWKS = window.NWKS || {};
 
 /* Owned by worlds-coder.
    Contract: NWKS.worlds = { render(door), close(door) }
@@ -726,9 +1180,18 @@ window.NWKS = window.NWKS || {};
       if (content.dates) {
         hero.appendChild(el('p', { className: 'world-hero__dates', text: content.dates }));
       }
+      var formSpecKey = door === 'men' ? 'menAttendee' : (door === 'women' ? 'women' : null);
+      var hasNativeForm = !!(formSpecKey && NWKS.forms && NWKS.forms.specs && NWKS.forms.specs[formSpecKey]);
+
       if (content.register && content.register.length) {
-        var cta = externalLink(content.register[0].label, content.register[0].href);
-        cta.className = 'world-cta';
+        var cta;
+        if (hasNativeForm) {
+          cta = el('a', { className: 'world-cta', text: content.register[0].label });
+          cta.href = '#register';
+        } else {
+          cta = externalLink(content.register[0].label, content.register[0].href);
+          cta.className = 'world-cta';
+        }
         hero.appendChild(cta);
       }
       worldEl.appendChild(hero);
@@ -774,12 +1237,39 @@ window.NWKS = window.NWKS || {};
 
       worldEl.appendChild(body);
 
-      // ---- Register block (full list, in case the hero CTA is missed) ----
+      // ---- Register block: native in-site form when a spec exists (see
+      // src/content/forms.js + src/js/forms.js), else the external link list. ----
       if (content.register && content.register.length) {
         var registerSec = el('section', { className: 'world-section world-section--register' });
         registerSec.id = 'register';
         registerSec.appendChild(el('h2', { className: 'world-section__title', text: 'Register' }));
-        registerSec.appendChild(registerNav(content));
+
+        if (hasNativeForm) {
+          var formMount = el('div', { className: 'world-register__form' });
+          registerSec.appendChild(formMount);
+          NWKS.forms.render(formSpecKey, formMount);
+
+          // Men's world only: a second, initially-collapsed mount for Server
+          // registration (kept separate — different Google Form / fields).
+          if (door === 'men' && NWKS.forms.specs.menServer) {
+            var toggleWrap = el('div', { className: 'world-register__toggle' });
+            var toggleBtn = el('button', { className: 'world-register__toggle-btn',
+              text: 'Registering to serve instead?' });
+            toggleBtn.type = 'button';
+            var serverMount = el('div', { className: 'world-register__form' });
+            serverMount.hidden = true;
+            toggleBtn.addEventListener('click', function () {
+              serverMount.hidden = !serverMount.hidden;
+              if (!serverMount.hidden) NWKS.forms.render('menServer', serverMount);
+            });
+            toggleWrap.appendChild(toggleBtn);
+            toggleWrap.appendChild(serverMount);
+            registerSec.appendChild(toggleWrap);
+          }
+        } else {
+          registerSec.appendChild(registerNav(content));
+        }
+
         worldEl.appendChild(registerSec);
       }
 
@@ -805,18 +1295,459 @@ window.NWKS = window.NWKS || {};
 </script>
 <script>
 window.NWKS = window.NWKS || {};
-NWKS.transitions = NWKS.transitions || {};
+NWKS.forms = NWKS.forms || {};
 
-/* Owned by transitions-coder. Real effect = spec §5 "M1 · Shatter / blast-apart":
-   the olive panel fractures into shards (Canvas 2D triangulated pieces) that blast
-   toward the viewer while a yellow light-crack rips through; shards clear to reveal
-   the Men's world. Forceful, downward -> outward. Native Canvas 2D + CSS only.
-   Contract: { id, label, door, run(fromPanelEl, toWorldEl, {reduced}) => Promise<void> } */
+/* Owned by [forms builder].
+   Contract: NWKS.forms.render(specKey, mountEl) — builds a themed native <form>
+   from NWKS.forms.specs[specKey] (see src/content/forms.js) into mountEl, wires
+   client-side required validation, and on submit POSTs directly to the Google
+   Form's real formResponse endpoint with mode:'no-cors' (the response is opaque
+   by design — Google Forms doesn't allow reading the result cross-origin, so we
+   show an optimistic success message once the request is sent).
+   Idempotent per mountEl: re-render calls after the first are no-ops. */
 (function () {
   'use strict';
 
-  var DURATION = 1050; // ms — fast end of the 0.9-1.4s band (hard/fast character)
-  var CRACK_MS = 260; // ms — the light-crack flash before shards fully separate
+  function el(tag, opts) {
+    var node = document.createElement(tag);
+    opts = opts || {};
+    if (opts.className) node.className = opts.className;
+    if (opts.text) node.textContent = opts.text;
+    return node;
+  }
+
+  function fieldBaseId(specKey, idx) {
+    return 'nf-' + specKey + '-' + idx;
+  }
+
+  function buildHelp(id, text) {
+    var p = el('p', { className: 'nwks-field__help', text: text });
+    p.id = id;
+    return p;
+  }
+
+  function buildLabel(forId, text, required) {
+    var label = el('label', { className: 'nwks-field__label', text: text + (required ? ' *' : '') });
+    label.setAttribute('for', forId);
+    return label;
+  }
+
+  function buildTextField(container, specKey, field, idx) {
+    var id = fieldBaseId(specKey, idx);
+    var wrap = el('div', { className: 'nwks-field' });
+    wrap.appendChild(buildLabel(id, field.label, field.required));
+    var input = field.type === 'textarea' ? el('textarea', { className: 'nwks-field__input nwks-field__input--area' })
+      : el('input', { className: 'nwks-field__input' });
+    if (field.type === 'textarea') { input.rows = 4; }
+    else { input.type = field.type === 'date' ? 'date' : 'text'; }
+    input.id = id;
+    input.name = field.name;
+    if (field.required) input.required = true;
+    if (field.help) {
+      var helpId = id + '-help';
+      input.setAttribute('aria-describedby', helpId);
+      wrap.appendChild(input);
+      wrap.appendChild(buildHelp(helpId, field.help));
+    } else {
+      wrap.appendChild(input);
+    }
+    container.appendChild(wrap);
+  }
+
+  function buildSelectField(container, specKey, field, idx) {
+    var id = fieldBaseId(specKey, idx);
+    var wrap = el('div', { className: 'nwks-field' });
+    wrap.appendChild(buildLabel(id, field.label, field.required));
+    var select = el('select', { className: 'nwks-field__input nwks-field__input--select' });
+    select.id = id;
+    select.name = field.name;
+    if (field.required) select.required = true;
+    var blank = el('option', { text: 'Select…' });
+    blank.value = '';
+    select.appendChild(blank);
+    (field.options || []).forEach(function (optLabel) {
+      var opt = el('option', { text: optLabel });
+      opt.value = optLabel;
+      select.appendChild(opt);
+    });
+    wrap.appendChild(select);
+    if (field.help) wrap.appendChild(buildHelp(id + '-help', field.help));
+    container.appendChild(wrap);
+  }
+
+  function buildChoiceField(container, specKey, field, idx) {
+    var isCheckbox = field.type === 'checkbox';
+    var fs = el('fieldset', { className: 'nwks-field nwks-field--choice' });
+    fs.appendChild(el('legend', { className: 'nwks-field__label', text: field.label + (field.required ? ' *' : '') }));
+    if (field.help) fs.appendChild(buildHelp(fieldBaseId(specKey, idx) + '-help', field.help));
+    var optsWrap = el('div', { className: 'nwks-field__options' });
+    var otherInput = null;
+    (field.options || []).forEach(function (optLabel, optIdx) {
+      var optId = fieldBaseId(specKey, idx) + '-o' + optIdx;
+      var row = el('div', { className: 'nwks-option' });
+      var input = el('input', { className: 'nwks-option__input' });
+      input.type = isCheckbox ? 'checkbox' : 'radio';
+      input.id = optId;
+      input.name = field.name;
+      var isOtherOpt = !!field.otherEntry && optLabel === 'Other';
+      input.value = isOtherOpt ? '__other_option__' : optLabel;
+      if (field.required) input.required = true;
+      row.appendChild(input);
+      var lab = el('label', { className: 'nwks-option__label', text: optLabel });
+      lab.setAttribute('for', optId);
+      row.appendChild(lab);
+      if (isOtherOpt) {
+        otherInput = el('input', { className: 'nwks-option__other-input' });
+        otherInput.type = 'text';
+        otherInput.name = field.otherEntry;
+        otherInput.disabled = true;
+        otherInput.setAttribute('aria-label', field.label + ' — please specify');
+        row.appendChild(otherInput);
+      }
+      input.addEventListener('change', function () {
+        if (!otherInput) return;
+        otherInput.disabled = !isOtherOpt;
+        if (isOtherOpt) otherInput.focus();
+      });
+      optsWrap.appendChild(row);
+    });
+    fs.appendChild(optsWrap);
+    container.appendChild(fs);
+  }
+
+  function buildClosedNotice(mountEl, spec) {
+    var notice = el('div', { className: 'nwks-form nwks-form--closed' });
+    notice.appendChild(el('p', { className: 'nwks-form__closed-msg',
+      text: spec.closedMessage || 'This registration form is currently closed.' }));
+    if (spec.officialUrl) {
+      var link = el('a', { className: 'nwks-form__fallback-link', text: 'Check the official Google form ↗' });
+      link.href = spec.officialUrl;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      notice.appendChild(link);
+    }
+    mountEl.appendChild(notice);
+  }
+
+  function buildFallbackLink(spec) {
+    var p = el('p', { className: 'nwks-form__fallback' });
+    p.appendChild(document.createTextNode('Prefer the official Google form? '));
+    var link = el('a', { className: 'nwks-form__fallback-link', text: 'Open it here ↗' });
+    link.href = spec.officialUrl;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    p.appendChild(link);
+    return p;
+  }
+
+  NWKS.forms.render = function (specKey, mountEl) {
+    if (!mountEl) return;
+    var spec = NWKS.forms.specs && NWKS.forms.specs[specKey];
+    if (!spec) return;
+
+    // Idempotent: don't rebuild an already-built mount for this spec.
+    if (mountEl.dataset.builtFor === specKey) return;
+
+    mountEl.innerHTML = '';
+    mountEl.className = 'nwks-form-mount';
+
+    if (spec.closed || !spec.fields || !spec.fields.length) {
+      buildClosedNotice(mountEl, spec);
+      mountEl.dataset.builtFor = specKey;
+      return;
+    }
+
+    var form = el('form', { className: 'nwks-form' });
+
+    spec.fields.forEach(function (field, idx) {
+      if (field.type === 'radio' || field.type === 'checkbox') buildChoiceField(form, specKey, field, idx);
+      else if (field.type === 'dropdown') buildSelectField(form, specKey, field, idx);
+      else buildTextField(form, specKey, field, idx);
+    });
+
+    var statusEl = el('p', { className: 'nwks-form__status' });
+    statusEl.setAttribute('role', 'status');
+    statusEl.setAttribute('aria-live', 'polite');
+
+    var submitBtn = el('button', { className: 'nwks-form__submit', text: 'Submit Registration' });
+    submitBtn.type = 'submit';
+
+    form.appendChild(submitBtn);
+    form.appendChild(statusEl);
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!form.checkValidity()) {
+        form.reportValidity();
+        statusEl.textContent = 'Please fill in all required fields.';
+        statusEl.className = 'nwks-form__status nwks-form__status--error';
+        return;
+      }
+      submitBtn.disabled = true;
+      statusEl.textContent = 'Submitting…';
+      statusEl.className = 'nwks-form__status';
+      fetch(spec.action, { method: 'POST', mode: 'no-cors', body: new FormData(form) })
+        .then(function () {
+          // no-cors -> opaque response; a resolved fetch is the best signal we get.
+          statusEl.textContent = "Thanks — you're registered! (Google Forms doesn't let us confirm receipt directly, but your submission was sent.)";
+          statusEl.className = 'nwks-form__status nwks-form__status--success';
+          form.reset();
+          submitBtn.disabled = false;
+        })
+        .catch(function () {
+          statusEl.textContent = 'Something went wrong sending your registration — check your connection and try again, or use the official Google form link below.';
+          statusEl.className = 'nwks-form__status nwks-form__status--error';
+          submitBtn.disabled = false;
+        });
+    });
+
+    mountEl.appendChild(form);
+    mountEl.appendChild(buildFallbackLink(spec));
+    mountEl.dataset.builtFor = specKey;
+  };
+})();
+
+</script>
+<script>
+window.NWKS = window.NWKS || {};
+
+/*
+ * NWKS.tx — masked-swap transition harness (Phase 2, Stage 1).
+ *
+ * WHY: the old flow revealed the world FIRST and only hid the gateway once the
+ * animation finished, so effects floated uselessly over an already-loaded page.
+ * This harness fixes that structurally: a single opaque cover layer is what the
+ * operator actually sees while the DOM swap happens; the swap itself is always
+ * hidden underneath it, and never visible mid-transition.
+ *
+ * ============================================================================
+ * CONCEPT CONTRACT (read this before adding a new transition file)
+ * ============================================================================
+ *   NWKS.transitions['<id>'] = {
+ *     id: '<id>',
+ *     label: 'Human label for the switcher dropdown',
+ *     door: 'men' | 'women',
+ *     run: function (coverEl, ctx) { ... return promise; }
+ *   };
+ *
+ *   coverEl — a harness-owned <div>, position:fixed, inset:0, above everything
+ *     (z-index), pointer-events:none, opacity:0 by default. Animate it directly
+ *     (opacity/transform/clip-path/background) and/or append child nodes to it
+ *     (a <canvas>, gradient layers, etc.) — NEVER touch any other DOM node.
+ *     coverEl is a positioning context, so children may use position:absolute;
+ *     inset:0 to fill it.
+ *
+ *   ctx = { dir, door, reduced, cover(), swap(), uncover() }
+ *     dir      — 'enter' or 'exit'. Same concept must handle both: 'enter'
+ *                swaps gateway -> world, 'exit' swaps world -> gateway. A
+ *                mirrored/reversed version of the same cover motion is fine.
+ *     door     — 'men' | 'women' (matches concept.door).
+ *     reduced  — always false when run() is called (the harness already
+ *                short-circuits reduced-motion before invoking a concept).
+ *     cover()  — snaps coverEl to a fully-opaque, full-viewport covering state
+ *                INSTANTLY. Call this as the authoritative "screen is masked"
+ *                signal right before swap() — a safety net so the swap is
+ *                genuinely hidden even if your own decorative animation (e.g.
+ *                a shard field with gaps) isn't literally 100% opaque yet.
+ *     swap()   — performs the real DOM swap (gateway <-> world) ATOMICALLY.
+ *                Call this ONLY once, at the covered midpoint (immediately
+ *                after cover()). Concepts never touch stage/world DOM state
+ *                directly — this is the only sanctioned way to swap.
+ *     uncover()— snaps coverEl to fully transparent instantly. Concepts
+ *                normally animate their own graceful uncover and call this
+ *                (or just fade coverEl's opacity to 0 themselves) right
+ *                before resolving.
+ *
+ *   Sequence every concept must follow: animate coverEl to full coverage ->
+ *   cover() -> swap() -> animate coverEl back to uncovered -> uncover() ->
+ *   resolve(). Must resolve only once the swapped DOM is genuinely visible.
+ *
+ *   SPEED TARGET: total run() time ~600-800ms (fast — this replaces the old
+ *   0.9-1.4s band per operator feedback that transitions were too slow).
+ *
+ *   Registration: each concept file is a self-invoking IIFE that registers
+ *   itself into NWKS.transitions at load time (see transitions/men-shatter.js
+ *   and transitions/women-veil.js — the reference implementations).
+ *
+ * ============================================================================
+ * LOAD ORDER RULE (index.html)
+ * ============================================================================
+ *   registry.js  (creates NWKS.transitions = {})
+ *     -> content/*.js, worlds.js
+ *     -> transition-core.js  (this file — defines NWKS.tx, reads NWKS.transitions)
+ *     -> transitions/*.js    (each concept file; any order, any count)
+ *     -> app.js              (calls NWKS.tx.run(...); must load LAST)
+ *   New concept files just need one more script include for
+ *   js/transitions/your-file.js added anywhere in the transitions/*.js block above.
+ * ============================================================================
+ */
+(function () {
+  'use strict';
+
+  var SAFETY_TIMEOUT_MS = 4000; // hard cap: never leave the UI stuck mid-cover
+
+  function stageEl() { return document.getElementById('stage'); }
+
+  // ---- the one sanctioned DOM swap: gateway <-> world, always atomic ----
+  function doSwap(dir, door) {
+    var worldEl = document.getElementById('world-' + door);
+    var stage = stageEl();
+    if (dir === 'enter') {
+      if (worldEl) worldEl.hidden = false;
+      if (stage) stage.classList.add('world-open');
+    } else {
+      if (worldEl) worldEl.hidden = true;
+      if (stage) stage.classList.remove('world-open');
+    }
+  }
+
+  function createCoverLayer() {
+    var el = document.createElement('div');
+    el.className = 'nwks-tx-cover';
+    el.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(el);
+    return el;
+  }
+
+  // ---- belt-and-suspenders rAF leak guard: track ids requested while a
+  // concept's run() is in flight; cancel anything still pending once it
+  // settles, so a concept that forgets to cancel its own loop can't leak. ----
+  function withRafGuard(fn) {
+    var pending = {};
+    var nativeRAF = window.requestAnimationFrame.bind(window);
+    var nativeCAF = window.cancelAnimationFrame.bind(window);
+    window.requestAnimationFrame = function (cb) {
+      var id = nativeRAF(function (ts) {
+        delete pending[id];
+        cb(ts);
+      });
+      pending[id] = true;
+      return id;
+    };
+    window.cancelAnimationFrame = function (id) {
+      delete pending[id];
+      nativeCAF(id);
+    };
+    function restore() {
+      window.requestAnimationFrame = nativeRAF;
+      window.cancelAnimationFrame = nativeCAF;
+      for (var id in pending) {
+        if (Object.prototype.hasOwnProperty.call(pending, id)) nativeCAF(Number(id));
+      }
+    }
+    var result;
+    try {
+      result = fn();
+    } catch (e) {
+      restore();
+      throw e;
+    }
+    if (result && typeof result.then === 'function') {
+      return result.then(
+        function (v) { restore(); return v; },
+        function (err) { restore(); throw err; }
+      );
+    }
+    restore();
+    return result;
+  }
+
+  NWKS.tx = {
+    run: function (conceptId, opts) {
+      opts = opts || {};
+      var dir = opts.dir === 'exit' ? 'exit' : 'enter';
+      var door = opts.door;
+      var reduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      var concept = conceptId && NWKS.transitions ? NWKS.transitions[conceptId] : null;
+      if (concept && concept.door !== door) concept = null; // guard: mismatched/unregistered door
+
+      // Reduced motion, or no concept registered for this door -> instant
+      // swap, no cover layer, no animation.
+      if (reduced || !concept || typeof concept.run !== 'function') {
+        doSwap(dir, door);
+        return Promise.resolve();
+      }
+
+      var coverEl = createCoverLayer();
+      var swapped = false;
+      var settled = false;
+
+      var ctx = {
+        dir: dir,
+        door: door,
+        reduced: false,
+        cover: function () {
+          coverEl.classList.add('nwks-tx-cover--opaque');
+        },
+        uncover: function () {
+          coverEl.classList.remove('nwks-tx-cover--opaque');
+        },
+        swap: function () {
+          if (swapped) return;
+          swapped = true;
+          doSwap(dir, door);
+        }
+      };
+
+      function teardown() {
+        if (settled) return;
+        settled = true;
+        // Defensive: a concept that throws or resolves early without ever
+        // calling swap() must not leave the UI stuck mid-transition.
+        if (!swapped) doSwap(dir, door);
+        if (coverEl.parentNode) coverEl.parentNode.removeChild(coverEl);
+      }
+
+      return new Promise(function (resolve) {
+        var timer = setTimeout(function () {
+          teardown();
+          resolve();
+        }, SAFETY_TIMEOUT_MS);
+
+        function finish() {
+          clearTimeout(timer);
+          teardown();
+          resolve();
+        }
+
+        var ran;
+        try {
+          ran = withRafGuard(function () { return concept.run(coverEl, ctx); });
+        } catch (e) {
+          finish();
+          return;
+        }
+        if (!ran || typeof ran.then !== 'function') {
+          // Contract violation (run() must return a Promise) — recover gracefully.
+          finish();
+          return;
+        }
+        ran.then(finish, finish);
+      });
+    }
+  };
+})();
+
+</script>
+<script>
+window.NWKS = window.NWKS || {};
+NWKS.transitions = NWKS.transitions || {};
+
+/* Owned by transitions-coder. REFERENCE IMPLEMENTATION of the masked-swap
+   contract (see src/js/transition-core.js for the full contract doc).
+   Real effect = spec §5 "M1 · Shatter": olive/gunmetal shards blast together
+   into a solid cover (with a yellow light-crack flash at the moment of
+   coverage), the DOM swaps while fully covered, then the shards blast apart
+   again to reveal whatever is now underneath. Same motion both directions —
+   'exit' is just "assemble -> swap -> disperse" run against the gateway
+   instead of the world. Native Canvas 2D + CSS only. Fast: ~660ms total.
+   Contract: { id, label, door, run(coverEl, ctx) => Promise<void> } */
+(function () {
+  'use strict';
+
+  var COVER_MS = 280;   // shards converge into a solid field -> cover() + swap()
+  var UNCOVER_MS = 380;  // shards blast apart again -> uncover() + resolve()
+  var CRACK_MS = 180;    // yellow light-crack flash centered on the swap instant
 
   function cssVar(name, fallback) {
     var v = getComputedStyle(document.documentElement).getPropertyValue(name);
@@ -827,8 +1758,8 @@ NWKS.transitions = NWKS.transitions || {};
   function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
   function easeInCubic(t) { return t * t * t; }
 
-  // Jittered grid -> two triangles per cell (Voronoi-ish shard field) tiling the
-  // full viewport so the panel starts as one seamless olive field.
+  // Jittered grid -> two triangles per cell (a shard field tiling the full
+  // viewport so, once converged, it reads as one seamless olive field).
   function buildShardField(w, h, cols, rows, originX, originY) {
     var cw = w / cols, ch = h / rows;
     var pts = [];
@@ -845,24 +1776,24 @@ NWKS.transitions = NWKS.transitions || {};
     for (r = 0; r < rows; r++) {
       for (c = 0; c < cols; c++) {
         var a = pts[r][c], b = pts[r][c + 1], cc = pts[r + 1][c], d = pts[r + 1][c + 1];
-        shards.push(makeShard([a, b, cc], w, h, originX, originY));
-        shards.push(makeShard([b, d, cc], w, h, originX, originY));
+        shards.push(makeShard([a, b, cc], originX, originY));
+        shards.push(makeShard([b, d, cc], originX, originY));
       }
     }
     return shards;
   }
 
-  function makeShard(tri, w, h, originX, originY) {
+  function makeShard(tri, originX, originY) {
     var cx = (tri[0][0] + tri[1][0] + tri[2][0]) / 3;
     var cy = (tri[0][1] + tri[1][1] + tri[2][1]) / 3;
     var dx = cx - originX, dy = cy - originY;
     var mag = Math.sqrt(dx * dx + dy * dy) || 1;
     dx /= mag; dy /= mag;
-    // downward -> outward bias: blend the radial-outward vector with a strong downward pull
+    // downward -> outward bias: blend radial-outward with a strong downward pull
     dy = dy * 0.55 + 0.65;
-    var dist = 130 + Math.random() * 230;
+    var dist = 140 + Math.random() * 240;
     var rot = (Math.random() - 0.5) * 2.4;
-    var delay = Math.random() * 100; // ms stagger so the field doesn't move as one block
+    var delay = Math.random() * 90; // ms stagger so the field doesn't move as one block
     var local = tri.map(function (p) { return [p[0] - cx, p[1] - cy]; });
     return {
       cx: cx, cy: cy, pts: local,
@@ -873,10 +1804,10 @@ NWKS.transitions = NWKS.transitions || {};
   }
 
   function shardGrid(w, h) {
-    var target = Math.round((w * h) / 26000);
-    target = Math.max(24, Math.min(70, target));
-    var cols = Math.max(5, Math.min(12, Math.round(Math.sqrt(target * (w / h)))));
-    var rows = Math.max(4, Math.min(9, Math.round(target / cols)));
+    var target = Math.round((w * h) / 28000);
+    target = Math.max(20, Math.min(60, target));
+    var cols = Math.max(5, Math.min(11, Math.round(Math.sqrt(target * (w / h)))));
+    var rows = Math.max(4, Math.min(8, Math.round(target / cols)));
     return { cols: cols, rows: rows };
   }
 
@@ -890,52 +1821,43 @@ NWKS.transitions = NWKS.transitions || {};
     ctx.stroke();
   }
 
-  function revealWorld(toWorldEl, animated) {
-    toWorldEl.hidden = false;
-    toWorldEl.classList.add('nwks-world--shown');
-    if (animated) toWorldEl.classList.add('nwks-world--transitioning');
+  // Origin for the shard field: the men's door panel center when it's
+  // actually laid out (gateway visible, 'enter'); falls back to viewport
+  // center when it isn't (world visible, 'exit' — the panel is display:none).
+  function originFor(door, w, h) {
+    var doorEl = document.querySelector('.half[data-door="' + door + '"]');
+    var rect = doorEl && doorEl.getBoundingClientRect ? doorEl.getBoundingClientRect() : null;
+    if (rect && rect.width > 0 && rect.height > 0) {
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    }
+    return { x: w / 2, y: h / 2 };
   }
 
-  function settleWorld(toWorldEl) {
-    toWorldEl.classList.remove('nwks-world--transitioning');
-  }
-
-  function run(fromPanelEl, toWorldEl, opts) {
-    var reduced = !!(opts && opts.reduced);
-
+  function run(coverEl, ctx) {
     return new Promise(function (resolve) {
-      if (reduced) {
-        revealWorld(toWorldEl, false);
-        resolve();
-        return;
-      }
-
       var w = window.innerWidth;
       var h = window.innerHeight;
       var dpr = Math.min(window.devicePixelRatio || 1, 2);
-
-      var rect = (fromPanelEl && fromPanelEl.getBoundingClientRect) ?
-        fromPanelEl.getBoundingClientRect() : { left: 0, top: 0, width: w, height: h };
-      var originX = rect.left + rect.width / 2;
-      var originY = rect.top + rect.height / 2;
+      var origin = originFor(ctx.door, w, h);
 
       var canvas = document.createElement('canvas');
-      canvas.className = 'nwks-transition-canvas nwks-transition-canvas--men';
+      canvas.className = 'nwks-tx-canvas nwks-tx-canvas--men';
       canvas.width = Math.max(1, Math.round(w * dpr));
       canvas.height = Math.max(1, Math.round(h * dpr));
       canvas.style.width = w + 'px';
       canvas.style.height = h + 'px';
-      document.body.appendChild(canvas);
+      coverEl.appendChild(canvas);
 
-      var ctx = canvas.getContext('2d');
-      if (!ctx) {
-        // Defensive: no 2D context available — degrade to an instant reveal.
-        if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
-        revealWorld(toWorldEl, false);
+      var gfx = canvas.getContext('2d');
+      if (!gfx) {
+        // No 2D context available — fall back to the harness's plain cover/swap.
+        ctx.cover();
+        ctx.swap();
+        ctx.uncover();
         resolve();
         return;
       }
-      ctx.scale(dpr, dpr);
+      gfx.scale(dpr, dpr);
 
       var olive = cssVar('--m-olive', '#3D4127');
       var oliveDeep = cssVar('--m-olive-deep', '#2A2D1B');
@@ -944,58 +1866,86 @@ NWKS.transitions = NWKS.transitions || {};
       var palette = [olive, olive, oliveDeep, gun];
 
       var grid = shardGrid(w, h);
-      var shards = buildShardField(w, h, grid.cols, grid.rows, originX, originY);
+      var shards = buildShardField(w, h, grid.cols, grid.rows, origin.x, origin.y);
 
-      revealWorld(toWorldEl, true);
-
+      coverEl.style.background = gun;
+      var totalMs = COVER_MS + UNCOVER_MS;
+      var didSwap = false;
       var rafId = null;
       var start = null;
+
+      function drawShards(t, phase) {
+        // phase 'in': shards fly from vx/vy offset -> home (converging cover)
+        // phase 'out': shards fly from home -> vx/vy offset (dispersing uncover)
+        gfx.clearRect(0, 0, w, h);
+        for (var i = 0; i < shards.length; i++) {
+          var s = shards[i];
+          var local = clamp01((t - s.delay) / Math.max(1, (phase === 'in' ? COVER_MS : UNCOVER_MS) - s.delay));
+          var ease = easeOutCubic(local);
+          var travel = phase === 'in' ? (1 - ease) : ease;
+          var alpha = phase === 'in' ? ease : (1 - easeInCubic(local));
+          if (alpha <= 0.002 && phase === 'out') continue;
+
+          gfx.save();
+          gfx.translate(s.cx + s.vx * travel, s.cy + s.vy * travel);
+          gfx.rotate(s.rot * travel);
+          var scale = 1 + travel * 0.3;
+          gfx.scale(scale, scale);
+          gfx.beginPath();
+          gfx.moveTo(s.pts[0][0], s.pts[0][1]);
+          gfx.lineTo(s.pts[1][0], s.pts[1][1]);
+          gfx.lineTo(s.pts[2][0], s.pts[2][1]);
+          gfx.closePath();
+          gfx.globalAlpha = clamp01(alpha);
+          gfx.fillStyle = palette[i % palette.length];
+          gfx.fill();
+          gfx.restore();
+        }
+        gfx.globalAlpha = 1;
+      }
+
+      function drawCrackFlash(tSinceSwap) {
+        if (tSinceSwap < -CRACK_MS || tSinceSwap > CRACK_MS) return;
+        var cp = clamp01((tSinceSwap + CRACK_MS) / (CRACK_MS * 2));
+        gfx.save();
+        gfx.globalAlpha = Math.max(0, (1 - Math.abs(tSinceSwap) / CRACK_MS) * 0.9);
+        gfx.strokeStyle = yellow;
+        gfx.lineWidth = 2 + cp * 4;
+        gfx.shadowColor = yellow;
+        gfx.shadowBlur = 20;
+        drawCrack(gfx, origin.x, origin.y, w, h, cp);
+        gfx.stroke();
+        gfx.restore();
+      }
 
       function frame(ts) {
         if (start === null) start = ts;
         var t = ts - start;
 
-        ctx.clearRect(0, 0, w, h);
-
-        for (var i = 0; i < shards.length; i++) {
-          var s = shards[i];
-          var local = clamp01((t - s.delay) / (DURATION - s.delay));
-          var ease = easeOutCubic(local);
-          var alpha = 1 - easeInCubic(local);
-          if (alpha <= 0.002) continue;
-
-          ctx.save();
-          ctx.translate(s.cx + s.vx * ease, s.cy + s.vy * ease);
-          ctx.rotate(s.rot * ease);
-          var scale = 1 + ease * 0.35;
-          ctx.scale(scale, scale);
-          ctx.beginPath();
-          ctx.moveTo(s.pts[0][0], s.pts[0][1]);
-          ctx.lineTo(s.pts[1][0], s.pts[1][1]);
-          ctx.lineTo(s.pts[2][0], s.pts[2][1]);
-          ctx.closePath();
-          ctx.globalAlpha = alpha;
-          ctx.fillStyle = palette[i % palette.length];
-          ctx.fill();
-          ctx.restore();
+        if (t < COVER_MS) {
+          drawShards(t, 'in');
+          drawCrackFlash(t - COVER_MS);
+        } else {
+          if (!didSwap) {
+            didSwap = true;
+            // Authoritative mask: guarantee full coverage regardless of shard
+            // math precision, THEN swap while genuinely hidden, THEN release
+            // the safety mask immediately — the shard canvas (already at full
+            // opacity this exact frame) takes over as the visible cover so
+            // the dispersing shards beneath it are actually seen, not hidden
+            // behind a flat mask for the whole back half of the effect.
+            ctx.cover();
+            ctx.swap();
+            ctx.uncover();
+            coverEl.style.background = 'transparent';
+          }
+          var tOut = t - COVER_MS;
+          drawShards(tOut, 'out');
+          drawCrackFlash(t - COVER_MS);
         }
 
-        if (t < CRACK_MS + 140) {
-          var cp = clamp01(t / CRACK_MS);
-          ctx.save();
-          ctx.globalAlpha = Math.max(0, (1 - cp) * 0.9 + 0.08);
-          ctx.strokeStyle = yellow;
-          ctx.lineWidth = 2 + cp * 4;
-          ctx.shadowColor = yellow;
-          ctx.shadowBlur = 20;
-          drawCrack(ctx, originX, originY, w, h, cp);
-          ctx.stroke();
-          ctx.restore();
-        }
-
-        if (t >= DURATION) {
+        if (t >= totalMs) {
           teardown();
-          resolve();
           return;
         }
         rafId = requestAnimationFrame(frame);
@@ -1006,9 +1956,15 @@ NWKS.transitions = NWKS.transitions || {};
       function teardown() {
         if (rafId !== null) cancelAnimationFrame(rafId);
         rafId = null;
-        canvas.style.willChange = 'auto';
+        if (!didSwap) {
+          // Defensive: guarantee the swap happens even if we short-circuited.
+          ctx.cover();
+          ctx.swap();
+        }
+        ctx.uncover();
+        coverEl.style.background = '';
         if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
-        settleWorld(toWorldEl);
+        resolve();
       }
     });
   }
@@ -1026,16 +1982,909 @@ NWKS.transitions = NWKS.transitions || {};
 window.NWKS = window.NWKS || {};
 NWKS.transitions = NWKS.transitions || {};
 
-/* Owned by transitions-coder. Real effect = spec §6 "W1 · Veil lift":
-   a gossamer veil (layered gradient + clip-path) dissolves upward as warm gold
-   light rises behind it; fine gold motes drift and settle; the world fades up
-   gracefully. Slow, soft, beautiful — extra polish vs. the Men's Shatter.
-   Native CSS layers + Canvas 2D motes only.
-   Contract: { id, label, door, run(fromPanelEl, toWorldEl, {reduced}) => Promise<void> } */
+/* Owned by transitions-coder (Phase 2 non-geometric concept set). Follows the
+   masked-swap contract (see src/js/transition-core.js for the full contract
+   doc; men-shatter.js / women-veil.js are the reference implementations).
+   Real effect = "Dawn": a warm horizon light breaks at the bottom of the
+   screen and floods upward — gold at the source fading through olive toward
+   the edges, with soft rays fanning up from the horizon — until it fully
+   covers the viewport (freedom / a new day breaking). The DOM swaps at that
+   covered instant, then the flood recedes back down into the horizon and
+   dissolves, revealing whatever is now underneath. Same motion both
+   directions — 'exit' runs the identical break-and-recede against the
+   gateway instead of the world. Native CSS radial layer + Canvas 2D rays
+   only. Fast: ~700ms total. */
 (function () {
   'use strict';
 
-  var DURATION = 1350; // ms — slow end of the 0.9-1.4s band (soft/graceful character)
+  var COVER_MS = 300;   // horizon light floods upward to full coverage -> cover() + swap()
+  var UNCOVER_MS = 400;  // flood recedes back into the horizon and fades -> uncover() + resolve()
+
+  function cssVar(name, fallback) {
+    var v = getComputedStyle(document.documentElement).getPropertyValue(name);
+    return (v && v.trim()) || fallback;
+  }
+
+  function clamp01(n) { return n < 0 ? 0 : n > 1 ? 1 : n; }
+  function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+  function easeInCubic(t) { return t * t * t; }
+
+  function rayCount(w) {
+    return Math.max(9, Math.min(15, Math.round(w / 130)));
+  }
+
+  function buildRays(w, h, n) {
+    var rays = [];
+    var spread = 1.15; // slightly wider than the viewport so edge rays clear the corners
+    for (var i = 0; i < n; i++) {
+      var t = n === 1 ? 0.5 : i / (n - 1);
+      var angle = (t - 0.5) * Math.PI * spread; // fan around straight-up
+      rays.push({
+        angle: angle,
+        width: (0.045 + Math.random() * 0.03) * w,
+        wobble: (Math.random() - 0.5) * 0.12,
+        delay: Math.random() * 70,
+        shade: Math.random()
+      });
+    }
+    return rays;
+  }
+
+  function drawRays(gfx, rays, originX, originY, maxLen, p, alphaScale, colorNear, colorFar) {
+    for (var i = 0; i < rays.length; i++) {
+      var r = rays[i];
+      var local = clamp01((p - r.delay / 1000) / Math.max(0.05, 1 - r.delay / 1000));
+      var ease = easeOutCubic(local);
+      var len = maxLen * ease;
+      if (len <= 0) continue;
+      var a = r.angle + r.wobble * (1 - ease);
+      var tipX = originX + Math.sin(a) * len;
+      var tipY = originY - Math.cos(a) * len;
+      var halfW = r.width * (0.35 + ease * 0.65);
+      var perpX = Math.cos(a) * halfW;
+      var perpY = Math.sin(a) * halfW;
+
+      var grad = gfx.createLinearGradient(originX, originY, tipX, tipY);
+      grad.addColorStop(0, colorNear);
+      grad.addColorStop(1, colorFar);
+
+      gfx.save();
+      gfx.globalAlpha = clamp01((0.5 + r.shade * 0.4) * alphaScale);
+      gfx.fillStyle = grad;
+      gfx.beginPath();
+      gfx.moveTo(originX - perpX, originY - perpY);
+      gfx.lineTo(originX + perpX, originY + perpY);
+      gfx.lineTo(tipX, tipY);
+      gfx.closePath();
+      gfx.fill();
+      gfx.restore();
+    }
+    gfx.globalAlpha = 1;
+  }
+
+  function run(coverEl, ctx) {
+    return new Promise(function (resolve) {
+      var w = window.innerWidth;
+      var h = window.innerHeight;
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      var glow = document.createElement('div');
+      glow.className = 'mx-dawn__glow';
+      coverEl.appendChild(glow);
+
+      var canvas = document.createElement('canvas');
+      canvas.className = 'nwks-tx-canvas nwks-tx-canvas--dawn';
+      canvas.width = Math.max(1, Math.round(w * dpr));
+      canvas.height = Math.max(1, Math.round(h * dpr));
+      coverEl.appendChild(canvas);
+
+      var gfx = canvas.getContext('2d');
+      if (!gfx) {
+        ctx.cover();
+        ctx.swap();
+        ctx.uncover();
+        if (glow.parentNode) glow.parentNode.removeChild(glow);
+        if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+        resolve();
+        return;
+      }
+      gfx.scale(dpr, dpr);
+
+      var yellow = cssVar('--m-yellow', '#E6C12F');
+      var olive = cssVar('--m-olive', '#3D4127');
+      var gun = cssVar('--m-gun', '#1B1D17');
+      var originX = w * 0.5;
+      var originY = h * 1.02; // just below the viewport — the horizon
+      var maxLen = Math.sqrt(w * w + h * h) * 0.62;
+      var rays = buildRays(w, h, rayCount(w));
+
+      // Solid backdrop for the cover phase: the glow's radial gradient fades
+      // to transparent at its own edges by design, so a flat backdrop
+      // guarantees genuinely full, gapless coverage at the swap instant
+      // (same belt-and-suspenders technique as men-shatter.js). Flipped to
+      // transparent the instant swap() fires so the recede/dissolve below
+      // is actually visible.
+      coverEl.style.background = gun;
+
+      var totalMs = COVER_MS + UNCOVER_MS;
+      var didSwap = false;
+      var rafId = null;
+      var start = null;
+
+      function frame(ts) {
+        if (start === null) start = ts;
+        var t = ts - start;
+        gfx.clearRect(0, 0, w, h);
+
+        if (t < COVER_MS) {
+          var pIn = clamp01(t / COVER_MS);
+          var easedIn = easeOutCubic(pIn);
+          glow.style.opacity = String(easedIn);
+          glow.style.transform = 'scaleY(' + (0.35 + easedIn * 0.65).toFixed(3) + ') translateY(' +
+            ((1 - easedIn) * 22).toFixed(1) + '%)';
+          drawRays(gfx, rays, originX, originY, maxLen, pIn, easedIn, yellow, olive);
+        } else {
+          if (!didSwap) {
+            didSwap = true;
+            // Authoritative mask: guarantee full coverage regardless of the
+            // glow/ray easing above, THEN swap while genuinely hidden, THEN
+            // release the safety mask immediately — the flood (already at
+            // full spread this exact frame) takes over as the visible cover
+            // so its recede-and-dissolve is actually seen, not hidden behind
+            // a flat mask for the whole back half of the effect.
+            glow.style.opacity = '1';
+            glow.style.transform = 'scaleY(1) translateY(0%)';
+            ctx.cover();
+            ctx.swap();
+            ctx.uncover();
+            coverEl.style.background = 'transparent';
+          }
+          var tOut = t - COVER_MS;
+          var pOut = clamp01(tOut / UNCOVER_MS);
+          var easedOut = easeInCubic(pOut);
+          glow.style.opacity = String(1 - easedOut);
+          glow.style.transform = 'scaleY(' + (1 - easedOut * 0.55).toFixed(3) + ') translateY(' +
+            (easedOut * 10).toFixed(1) + '%)';
+          drawRays(gfx, rays, originX, originY, maxLen * (1 + easedOut * 0.25), 1, 1 - easedOut, yellow, gun);
+        }
+
+        if (t >= totalMs) {
+          teardown();
+          return;
+        }
+        rafId = requestAnimationFrame(frame);
+      }
+
+      rafId = requestAnimationFrame(frame);
+
+      function teardown() {
+        if (rafId !== null) cancelAnimationFrame(rafId);
+        rafId = null;
+        if (!didSwap) {
+          ctx.cover();
+          ctx.swap();
+        }
+        ctx.uncover();
+        coverEl.style.background = '';
+        if (glow.parentNode) glow.parentNode.removeChild(glow);
+        if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+        resolve();
+      }
+    });
+  }
+
+  NWKS.transitions['men-dawn'] = {
+    id: 'men-dawn',
+    label: 'Dawn',
+    door: 'men',
+    run: run
+  };
+})();
+
+</script>
+<script>
+window.NWKS = window.NWKS || {};
+NWKS.transitions = NWKS.transitions || {};
+
+/* Owned by transitions-coder (Phase 2 non-geometric concept set). Follows the
+   masked-swap contract (see src/js/transition-core.js for the full contract
+   doc; men-shatter.js / women-veil.js are the reference implementations).
+   Real effect = "Freedom Banner": a wide yellow (--m-yellow) banner sweeps in
+   from the left with a woven, cloth-like wavy leading edge, unfurling until
+   it fully covers the viewport, with the word FREEDOM stamped across it once
+   it's wide enough to read. The DOM swaps at that covered instant, then the
+   banner draws back the same direction (a wavy trailing edge withdraws
+   left-to-right) to reveal whatever is now underneath. Same motion both
+   directions — 'exit' runs the identical sweep-and-draw-back against the
+   gateway instead of the world. Native Canvas 2D only (per-row wave offsets
+   simulate the cloth ripple; no libraries). Fast: ~700ms total. */
+(function () {
+  'use strict';
+
+  var COVER_MS = 320;   // banner sweeps in, cloth ripples, to full coverage -> cover() + swap()
+  var UNCOVER_MS = 380;  // banner draws back the same direction -> uncover() + resolve()
+
+  function cssVar(name, fallback) {
+    var v = getComputedStyle(document.documentElement).getPropertyValue(name);
+    return (v && v.trim()) || fallback;
+  }
+
+  function clamp01(n) { return n < 0 ? 0 : n > 1 ? 1 : n; }
+  function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+  function easeInCubic(t) { return t * t * t; }
+
+  function stripCount(h) {
+    return Math.max(20, Math.min(48, Math.round(h / 16)));
+  }
+
+  // Per-strip wave phase/amplitude so the leading/trailing edge ripples like
+  // cloth rather than sweeping as one flat rigid line.
+  function buildStrips(n) {
+    var strips = [];
+    for (var i = 0; i < n; i++) {
+      strips.push({
+        phase: Math.random() * Math.PI * 2,
+        freq: 1.4 + Math.random() * 1.2,
+        shade: Math.random()
+      });
+    }
+    return strips;
+  }
+
+  function run(coverEl, ctx) {
+    return new Promise(function (resolve) {
+      var w = window.innerWidth;
+      var h = window.innerHeight;
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      var canvas = document.createElement('canvas');
+      canvas.className = 'nwks-tx-canvas nwks-tx-canvas--banner';
+      canvas.width = Math.max(1, Math.round(w * dpr));
+      canvas.height = Math.max(1, Math.round(h * dpr));
+      coverEl.appendChild(canvas);
+
+      var gfx = canvas.getContext('2d');
+      if (!gfx) {
+        ctx.cover();
+        ctx.swap();
+        ctx.uncover();
+        if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+        resolve();
+        return;
+      }
+      gfx.scale(dpr, dpr);
+
+      var yellow = cssVar('--m-yellow', '#E6C12F');
+      var gun = cssVar('--m-gun', '#1B1D17');
+
+      var n = stripCount(h);
+      var stripH = h / n;
+      var strips = buildStrips(n);
+      var amplitude = Math.min(46, w * 0.035);
+
+      // Solid backdrop for the cover phase: the wavy leading edge means the
+      // canvas alone isn't literally 100% opaque at every scanline until the
+      // edge has fully swept past, so a flat backdrop guarantees genuinely
+      // full coverage at the swap instant (same technique as men-shatter.js).
+      coverEl.style.background = gun;
+
+      var totalMs = COVER_MS + UNCOVER_MS;
+      var didSwap = false;
+      var rafId = null;
+      var start = null;
+
+      // edgeX(row, base, t) — wavy x position of the banner's moving edge for
+      // one horizontal strip, base is the unrippled sweep position.
+      function edgeX(strip, base, t) {
+        return base + Math.sin(t * 0.006 * strip.freq + strip.phase) * amplitude;
+      }
+
+      function drawBanner(t, base, direction) {
+        // direction: 'in' -> band spans [0, edge]; 'out' -> band spans [edge, w]
+        gfx.clearRect(0, 0, w, h);
+        for (var i = 0; i < n; i++) {
+          var strip = strips[i];
+          var y = i * stripH;
+          var edge = clamp01((edgeX(strip, base, t)) / w) * w;
+          var x0 = direction === 'in' ? 0 : Math.max(0, Math.min(w, edge));
+          var x1 = direction === 'in' ? Math.max(0, Math.min(w, edge)) : w;
+          var bandW = x1 - x0;
+          if (bandW <= 0) continue;
+          gfx.fillStyle = strip.shade > 0.82 ? '#c9a628' : yellow;
+          gfx.fillRect(x0, y - 0.5, bandW, stripH + 1);
+        }
+      }
+
+      function drawLabel(alpha) {
+        if (alpha <= 0.01) return;
+        gfx.save();
+        gfx.globalAlpha = clamp01(alpha);
+        gfx.fillStyle = gun;
+        gfx.font = '700 ' + Math.round(Math.min(w, h) * 0.11) + 'px system-ui, -apple-system, sans-serif';
+        gfx.textAlign = 'center';
+        gfx.textBaseline = 'middle';
+        gfx.fillText('FREEDOM', w / 2, h / 2);
+        gfx.restore();
+      }
+
+      function frame(ts) {
+        if (start === null) start = ts;
+        var t = ts - start;
+
+        if (t < COVER_MS) {
+          var pIn = clamp01(t / COVER_MS);
+          var easedIn = easeOutCubic(pIn);
+          var base = easedIn * (w + amplitude * 2) - amplitude;
+          drawBanner(t, base, 'in');
+          drawLabel(clamp01((pIn - 0.35) / 0.4));
+        } else {
+          if (!didSwap) {
+            didSwap = true;
+            // Authoritative mask: guarantee full coverage regardless of the
+            // wavy-edge sweep above, THEN swap while genuinely hidden, THEN
+            // release the safety mask immediately — the banner (already at
+            // full width this exact frame) takes over as the visible cover
+            // so its draw-back is actually seen, not hidden behind a flat
+            // mask for the whole back half of the effect.
+            gfx.clearRect(0, 0, w, h);
+            gfx.fillStyle = yellow;
+            gfx.fillRect(0, 0, w, h);
+            drawLabel(1);
+            ctx.cover();
+            ctx.swap();
+            ctx.uncover();
+            coverEl.style.background = 'transparent';
+          }
+          var tOut = t - COVER_MS;
+          var pOut = clamp01(tOut / UNCOVER_MS);
+          var easedOut = easeInCubic(pOut);
+          var baseOut = easedOut * (w + amplitude * 2) - amplitude;
+          drawBanner(t, baseOut, 'out');
+          drawLabel(1 - clamp01(pOut / 0.3));
+        }
+
+        if (t >= totalMs) {
+          teardown();
+          return;
+        }
+        rafId = requestAnimationFrame(frame);
+      }
+
+      rafId = requestAnimationFrame(frame);
+
+      function teardown() {
+        if (rafId !== null) cancelAnimationFrame(rafId);
+        rafId = null;
+        if (!didSwap) {
+          ctx.cover();
+          ctx.swap();
+        }
+        ctx.uncover();
+        coverEl.style.background = '';
+        if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+        resolve();
+      }
+    });
+  }
+
+  NWKS.transitions['men-banner'] = {
+    id: 'men-banner',
+    label: 'Freedom Banner',
+    door: 'men',
+    run: run
+  };
+})();
+
+</script>
+<script>
+window.NWKS = window.NWKS || {};
+NWKS.transitions = NWKS.transitions || {};
+
+/* Owned by transitions-coder (Phase 2 non-geometric concept set). Follows the
+   masked-swap contract (see src/js/transition-core.js for the full contract
+   doc; men-shatter.js / women-veil.js are the reference implementations).
+   Real effect = "Ink Wash": a cluster of dark olive/gunmetal ink blots bloom
+   and spread (soft radial edges, small flung droplets for grit) left-to-right
+   across the screen, merging into one solid wash until it fully covers the
+   viewport. The DOM swaps at that covered instant, then the wash dissipates
+   like smoke — fading and drifting upward with rising wisps — to reveal
+   whatever is now underneath. Same motion both directions — 'exit' runs the
+   identical bloom-and-dissipate against the gateway instead of the world.
+   Native Canvas 2D radial gradients + particles only. Fast: ~700ms total. */
+(function () {
+  'use strict';
+
+  var COVER_MS = 300;   // ink blots bloom + merge to full coverage -> cover() + swap()
+  var UNCOVER_MS = 400;  // wash dissipates like smoke -> uncover() + resolve()
+
+  function cssVar(name, fallback) {
+    var v = getComputedStyle(document.documentElement).getPropertyValue(name);
+    return (v && v.trim()) || fallback;
+  }
+
+  function clamp01(n) { return n < 0 ? 0 : n > 1 ? 1 : n; }
+  function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+  function easeInCubic(t) { return t * t * t; }
+
+  function blotCount(w) {
+    return Math.max(7, Math.min(12, Math.round(w / 170)));
+  }
+
+  function buildBlots(w, h, n) {
+    var blots = [];
+    var diag = Math.sqrt(w * w + h * h);
+    for (var i = 0; i < n; i++) {
+      var cx = w * ((i + 0.5) / n) + (Math.random() - 0.5) * (w / n) * 0.7;
+      blots.push({
+        cx: cx,
+        cy: h * (0.25 + Math.random() * 0.5),
+        maxR: diag * (0.32 + Math.random() * 0.14),
+        delay: (cx / w) * 90 + Math.random() * 40, // left-to-right sweep stagger
+        shade: Math.random()
+      });
+    }
+    return blots;
+  }
+
+  function dropletCount(w, h) {
+    return Math.max(14, Math.min(28, Math.round((w * h) / 90000)));
+  }
+
+  function buildDroplets(blots, n) {
+    var drops = [];
+    for (var i = 0; i < n; i++) {
+      var src = blots[i % blots.length];
+      var angle = Math.random() * Math.PI * 2;
+      var dist = src.maxR * (0.55 + Math.random() * 0.55);
+      drops.push({
+        x: src.cx + Math.cos(angle) * dist,
+        y: src.cy + Math.sin(angle) * dist,
+        r: 2 + Math.random() * 4,
+        delay: src.delay + Math.random() * 60
+      });
+    }
+    return drops;
+  }
+
+  function wispCount(w, h) {
+    return Math.max(10, Math.min(22, Math.round((w * h) / 110000)));
+  }
+
+  function buildWisps(w, h, n) {
+    var wisps = [];
+    for (var i = 0; i < n; i++) {
+      wisps.push({
+        x: w * (0.08 + Math.random() * 0.84),
+        y: h * (0.3 + Math.random() * 0.55),
+        r: 10 + Math.random() * 26,
+        rise: h * (0.14 + Math.random() * 0.22),
+        sway: 8 + Math.random() * 16,
+        freq: 1.0 + Math.random() * 1.4,
+        phase: Math.random() * Math.PI * 2,
+        life0: Math.random() * 0.35
+      });
+    }
+    return wisps;
+  }
+
+  function run(coverEl, ctx) {
+    return new Promise(function (resolve) {
+      var w = window.innerWidth;
+      var h = window.innerHeight;
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      var canvas = document.createElement('canvas');
+      canvas.className = 'nwks-tx-canvas nwks-tx-canvas--ink';
+      canvas.width = Math.max(1, Math.round(w * dpr));
+      canvas.height = Math.max(1, Math.round(h * dpr));
+      coverEl.appendChild(canvas);
+
+      var gfx = canvas.getContext('2d');
+      if (!gfx) {
+        ctx.cover();
+        ctx.swap();
+        ctx.uncover();
+        if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+        resolve();
+        return;
+      }
+      gfx.scale(dpr, dpr);
+
+      var gun = cssVar('--m-gun', '#1B1D17');
+      var oliveDeep = cssVar('--m-olive-deep', '#2A2D1B');
+      var olive = cssVar('--m-olive', '#3D4127');
+      var dim = cssVar('--m-dim', '#b3ae99');
+
+      var blots = buildBlots(w, h, blotCount(w));
+      var droplets = buildDroplets(blots, dropletCount(w, h));
+      var wisps = buildWisps(w, h, wispCount(w, h));
+
+      // Solid backdrop for the cover phase: individual blots have soft
+      // (partly transparent) rims until they fully merge, so a flat backdrop
+      // guarantees genuinely full coverage at the swap instant (same
+      // technique as men-shatter.js).
+      coverEl.style.background = gun;
+
+      var totalMs = COVER_MS + UNCOVER_MS;
+      var didSwap = false;
+      var rafId = null;
+      var start = null;
+
+      function drawBlots(t, phase) {
+        for (var i = 0; i < blots.length; i++) {
+          var b = blots[i];
+          var local = clamp01((t - b.delay) / Math.max(1, (phase === 'in' ? COVER_MS : UNCOVER_MS) - b.delay * 0.4));
+          var ease = phase === 'in' ? easeOutCubic(local) : local;
+          var r = phase === 'in' ? b.maxR * ease : b.maxR * (1 + ease * 0.35);
+          var alpha = phase === 'in' ? 1 : (1 - easeInCubic(local));
+          if (r <= 0 || alpha <= 0.005) continue;
+
+          var grad = gfx.createRadialGradient(b.cx, b.cy, 0, b.cx, b.cy, r);
+          var core = b.shade > 0.5 ? oliveDeep : gun;
+          grad.addColorStop(0, core);
+          grad.addColorStop(0.72, olive);
+          grad.addColorStop(1, 'rgba(0,0,0,0)');
+
+          gfx.save();
+          gfx.globalAlpha = clamp01(alpha);
+          gfx.fillStyle = grad;
+          gfx.beginPath();
+          gfx.arc(b.cx, b.cy, r, 0, Math.PI * 2);
+          gfx.fill();
+          gfx.restore();
+        }
+      }
+
+      function drawDroplets(t, alphaScale) {
+        for (var i = 0; i < droplets.length; i++) {
+          var d = droplets[i];
+          if (t < d.delay) continue;
+          gfx.save();
+          gfx.globalAlpha = clamp01(0.85 * alphaScale);
+          gfx.fillStyle = oliveDeep;
+          gfx.beginPath();
+          gfx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+          gfx.fill();
+          gfx.restore();
+        }
+      }
+
+      function drawWisps(pOut, tMs) {
+        for (var i = 0; i < wisps.length; i++) {
+          var m = wisps[i];
+          var mp = clamp01((pOut - m.life0) / (1 - m.life0));
+          if (mp <= 0) continue;
+          var env = Math.sin(Math.PI * mp) * 0.5;
+          if (env <= 0.005) continue;
+          var x = m.x + Math.sin(tMs * 0.0018 * m.freq + m.phase) * m.sway;
+          var y = m.y - m.rise * mp;
+          gfx.save();
+          gfx.globalAlpha = env;
+          var grad = gfx.createRadialGradient(x, y, 0, x, y, m.r);
+          grad.addColorStop(0, dim);
+          grad.addColorStop(1, 'rgba(0,0,0,0)');
+          gfx.fillStyle = grad;
+          gfx.beginPath();
+          gfx.arc(x, y, m.r, 0, Math.PI * 2);
+          gfx.fill();
+          gfx.restore();
+        }
+        gfx.globalAlpha = 1;
+      }
+
+      function frame(ts) {
+        if (start === null) start = ts;
+        var t = ts - start;
+        gfx.clearRect(0, 0, w, h);
+
+        if (t < COVER_MS) {
+          drawBlots(t, 'in');
+          drawDroplets(t, clamp01(t / COVER_MS));
+        } else {
+          if (!didSwap) {
+            didSwap = true;
+            // Authoritative mask: guarantee full coverage regardless of blot
+            // merge precision, THEN swap while genuinely hidden, THEN
+            // release the safety mask immediately — the wash (already solid
+            // this exact frame) takes over as the visible cover so its
+            // smoke-dissipate is actually seen, not hidden behind a flat
+            // mask for the whole back half of the effect.
+            ctx.cover();
+            ctx.swap();
+            ctx.uncover();
+            coverEl.style.background = 'transparent';
+          }
+          var tOut = t - COVER_MS;
+          var pOut = clamp01(tOut / UNCOVER_MS);
+          drawBlots(tOut, 'out');
+          drawDroplets(tOut, 1 - pOut);
+          drawWisps(pOut, t);
+        }
+
+        if (t >= totalMs) {
+          teardown();
+          return;
+        }
+        rafId = requestAnimationFrame(frame);
+      }
+
+      rafId = requestAnimationFrame(frame);
+
+      function teardown() {
+        if (rafId !== null) cancelAnimationFrame(rafId);
+        rafId = null;
+        if (!didSwap) {
+          ctx.cover();
+          ctx.swap();
+        }
+        ctx.uncover();
+        coverEl.style.background = '';
+        if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+        resolve();
+      }
+    });
+  }
+
+  NWKS.transitions['men-ink'] = {
+    id: 'men-ink',
+    label: 'Ink Wash',
+    door: 'men',
+    run: run
+  };
+})();
+
+</script>
+<script>
+window.NWKS = window.NWKS || {};
+NWKS.transitions = NWKS.transitions || {};
+
+/* Owned by transitions-coder (Phase 2 non-geometric concept set). Follows the
+   masked-swap contract (see src/js/transition-core.js for the full contract
+   doc; men-shatter.js / women-veil.js are the reference implementations).
+   Real effect = "Embers": a dark gunmetal/olive field (a forge at night)
+   fades in while embers and sparks rise off a faint heat-shimmering ground,
+   until the field fully covers the viewport. The DOM swaps at that covered
+   instant, then the field fades back out — embers still drifting up and
+   guttering out — to reveal whatever is now underneath. Same motion both
+   directions — 'exit' runs the identical fade-in/fade-out against the
+   gateway instead of the world. Rugged, forge-lit, not delicate. Native
+   Canvas 2D particles + shadowBlur glow only. Fast: ~730ms total. */
+(function () {
+  'use strict';
+
+  var COVER_MS = 300;   // dark field fades in, embers rising -> cover() + swap()
+  var UNCOVER_MS = 430;  // field fades out, embers gutter out -> uncover() + resolve()
+
+  function cssVar(name, fallback) {
+    var v = getComputedStyle(document.documentElement).getPropertyValue(name);
+    return (v && v.trim()) || fallback;
+  }
+
+  function clamp01(n) { return n < 0 ? 0 : n > 1 ? 1 : n; }
+  function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+  function easeInCubic(t) { return t * t * t; }
+
+  function emberCount(w, h) {
+    return Math.max(20, Math.min(38, Math.round((w * h) / 42000)));
+  }
+
+  function buildEmbers(w, h, n, totalMs) {
+    var embers = [];
+    for (var i = 0; i < n; i++) {
+      var life0 = Math.random() * 0.62; // staggered start, fraction of totalMs
+      var span = 0.38 + Math.random() * 0.3; // fraction of totalMs this ember is alive
+      embers.push({
+        x: w * (0.05 + Math.random() * 0.9),
+        baseY: h * (0.85 + Math.random() * 0.25),
+        rise: h * (0.5 + Math.random() * 0.55),
+        sway: 10 + Math.random() * 22,
+        freq: 0.9 + Math.random() * 1.4,
+        phase: Math.random() * Math.PI * 2,
+        r: 1.2 + Math.random() * 2.4,
+        life0: life0,
+        span: Math.min(span, 1 - life0)
+      });
+    }
+    return embers;
+  }
+
+  function shimmerLines(w, h, n) {
+    var lines = [];
+    for (var i = 0; i < n; i++) {
+      lines.push({
+        y: h * (0.82 + (i / Math.max(1, n - 1)) * 0.14),
+        amp: 3 + Math.random() * 5,
+        freq: 0.010 + Math.random() * 0.006,
+        speed: 0.0016 + Math.random() * 0.0012,
+        phase: Math.random() * Math.PI * 2
+      });
+    }
+    return lines;
+  }
+
+  function run(coverEl, ctx) {
+    return new Promise(function (resolve) {
+      var w = window.innerWidth;
+      var h = window.innerHeight;
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      var canvas = document.createElement('canvas');
+      canvas.className = 'nwks-tx-canvas nwks-tx-canvas--embers';
+      canvas.width = Math.max(1, Math.round(w * dpr));
+      canvas.height = Math.max(1, Math.round(h * dpr));
+      coverEl.appendChild(canvas);
+
+      var gfx = canvas.getContext('2d');
+      if (!gfx) {
+        ctx.cover();
+        ctx.swap();
+        ctx.uncover();
+        if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+        resolve();
+        return;
+      }
+      gfx.scale(dpr, dpr);
+
+      var gun = cssVar('--m-gun', '#1B1D17');
+      var oliveDeep = cssVar('--m-olive-deep', '#2A2D1B');
+      var yellow = cssVar('--m-yellow', '#E6C12F');
+      var bone = cssVar('--m-bone', '#E8E3D2');
+
+      var totalMs = COVER_MS + UNCOVER_MS;
+      var embers = buildEmbers(w, h, emberCount(w, h), totalMs);
+      var shimmer = shimmerLines(w, h, 4);
+
+      // Solid backdrop for the cover phase: the fade-in field + sparse
+      // embers aren't literally 100% opaque until the fade completes, so a
+      // flat backdrop guarantees genuinely full coverage at the swap instant
+      // (same technique as men-shatter.js).
+      coverEl.style.background = gun;
+
+      var didSwap = false;
+      var rafId = null;
+      var start = null;
+
+      function drawField(alpha) {
+        gfx.save();
+        gfx.globalAlpha = clamp01(alpha);
+        gfx.fillStyle = gun;
+        gfx.fillRect(0, 0, w, h);
+        var grad = gfx.createLinearGradient(0, h * 0.65, 0, h);
+        grad.addColorStop(0, 'rgba(0,0,0,0)');
+        grad.addColorStop(1, oliveDeep);
+        gfx.fillStyle = grad;
+        gfx.fillRect(0, h * 0.65, w, h * 0.35);
+        gfx.restore();
+      }
+
+      function drawShimmer(t, alpha) {
+        if (alpha <= 0.01) return;
+        gfx.save();
+        gfx.globalAlpha = clamp01(alpha * 0.16);
+        gfx.strokeStyle = bone;
+        gfx.lineWidth = 1;
+        for (var i = 0; i < shimmer.length; i++) {
+          var ln = shimmer[i];
+          gfx.beginPath();
+          for (var x = 0; x <= w; x += 16) {
+            var y = ln.y + Math.sin(x * ln.freq + t * ln.speed + ln.phase) * ln.amp;
+            if (x === 0) gfx.moveTo(x, y); else gfx.lineTo(x, y);
+          }
+          gfx.stroke();
+        }
+        gfx.restore();
+      }
+
+      function drawEmbers(tMs) {
+        var frac = clamp01(tMs / totalMs);
+        gfx.save();
+        gfx.shadowColor = yellow;
+        for (var i = 0; i < embers.length; i++) {
+          var e = embers[i];
+          var local = clamp01((frac - e.life0) / e.span);
+          if (local <= 0 || local >= 1) continue;
+          var env = Math.sin(Math.PI * local); // fade in then out
+          var y = e.baseY - e.rise * local;
+          var x = e.x + Math.sin(tMs * 0.002 * e.freq + e.phase) * e.sway * local;
+          var r = e.r * (0.6 + env * 0.6);
+          gfx.globalAlpha = clamp01(env * 0.95);
+          gfx.shadowBlur = r * 5;
+          gfx.fillStyle = local > 0.6 ? bone : yellow;
+          gfx.beginPath();
+          gfx.arc(x, y, r, 0, Math.PI * 2);
+          gfx.fill();
+        }
+        gfx.restore();
+        gfx.globalAlpha = 1;
+      }
+
+      function frame(ts) {
+        if (start === null) start = ts;
+        var t = ts - start;
+        gfx.clearRect(0, 0, w, h);
+
+        if (t < COVER_MS) {
+          var pIn = clamp01(t / COVER_MS);
+          var easedIn = easeOutCubic(pIn);
+          drawField(easedIn);
+          drawShimmer(t, easedIn);
+          drawEmbers(t);
+        } else {
+          if (!didSwap) {
+            didSwap = true;
+            // Authoritative mask: guarantee full coverage regardless of the
+            // field fade-in precision, THEN swap while genuinely hidden,
+            // THEN release the safety mask immediately — the field (already
+            // full opacity this exact frame) takes over as the visible cover
+            // so its fade-out (embers still guttering) is actually seen, not
+            // hidden behind a flat mask for the whole back half of the
+            // effect.
+            ctx.cover();
+            ctx.swap();
+            ctx.uncover();
+            coverEl.style.background = 'transparent';
+          }
+          var tOut = t - COVER_MS;
+          var pOut = clamp01(tOut / UNCOVER_MS);
+          var easedOut = easeInCubic(pOut);
+          drawField(1 - easedOut);
+          drawShimmer(t, 1 - easedOut);
+          drawEmbers(t);
+        }
+
+        if (t >= totalMs) {
+          teardown();
+          return;
+        }
+        rafId = requestAnimationFrame(frame);
+      }
+
+      rafId = requestAnimationFrame(frame);
+
+      function teardown() {
+        if (rafId !== null) cancelAnimationFrame(rafId);
+        rafId = null;
+        if (!didSwap) {
+          ctx.cover();
+          ctx.swap();
+        }
+        ctx.uncover();
+        coverEl.style.background = '';
+        if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+        resolve();
+      }
+    });
+  }
+
+  NWKS.transitions['men-embers'] = {
+    id: 'men-embers',
+    label: 'Embers',
+    door: 'men',
+    run: run
+  };
+})();
+
+</script>
+<script>
+window.NWKS = window.NWKS || {};
+NWKS.transitions = NWKS.transitions || {};
+
+/* Owned by transitions-coder. REFERENCE IMPLEMENTATION of the masked-swap
+   contract (see src/js/transition-core.js for the full contract doc).
+   Real effect = spec §6 "W1 · Veil lift": a gossamer pearl/gold veil closes
+   in (clip-path) to fully cover the screen while warm gold light and fine
+   motes build behind it, the DOM swaps at full coverage, then the veil lifts
+   back open (dissolving upward) to reveal whatever is now underneath. Same
+   motion both directions — 'exit' is "close -> swap -> lift" run against the
+   gateway instead of the world. Soft and graceful, but still fast per the
+   ~600-800ms harness target (was 1350ms one-way; now ~700ms round-trip-ready).
+   Native CSS layers + Canvas 2D motes only.
+   Contract: { id, label, door, run(coverEl, ctx) => Promise<void> } */
+(function () {
+  'use strict';
+
+  var COVER_MS = 300;   // veil closes to full coverage -> cover() + swap()
+  var UNCOVER_MS = 400;  // veil lifts back open -> uncover() + resolve()
 
   function cssVar(name, fallback) {
     var v = getComputedStyle(document.documentElement).getPropertyValue(name);
@@ -1047,54 +2896,32 @@ NWKS.transitions = NWKS.transitions || {};
   function smoothstep(t) { return t * t * (3 - 2 * t); }
 
   function moteCount(w, h) {
-    var target = Math.round((w * h) / 34000);
-    return Math.max(14, Math.min(42, target));
+    var target = Math.round((w * h) / 36000);
+    return Math.max(12, Math.min(36, target));
   }
 
   function buildMotes(w, h, n) {
     var motes = [];
     for (var i = 0; i < n; i++) {
-      var life0 = Math.random() * 0.35; // staggered start within the animation
       motes.push({
         x: w * (0.12 + Math.random() * 0.76),
-        y: h * (0.55 + Math.random() * 0.4),
+        y: h * (0.3 + Math.random() * 0.5),
         r: 0.8 + Math.random() * 1.8,
-        rise: h * (0.22 + Math.random() * 0.28),
-        sway: 8 + Math.random() * 18,
+        drift: h * (0.1 + Math.random() * 0.16),
+        sway: 6 + Math.random() * 14,
         freq: 1.2 + Math.random() * 1.6,
         phase: Math.random() * Math.PI * 2,
-        life0: life0
+        life0: Math.random() * 0.3
       });
     }
     return motes;
   }
 
-  function revealWorld(toWorldEl, animated) {
-    toWorldEl.hidden = false;
-    toWorldEl.classList.add('nwks-world--shown');
-    if (animated) toWorldEl.classList.add('nwks-world--transitioning');
-  }
-
-  function settleWorld(toWorldEl) {
-    toWorldEl.classList.remove('nwks-world--transitioning');
-  }
-
-  function run(fromPanelEl, toWorldEl, opts) {
-    var reduced = !!(opts && opts.reduced);
-
+  function run(coverEl, ctx) {
     return new Promise(function (resolve) {
-      if (reduced) {
-        revealWorld(toWorldEl, false);
-        resolve();
-        return;
-      }
-
       var w = window.innerWidth;
       var h = window.innerHeight;
       var dpr = Math.min(window.devicePixelRatio || 1, 2);
-
-      var overlay = document.createElement('div');
-      overlay.className = 'nwks-veil-overlay';
 
       var veilLayer = document.createElement('div');
       veilLayer.className = 'nwks-veil-layer';
@@ -1103,67 +2930,107 @@ NWKS.transitions = NWKS.transitions || {};
       goldLight.className = 'nwks-veil-light';
 
       var canvas = document.createElement('canvas');
-      canvas.className = 'nwks-veil-canvas';
+      canvas.className = 'nwks-tx-canvas nwks-veil-canvas';
       canvas.width = Math.max(1, Math.round(w * dpr));
       canvas.height = Math.max(1, Math.round(h * dpr));
 
-      overlay.appendChild(veilLayer);
-      overlay.appendChild(goldLight);
-      overlay.appendChild(canvas);
-      document.body.appendChild(overlay);
+      coverEl.appendChild(veilLayer);
+      coverEl.appendChild(goldLight);
+      coverEl.appendChild(canvas);
 
-      var ctx = canvas.getContext('2d');
-      var hasCtx = !!ctx;
-      if (hasCtx) ctx.scale(dpr, dpr);
+      var gfx = canvas.getContext('2d');
+      var hasCtx = !!gfx;
+      if (hasCtx) gfx.scale(dpr, dpr);
 
       var gold = cssVar('--w-gold', '#B5984F');
-
       var motes = hasCtx ? buildMotes(w, h, moteCount(w, h)) : [];
 
-      revealWorld(toWorldEl, true);
-
+      var totalMs = COVER_MS + UNCOVER_MS;
+      var didSwap = false;
       var rafId = null;
       var start = null;
 
       function frame(ts) {
         if (start === null) start = ts;
         var t = ts - start;
-        var p = clamp01(t / DURATION);
-        var eased = smoothstep(p);
 
-        // veil: dissolves upward from the bottom, softening (blur) and fading as it lifts
-        veilLayer.style.clipPath = 'inset(0 0 ' + Math.round(eased * 100) + '% 0)';
-        veilLayer.style.opacity = String(1 - clamp01(eased * 1.05));
-        veilLayer.style.filter = 'blur(' + (eased * 11).toFixed(1) + 'px)';
-        veilLayer.style.transform = 'translateY(' + (-eased * 5).toFixed(2) + '%)';
+        if (t < COVER_MS) {
+          // ---- closing: veil sweeps in from the edges to full coverage ----
+          var pIn = clamp01(t / COVER_MS);
+          var easedIn = smoothstep(pIn);
+          veilLayer.style.clipPath = 'inset(' + Math.round((1 - easedIn) * 50) + '% ' +
+            Math.round((1 - easedIn) * 50) + '% ' + Math.round((1 - easedIn) * 50) + '% ' +
+            Math.round((1 - easedIn) * 50) + '%)';
+          veilLayer.style.opacity = String(easedIn);
+          veilLayer.style.filter = 'blur(' + ((1 - easedIn) * 8).toFixed(1) + 'px)';
+          goldLight.style.opacity = String(easedIn * 0.7);
+          goldLight.style.transform = 'translateY(' + ((1 - easedIn) * 14).toFixed(2) + '%)';
 
-        // warm gold light rises behind the veil, then settles away as the world resolves
-        var riseP = clamp01(p / 0.6);
-        var fadeP = clamp01((p - 0.5) / 0.5);
-        goldLight.style.opacity = String(Math.max(0, riseP * (1 - fadeP) * 0.85));
-        goldLight.style.transform = 'translateY(' + ((1 - riseP) * 22).toFixed(2) + '%)';
-
-        if (hasCtx) {
-          ctx.clearRect(0, 0, w, h);
-          for (var i = 0; i < motes.length; i++) {
-            var m = motes[i];
-            var mp = clamp01((p - m.life0) / (1 - m.life0));
-            if (mp <= 0) continue;
-            var envelope = Math.sin(Math.PI * mp); // fade in, then out
-            var y = m.y - m.rise * mp;
-            var x = m.x + Math.sin(t * 0.001 * m.freq + m.phase) * m.sway;
-            ctx.beginPath();
-            ctx.arc(x, y, m.r, 0, Math.PI * 2);
-            ctx.fillStyle = gold;
-            ctx.globalAlpha = envelope * 0.8;
-            ctx.fill();
+          if (hasCtx) {
+            gfx.clearRect(0, 0, w, h);
+            for (var i = 0; i < motes.length; i++) {
+              var m = motes[i];
+              var mp = clamp01((pIn - m.life0) / (1 - m.life0));
+              if (mp <= 0) continue;
+              var env = Math.sin(Math.PI * mp) * 0.7;
+              var x = m.x + Math.sin(t * 0.002 * m.freq + m.phase) * m.sway;
+              gfx.beginPath();
+              gfx.arc(x, m.y, m.r, 0, Math.PI * 2);
+              gfx.fillStyle = gold;
+              gfx.globalAlpha = env;
+              gfx.fill();
+            }
+            gfx.globalAlpha = 1;
           }
-          ctx.globalAlpha = 1;
+        } else {
+          if (!didSwap) {
+            didSwap = true;
+            // Authoritative mask: guarantee full coverage regardless of the
+            // clip-path/opacity easing above, THEN swap while genuinely
+            // hidden, THEN release the safety mask immediately — the veil
+            // layer (snapped to fully closed this exact frame) takes over as
+            // the visible cover so the lift-open animation beneath it is
+            // actually seen, not hidden behind a flat mask.
+            veilLayer.style.clipPath = 'inset(0 0 0 0)';
+            veilLayer.style.opacity = '1';
+            veilLayer.style.filter = 'blur(0)';
+            ctx.cover();
+            ctx.swap();
+            ctx.uncover();
+          }
+
+          // ---- lifting: veil dissolves upward off the swapped content ----
+          var tOut = t - COVER_MS;
+          var pOut = clamp01(tOut / UNCOVER_MS);
+          var easedOut = smoothstep(pOut);
+          veilLayer.style.clipPath = 'inset(0 0 ' + Math.round(easedOut * 100) + '% 0)';
+          veilLayer.style.opacity = String(1 - clamp01(easedOut * 1.05));
+          veilLayer.style.filter = 'blur(' + (easedOut * 10).toFixed(1) + 'px)';
+          veilLayer.style.transform = 'translateY(' + (-easedOut * 4).toFixed(2) + '%)';
+
+          var fadeP = clamp01(pOut / 0.7);
+          goldLight.style.opacity = String(Math.max(0, 0.7 * (1 - fadeP)));
+
+          if (hasCtx) {
+            gfx.clearRect(0, 0, w, h);
+            for (var j = 0; j < motes.length; j++) {
+              var mo = motes[j];
+              var mpo = clamp01(pOut);
+              var envo = Math.sin(Math.PI * mpo) * 0.7 * (1 - mpo * 0.4);
+              var y = mo.y - mo.drift * mpo;
+              var xo = mo.x + Math.sin(t * 0.002 * mo.freq + mo.phase) * mo.sway;
+              gfx.beginPath();
+              gfx.arc(xo, y, mo.r, 0, Math.PI * 2);
+              gfx.fillStyle = gold;
+              gfx.globalAlpha = envo;
+              gfx.fill();
+            }
+            gfx.globalAlpha = 1;
+          }
         }
 
-        if (p >= 1) {
+        if (t >= totalMs) {
           teardown();
-          resolve();
           return;
         }
         rafId = requestAnimationFrame(frame);
@@ -1174,10 +3041,16 @@ NWKS.transitions = NWKS.transitions || {};
       function teardown() {
         if (rafId !== null) cancelAnimationFrame(rafId);
         rafId = null;
-        veilLayer.style.willChange = 'auto';
-        goldLight.style.willChange = 'auto';
-        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-        settleWorld(toWorldEl);
+        if (!didSwap) {
+          ctx.cover();
+          ctx.swap();
+        }
+        ctx.uncover();
+        coverEl.style.opacity = '';
+        if (veilLayer.parentNode) veilLayer.parentNode.removeChild(veilLayer);
+        if (goldLight.parentNode) goldLight.parentNode.removeChild(goldLight);
+        if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+        resolve();
       }
     });
   }
@@ -1193,16 +3066,751 @@ NWKS.transitions = NWKS.transitions || {};
 </script>
 <script>
 window.NWKS = window.NWKS || {};
+NWKS.transitions = NWKS.transitions || {};
 
-/* Boot + core enter(door) orchestration. Depends on NWKS.registry, NWKS.transitions,
-   NWKS.worlds, NWKS.content — loaded before this script. */
+/* Owned by transitions-coder. HERO CONCEPT — women's door.
+   "Fireflies" done properly: a loose scatter of soft glowing motes (white /
+   baby-pink / a whisper of soft gold) drift inward and GATHER, swelling into
+   one luminous bloom that reaches full coverage; the DOM swaps at that
+   covered instant; then the motes scatter back outward and fade as the bloom
+   dissolves, settling gracefully into the reveal. Palette is white + baby
+   pink + black + soft gold — NOT the men's olive/military look (see
+   src/styles/transitions-women.css). Native Canvas 2D (soft glow via
+   shadowBlur, varied sizes, gentle sway/twinkle) + one CSS radial-gradient
+   bloom layer. Contract: { id, label, door, run(coverEl, ctx) => Promise }
+   (see src/js/transition-core.js for the full contract doc). ~720ms total. */
 (function () {
   'use strict';
 
-  var stage = document.getElementById('stage');
+  var COVER_MS = 320;   // motes gather + bloom swells to full coverage -> cover()+swap()
+  var UNCOVER_MS = 420; // bloom dissolves, motes scatter + settle -> uncover()+resolve()
+
+  function cssVar(name, fallback) {
+    var v = getComputedStyle(document.documentElement).getPropertyValue(name);
+    return (v && v.trim()) || fallback;
+  }
+
+  function clamp01(n) { return n < 0 ? 0 : n > 1 ? 1 : n; }
+  function smoothstep(t) { return t * t * (3 - 2 * t); }
+  function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+  function fireflyCount(w, h) {
+    var target = Math.round((w * h) / 22000);
+    return Math.max(28, Math.min(58, target));
+  }
+
+  // Weighted palette: mostly white/pink light, a rare soft-gold spark.
+  function pickColor(white, pink, gold) {
+    var r = Math.random();
+    if (r < 0.5) return white;
+    if (r < 0.88) return pink;
+    return gold;
+  }
+
+  function buildFireflies(n, w, h, white, pinkLight, gold) {
+    var cx = w / 2, cy = h / 2;
+    var clusterR = Math.min(w, h) * 0.15;
+    var flies = [];
+    for (var i = 0; i < n; i++) {
+      var homeX = cx + (Math.random() - 0.5) * clusterR * 2;
+      var homeY = cy + (Math.random() - 0.5) * clusterR * 2;
+      var startX = w * (0.04 + Math.random() * 0.92);
+      var startY = h * (0.04 + Math.random() * 0.92);
+      var angle = Math.random() * Math.PI * 2;
+      var dist = Math.min(w, h) * (0.22 + Math.random() * 0.34);
+      flies.push({
+        homeX: homeX, homeY: homeY,
+        startX: startX, startY: startY,
+        scatterX: Math.cos(angle) * dist,
+        scatterY: Math.sin(angle) * dist * 0.9 + Math.min(w, h) * 0.05, // slight downward settle
+        r: 1.0 + Math.random() * 2.6,
+        sway: 4 + Math.random() * 10,
+        freq: 1.0 + Math.random() * 1.8,
+        phase: Math.random() * Math.PI * 2,
+        delay: Math.random() * 110,
+        color: pickColor(white, pinkLight, gold)
+      });
+    }
+    return flies;
+  }
+
+  function run(coverEl, ctx) {
+    return new Promise(function (resolve) {
+      var w = window.innerWidth;
+      var h = window.innerHeight;
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      var bloom = document.createElement('div');
+      bloom.className = 'wx-layer wx-fireflies__bloom';
+
+      var canvas = document.createElement('canvas');
+      canvas.className = 'nwks-tx-canvas wx-fireflies__canvas';
+      canvas.width = Math.max(1, Math.round(w * dpr));
+      canvas.height = Math.max(1, Math.round(h * dpr));
+
+      coverEl.appendChild(bloom);
+      coverEl.appendChild(canvas);
+
+      var gfx = canvas.getContext('2d');
+      if (!gfx) {
+        ctx.cover();
+        ctx.swap();
+        ctx.uncover();
+        resolve();
+        return;
+      }
+      gfx.scale(dpr, dpr);
+
+      var white = cssVar('--wx-white', '#FFFFFF');
+      var pinkLight = cssVar('--wx-pink-light', '#F8D9E0');
+      var gold = cssVar('--wx-gold', '#C9A96A');
+
+      var flies = buildFireflies(fireflyCount(w, h), w, h, white, pinkLight, gold);
+
+      var totalMs = COVER_MS + UNCOVER_MS;
+      var didSwap = false;
+      var rafId = null;
+      var start = null;
+
+      function drawGathering(t) {
+        gfx.clearRect(0, 0, w, h);
+        for (var i = 0; i < flies.length; i++) {
+          var f = flies[i];
+          var local = clamp01((t - f.delay) / Math.max(1, COVER_MS - f.delay));
+          var ease = easeOutCubic(local);
+          var x = f.startX + (f.homeX - f.startX) * ease + Math.sin(t * 0.0022 * f.freq + f.phase) * f.sway;
+          var y = f.startY + (f.homeY - f.startY) * ease + Math.cos(t * 0.0018 * f.freq + f.phase) * f.sway * 0.6;
+          var r = f.r * (0.55 + 0.55 * ease);
+          var twinkle = 0.72 + 0.28 * Math.sin(t * 0.012 * f.freq + f.phase);
+          var alpha = clamp01(ease * twinkle);
+
+          gfx.save();
+          gfx.globalAlpha = alpha;
+          gfx.fillStyle = f.color;
+          gfx.shadowColor = f.color;
+          gfx.shadowBlur = r * 5;
+          gfx.beginPath();
+          gfx.arc(x, y, r, 0, Math.PI * 2);
+          gfx.fill();
+          gfx.restore();
+        }
+        gfx.globalAlpha = 1;
+      }
+
+      function drawScattering(tOut) {
+        gfx.clearRect(0, 0, w, h);
+        for (var i = 0; i < flies.length; i++) {
+          var f = flies[i];
+          var local = clamp01((tOut - f.delay * 0.4) / Math.max(1, UNCOVER_MS - f.delay * 0.4));
+          var ease = easeOutCubic(local);
+          var x = f.homeX + f.scatterX * ease + Math.sin(tOut * 0.002 * f.freq + f.phase) * f.sway * 0.5;
+          var y = f.homeY + f.scatterY * ease + Math.cos(tOut * 0.0016 * f.freq + f.phase) * f.sway * 0.5;
+          var r = f.r * (1.1 - 0.35 * ease);
+          var alpha = clamp01((1 - ease) * (0.85 + 0.15 * Math.sin(tOut * 0.01 * f.freq + f.phase)));
+          if (alpha <= 0.004) continue;
+
+          gfx.save();
+          gfx.globalAlpha = alpha;
+          gfx.fillStyle = f.color;
+          gfx.shadowColor = f.color;
+          gfx.shadowBlur = r * 5;
+          gfx.beginPath();
+          gfx.arc(x, y, r, 0, Math.PI * 2);
+          gfx.fill();
+          gfx.restore();
+        }
+        gfx.globalAlpha = 1;
+      }
+
+      function frame(ts) {
+        if (start === null) start = ts;
+        var t = ts - start;
+
+        if (t < COVER_MS) {
+          var pIn = clamp01(t / COVER_MS);
+          var easedIn = smoothstep(pIn);
+          bloom.style.clipPath = 'circle(' + (easedIn * 100).toFixed(2) + '% at 50% 50%)';
+          bloom.style.opacity = String(Math.min(1, easedIn * 1.15));
+          bloom.style.filter = 'blur(' + ((1 - easedIn) * 10).toFixed(1) + 'px)';
+          drawGathering(t);
+        } else {
+          if (!didSwap) {
+            didSwap = true;
+            // Authoritative mask: snap the bloom to full solid coverage THEN
+            // swap while genuinely hidden, THEN release the safety mask —
+            // the bloom (already full-opacity this exact frame) stays the
+            // visible cover so the scattering motes beneath it are actually
+            // seen as they dissolve, not hidden behind a flat mask.
+            bloom.style.clipPath = 'circle(100% at 50% 50%)';
+            bloom.style.opacity = '1';
+            bloom.style.filter = 'blur(0)';
+            ctx.cover();
+            ctx.swap();
+            ctx.uncover();
+          }
+
+          var tOut = t - COVER_MS;
+          var pOut = clamp01(tOut / UNCOVER_MS);
+          var easedOut = smoothstep(pOut);
+          bloom.style.clipPath = 'circle(' + (100 - easedOut * 100).toFixed(2) + '% at 50% 50%)';
+          bloom.style.opacity = String(Math.max(0, 1 - clamp01(easedOut * 1.1)));
+          bloom.style.filter = 'blur(' + (easedOut * 12).toFixed(1) + 'px)';
+          drawScattering(tOut);
+        }
+
+        if (t >= totalMs) {
+          teardown();
+          return;
+        }
+        rafId = requestAnimationFrame(frame);
+      }
+
+      rafId = requestAnimationFrame(frame);
+
+      function teardown() {
+        if (rafId !== null) cancelAnimationFrame(rafId);
+        rafId = null;
+        if (!didSwap) {
+          ctx.cover();
+          ctx.swap();
+        }
+        ctx.uncover();
+        if (bloom.parentNode) bloom.parentNode.removeChild(bloom);
+        if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+        resolve();
+      }
+    });
+  }
+
+  NWKS.transitions['women-fireflies'] = {
+    id: 'women-fireflies',
+    label: 'Fireflies',
+    door: 'women',
+    run: run
+  };
+})();
+
+</script>
+<script>
+window.NWKS = window.NWKS || {};
+NWKS.transitions = NWKS.transitions || {};
+
+/* Owned by transitions-coder. Women's door concept: "Petals" — soft pink and
+   white petals drift in on a diagonal sweep and settle into a full jittered
+   field that reads as one seamless blush cover; the DOM swaps at that covered
+   instant; then the petals keep falling past their resting spots and fade,
+   revealing whatever is now underneath. Palette is white + baby pink + a
+   whisper of soft gold — NOT the men's olive/military look (see
+   src/styles/transitions-women.css). Native Canvas 2D (petal shapes) + one
+   CSS gradient wash layer as the coverage backstop. Contract: { id, label,
+   door, run(coverEl, ctx) => Promise } (see src/js/transition-core.js for the
+   full contract doc). ~720ms total. */
+(function () {
+  'use strict';
+
+  var COVER_MS = 300;   // petals sweep in + settle into a full field -> cover()+swap()
+  var UNCOVER_MS = 420; // petals fall away + fade -> uncover()+resolve()
+
+  function cssVar(name, fallback) {
+    var v = getComputedStyle(document.documentElement).getPropertyValue(name);
+    return (v && v.trim()) || fallback;
+  }
+
+  function clamp01(n) { return n < 0 ? 0 : n > 1 ? 1 : n; }
+  function smoothstep(t) { return t * t * (3 - 2 * t); }
+  function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+  // Jittered grid of home positions so overlapping petals tile the full
+  // viewport once settled (same tiling idea as men-shatter's shard field,
+  // scaled for softer, fewer, bigger petal shapes).
+  function petalGrid(w, h) {
+    var target = Math.round((w * h) / 26000);
+    target = Math.max(26, Math.min(64, target));
+    var cols = Math.max(6, Math.min(11, Math.round(Math.sqrt(target * (w / h)))));
+    var rows = Math.max(4, Math.min(9, Math.round(target / cols)));
+    return { cols: cols, rows: rows };
+  }
+
+  function buildPetals(w, h, white, pinkLight, pink) {
+    var grid = petalGrid(w, h);
+    var cw = w / grid.cols, ch = h / grid.rows;
+    var palette = [white, pinkLight, pinkLight, pink];
+    var petals = [];
+    for (var r = 0; r < grid.rows; r++) {
+      for (var c = 0; c < grid.cols; c++) {
+        var homeX = (c + 0.5) * cw + (Math.random() - 0.5) * cw * 0.6;
+        var homeY = (r + 0.5) * ch + (Math.random() - 0.5) * ch * 0.6;
+        // sweep in from upper-left with a downward bias, exit further down/right
+        var entryX = homeX - w * (0.28 + Math.random() * 0.22);
+        var entryY = homeY - h * (0.32 + Math.random() * 0.24);
+        petals.push({
+          homeX: homeX, homeY: homeY,
+          entryX: entryX, entryY: entryY,
+          exitDX: w * (0.06 + Math.random() * 0.14),
+          exitDY: h * (0.42 + Math.random() * 0.4),
+          size: Math.max(cw, ch) * (0.42 + Math.random() * 0.3),
+          rot: (Math.random() - 0.5) * 1.6,
+          rotDrift: (Math.random() - 0.5) * 2.0,
+          delay: Math.random() * 130,
+          color: palette[Math.floor(Math.random() * palette.length)]
+        });
+      }
+    }
+    return petals;
+  }
+
+  function drawPetal(gfx, x, y, size, rot, color, alpha) {
+    gfx.save();
+    gfx.translate(x, y);
+    gfx.rotate(rot);
+    gfx.beginPath();
+    gfx.moveTo(0, -size);
+    gfx.quadraticCurveTo(size * 0.58, -size * 0.12, 0, size);
+    gfx.quadraticCurveTo(-size * 0.58, -size * 0.12, 0, -size);
+    gfx.closePath();
+    gfx.globalAlpha = alpha;
+    gfx.fillStyle = color;
+    gfx.fill();
+    gfx.restore();
+  }
+
+  function run(coverEl, ctx) {
+    return new Promise(function (resolve) {
+      var w = window.innerWidth;
+      var h = window.innerHeight;
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      var wash = document.createElement('div');
+      wash.className = 'wx-layer wx-petals__wash';
+
+      var canvas = document.createElement('canvas');
+      canvas.className = 'nwks-tx-canvas wx-petals__canvas';
+      canvas.width = Math.max(1, Math.round(w * dpr));
+      canvas.height = Math.max(1, Math.round(h * dpr));
+
+      coverEl.appendChild(wash);
+      coverEl.appendChild(canvas);
+
+      var gfx = canvas.getContext('2d');
+      if (!gfx) {
+        ctx.cover();
+        ctx.swap();
+        ctx.uncover();
+        resolve();
+        return;
+      }
+      gfx.scale(dpr, dpr);
+
+      var white = cssVar('--wx-white', '#FFFFFF');
+      var pinkLight = cssVar('--wx-pink-light', '#F8D9E0');
+      var pink = cssVar('--wx-pink', '#F4C6D2');
+
+      var petals = buildPetals(w, h, white, pinkLight, pink);
+
+      var totalMs = COVER_MS + UNCOVER_MS;
+      var didSwap = false;
+      var rafId = null;
+      var start = null;
+
+      function drawSweepIn(t) {
+        gfx.clearRect(0, 0, w, h);
+        for (var i = 0; i < petals.length; i++) {
+          var p = petals[i];
+          var local = clamp01((t - p.delay) / Math.max(1, COVER_MS - p.delay));
+          var ease = easeOutCubic(local);
+          var x = p.entryX + (p.homeX - p.entryX) * ease;
+          var y = p.entryY + (p.homeY - p.entryY) * ease;
+          var rot = p.rot + p.rotDrift * (1 - ease);
+          drawPetal(gfx, x, y, p.size * (0.7 + 0.3 * ease), rot, p.color, ease);
+        }
+      }
+
+      function drawFallAway(tOut) {
+        gfx.clearRect(0, 0, w, h);
+        for (var i = 0; i < petals.length; i++) {
+          var p = petals[i];
+          var local = clamp01((tOut - p.delay * 0.5) / Math.max(1, UNCOVER_MS - p.delay * 0.5));
+          var ease = easeOutCubic(local);
+          var x = p.homeX + p.exitDX * ease;
+          var y = p.homeY + p.exitDY * ease;
+          var rot = p.rot + p.rotDrift * ease;
+          var alpha = clamp01(1 - ease * 1.05);
+          if (alpha <= 0.004) continue;
+          drawPetal(gfx, x, y, p.size, rot, p.color, alpha);
+        }
+      }
+
+      function frame(ts) {
+        if (start === null) start = ts;
+        var t = ts - start;
+
+        if (t < COVER_MS) {
+          var pIn = clamp01(t / COVER_MS);
+          wash.style.opacity = String(smoothstep(pIn));
+          drawSweepIn(t);
+        } else {
+          if (!didSwap) {
+            didSwap = true;
+            // Authoritative mask: snap the wash to full solid coverage THEN
+            // swap while genuinely hidden, THEN release the safety mask —
+            // the settled petal field + wash (already opaque this exact
+            // frame) stay the visible cover so the fall-away is actually
+            // seen, not hidden behind a flat mask.
+            wash.style.opacity = '1';
+            ctx.cover();
+            ctx.swap();
+            ctx.uncover();
+          }
+
+          var tOut = t - COVER_MS;
+          var pOut = clamp01(tOut / UNCOVER_MS);
+          // hold the wash solid while petals visibly fall, then dissolve it
+          // in the back half so the reveal reads as graceful, not abrupt.
+          var washP = clamp01((pOut - 0.35) / 0.65);
+          wash.style.opacity = String(1 - smoothstep(washP));
+          drawFallAway(tOut);
+        }
+
+        if (t >= totalMs) {
+          teardown();
+          return;
+        }
+        rafId = requestAnimationFrame(frame);
+      }
+
+      rafId = requestAnimationFrame(frame);
+
+      function teardown() {
+        if (rafId !== null) cancelAnimationFrame(rafId);
+        rafId = null;
+        if (!didSwap) {
+          ctx.cover();
+          ctx.swap();
+        }
+        ctx.uncover();
+        if (wash.parentNode) wash.parentNode.removeChild(wash);
+        if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+        resolve();
+      }
+    });
+  }
+
+  NWKS.transitions['women-petals'] = {
+    id: 'women-petals',
+    label: 'Petals',
+    door: 'women',
+    run: run
+  };
+})();
+
+</script>
+<script>
+window.NWKS = window.NWKS || {};
+NWKS.transitions = NWKS.transitions || {};
+
+/* Owned by transitions-coder. Women's door concept: "Bloom" — a soft radial
+   light bloom (white core -> baby pink halo) expands from center to full
+   coverage; the DOM swaps at that covered instant; a brief shimmer of tiny
+   sparks marks the moment; then the bloom contracts and dissolves to reveal
+   whatever is now underneath. Silky and minimal by design — two CSS layers
+   for the light itself, a sparse canvas shimmer as the only decoration.
+   Palette is white + baby pink + a whisper of soft gold — NOT the men's
+   olive/military look (see src/styles/transitions-women.css). Contract:
+   { id, label, door, run(coverEl, ctx) => Promise } (see
+   src/js/transition-core.js for the full contract doc). ~660ms total. */
+(function () {
+  'use strict';
+
+  var COVER_MS = 280;   // bloom expands to full coverage -> cover()+swap()
+  var UNCOVER_MS = 380; // bloom contracts + dissolves -> uncover()+resolve()
+  var SHIMMER_MS = 220; // spark shimmer window centered on the swap instant
+
+  function cssVar(name, fallback) {
+    var v = getComputedStyle(document.documentElement).getPropertyValue(name);
+    return (v && v.trim()) || fallback;
+  }
+
+  function clamp01(n) { return n < 0 ? 0 : n > 1 ? 1 : n; }
+  function smoothstep(t) { return t * t * (3 - 2 * t); }
+
+  function sparkCount(w, h) {
+    return Math.max(8, Math.min(16, Math.round((w * h) / 130000)));
+  }
+
+  function buildSparks(n, w, h) {
+    var cx = w / 2, cy = h / 2;
+    var rMax = Math.min(w, h) * 0.32;
+    var sparks = [];
+    for (var i = 0; i < n; i++) {
+      var angle = Math.random() * Math.PI * 2;
+      var dist = rMax * (0.15 + Math.random() * 0.85);
+      sparks.push({
+        x: cx + Math.cos(angle) * dist,
+        y: cy + Math.sin(angle) * dist,
+        r: 1.0 + Math.random() * 2.0,
+        delay: Math.random() * (SHIMMER_MS * 0.4)
+      });
+    }
+    return sparks;
+  }
+
+  function run(coverEl, ctx) {
+    return new Promise(function (resolve) {
+      var w = window.innerWidth;
+      var h = window.innerHeight;
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      var core = document.createElement('div');
+      core.className = 'wx-layer wx-bloom__core';
+
+      var glow = document.createElement('div');
+      glow.className = 'wx-layer wx-bloom__glow';
+
+      var canvas = document.createElement('canvas');
+      canvas.className = 'nwks-tx-canvas wx-bloom__canvas';
+      canvas.width = Math.max(1, Math.round(w * dpr));
+      canvas.height = Math.max(1, Math.round(h * dpr));
+
+      coverEl.appendChild(core);
+      coverEl.appendChild(glow);
+      coverEl.appendChild(canvas);
+
+      var gfx = canvas.getContext('2d');
+      var hasCtx = !!gfx;
+      if (hasCtx) gfx.scale(dpr, dpr);
+
+      var white = cssVar('--wx-white', '#FFFFFF');
+      var sparks = hasCtx ? buildSparks(sparkCount(w, h), w, h) : [];
+
+      var totalMs = COVER_MS + UNCOVER_MS;
+      var swapAtMs = COVER_MS; // shimmer is centered on this instant
+      var didSwap = false;
+      var rafId = null;
+      var start = null;
+
+      function drawShimmer(t) {
+        var tSinceSwap = t - swapAtMs;
+        gfx.clearRect(0, 0, w, h);
+        if (tSinceSwap < -SHIMMER_MS || tSinceSwap > SHIMMER_MS) return;
+        for (var i = 0; i < sparks.length; i++) {
+          var s = sparks[i];
+          var local = clamp01((tSinceSwap + SHIMMER_MS - s.delay) / (SHIMMER_MS * 2 - s.delay));
+          var env = Math.sin(Math.PI * clamp01(local)) ; // rises then falls
+          if (env <= 0.01) continue;
+          gfx.save();
+          gfx.globalAlpha = env * 0.85;
+          gfx.fillStyle = white;
+          gfx.shadowColor = white;
+          gfx.shadowBlur = s.r * 6;
+          gfx.beginPath();
+          gfx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+          gfx.fill();
+          gfx.restore();
+        }
+        gfx.globalAlpha = 1;
+      }
+
+      function frame(ts) {
+        if (start === null) start = ts;
+        var t = ts - start;
+
+        if (t < COVER_MS) {
+          var pIn = clamp01(t / COVER_MS);
+          var easedIn = smoothstep(pIn);
+          core.style.clipPath = 'circle(' + (easedIn * 100).toFixed(2) + '% at 50% 50%)';
+          core.style.opacity = String(Math.min(1, easedIn * 1.2));
+          core.style.filter = 'blur(' + ((1 - easedIn) * 7).toFixed(1) + 'px)';
+          glow.style.opacity = String(easedIn * 0.75);
+          glow.style.transform = 'scale(' + (0.35 + easedIn * 0.95).toFixed(3) + ')';
+          if (hasCtx) drawShimmer(t);
+        } else {
+          if (!didSwap) {
+            didSwap = true;
+            // Authoritative mask: snap the core to full solid coverage THEN
+            // swap while genuinely hidden, THEN release the safety mask —
+            // the core (already full-opacity this exact frame) stays the
+            // visible cover so the contraction beneath it is actually seen.
+            core.style.clipPath = 'circle(100% at 50% 50%)';
+            core.style.opacity = '1';
+            core.style.filter = 'blur(0)';
+            ctx.cover();
+            ctx.swap();
+            ctx.uncover();
+          }
+
+          var tOut = t - COVER_MS;
+          var pOut = clamp01(tOut / UNCOVER_MS);
+          var easedOut = smoothstep(pOut);
+          core.style.clipPath = 'circle(' + (100 - easedOut * 100).toFixed(2) + '% at 50% 50%)';
+          core.style.opacity = String(Math.max(0, 1 - clamp01(easedOut * 1.15)));
+          core.style.filter = 'blur(' + (easedOut * 9).toFixed(1) + 'px)';
+          glow.style.opacity = String(Math.max(0, 0.75 * (1 - clamp01(pOut * 1.6))));
+          glow.style.transform = 'scale(' + (1.3 - easedOut * 0.5).toFixed(3) + ')';
+          if (hasCtx) drawShimmer(t);
+        }
+
+        if (t >= totalMs) {
+          teardown();
+          return;
+        }
+        rafId = requestAnimationFrame(frame);
+      }
+
+      rafId = requestAnimationFrame(frame);
+
+      function teardown() {
+        if (rafId !== null) cancelAnimationFrame(rafId);
+        rafId = null;
+        if (!didSwap) {
+          ctx.cover();
+          ctx.swap();
+        }
+        ctx.uncover();
+        if (core.parentNode) core.parentNode.removeChild(core);
+        if (glow.parentNode) glow.parentNode.removeChild(glow);
+        if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+        resolve();
+      }
+    });
+  }
+
+  NWKS.transitions['women-bloom'] = {
+    id: 'women-bloom',
+    label: 'Bloom',
+    door: 'women',
+    run: run
+  };
+})();
+
+</script>
+<script>
+window.NWKS = window.NWKS || {};
+NWKS.transitions = NWKS.transitions || {};
+
+/* Owned by transitions-coder. Women's door concept: "Silk" — a satin sheet
+   (soft white/pink gradient with a whisper of gold) slides across the
+   viewport to full coverage, a bright sheen streak sweeps through it like
+   light on fabric, the DOM swaps at that covered instant, then the sheet
+   is drawn on away in the same direction (with a second sheen pass) to
+   reveal whatever is now underneath. Palette is white + baby pink + a
+   whisper of soft gold and black — NOT the men's olive/military look (see
+   src/styles/transitions-women.css). Pure CSS transform/gradient, no canvas
+   needed — kept silky and light. Contract: { id, label, door,
+   run(coverEl, ctx) => Promise } (see src/js/transition-core.js for the
+   full contract doc). ~700ms total. */
+(function () {
+  'use strict';
+
+  var COVER_MS = 300;   // sheet slides in to full coverage -> cover()+swap()
+  var UNCOVER_MS = 400; // sheet is drawn on away -> uncover()+resolve()
+
+  function clamp01(n) { return n < 0 ? 0 : n > 1 ? 1 : n; }
+  // ease-in-out-quart — a slow-building, hand-drawn "fabric" feel
+  function easeInOutQuart(t) {
+    return t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2;
+  }
+
+  function run(coverEl, ctx) {
+    return new Promise(function (resolve) {
+      var sheet = document.createElement('div');
+      sheet.className = 'wx-layer wx-silk__sheet';
+
+      var sheen = document.createElement('div');
+      sheen.className = 'wx-layer wx-silk__sheen';
+
+      coverEl.appendChild(sheet);
+      coverEl.appendChild(sheen);
+
+      var totalMs = COVER_MS + UNCOVER_MS;
+      var didSwap = false;
+      var rafId = null;
+      var start = null;
+
+      function positionSheen(centerPct) {
+        // slide a bright diagonal band across the sheet via background-position
+        sheen.style.backgroundPosition = centerPct.toFixed(1) + '% 50%';
+      }
+
+      function frame(ts) {
+        if (start === null) start = ts;
+        var t = ts - start;
+
+        if (t < COVER_MS) {
+          var pIn = clamp01(t / COVER_MS);
+          var easedIn = easeInOutQuart(pIn);
+          sheet.style.transform = 'translateX(' + ((1 - easedIn) * -100).toFixed(2) + '%)';
+          sheet.style.opacity = String(Math.min(1, 0.4 + easedIn * 0.6));
+          sheen.style.opacity = String(Math.sin(Math.PI * pIn) * 0.9);
+          positionSheen(-40 + easedIn * 160);
+        } else {
+          if (!didSwap) {
+            didSwap = true;
+            // Authoritative mask: snap the sheet to exact full coverage THEN
+            // swap while genuinely hidden, THEN release the safety mask —
+            // the sheet (already aligned + opaque this exact frame) stays
+            // the visible cover so it can be drawn on away afterward instead
+            // of just vanishing behind a flat mask.
+            sheet.style.transform = 'translateX(0%)';
+            sheet.style.opacity = '1';
+            ctx.cover();
+            ctx.swap();
+            ctx.uncover();
+          }
+
+          var tOut = t - COVER_MS;
+          var pOut = clamp01(tOut / UNCOVER_MS);
+          var easedOut = easeInOutQuart(pOut);
+          sheet.style.transform = 'translateX(' + (easedOut * 100).toFixed(2) + '%)';
+          sheet.style.opacity = String(Math.max(0, 1 - clamp01(easedOut * 1.1)));
+          sheen.style.opacity = String(Math.sin(Math.PI * pOut) * 0.9);
+          positionSheen(-40 + easedOut * 160);
+        }
+
+        if (t >= totalMs) {
+          teardown();
+          return;
+        }
+        rafId = requestAnimationFrame(frame);
+      }
+
+      rafId = requestAnimationFrame(frame);
+
+      function teardown() {
+        if (rafId !== null) cancelAnimationFrame(rafId);
+        rafId = null;
+        if (!didSwap) {
+          ctx.cover();
+          ctx.swap();
+        }
+        ctx.uncover();
+        if (sheet.parentNode) sheet.parentNode.removeChild(sheet);
+        if (sheen.parentNode) sheen.parentNode.removeChild(sheen);
+        resolve();
+      }
+    });
+  }
+
+  NWKS.transitions['women-silk'] = {
+    id: 'women-silk',
+    label: 'Silk',
+    door: 'women',
+    run: run
+  };
+})();
+
+</script>
+<script>
+window.NWKS = window.NWKS || {};
+
+/* Boot + core enter(door)/exit(door) orchestration. Depends on NWKS.registry,
+   NWKS.transitions, NWKS.tx (transition-core.js), NWKS.worlds, NWKS.content —
+   all loaded before this script (see load-order rule in transition-core.js). */
+(function () {
+  'use strict';
+
   var intro = document.getElementById('intro');
-  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var openDoor = null;
+  var busy = false; // guards re-entrant enter/exit while a masked-swap animation is in flight
 
   // ---- boot: intro sequence removal (CSS animates it out; detach after it's done) ----
   if (intro) {
@@ -1256,51 +3864,86 @@ window.NWKS = window.NWKS || {};
   });
 
   // ---- core orchestration ----
+  // Both enter and exit route through NWKS.tx.run(), the masked-swap harness:
+  // the cover layer fully hides the screen BEFORE the DOM swap happens, so
+  // nothing is ever revealed-then-hidden. Same path both directions means
+  // Back animates too, at the same fast (~600-800ms) speed as entry.
   function enter(door) {
-    if (openDoor) return; // a world is already open; ignore re-entry
+    if (openDoor || busy) return; // a world is already open, or a transition is mid-flight
     var worldEl = document.getElementById('world-' + door);
     if (!worldEl) return;
-    var doorEl = document.querySelector('.half[data-door="' + door + '"]');
 
-    // 1) populate the world
+    busy = true;
+
+    // populate the world's content before it can ever become visible
     if (NWKS.worlds && typeof NWKS.worlds.render === 'function') {
       NWKS.worlds.render(door);
     }
 
-    // 2) resolve the active transition module for this door
     var conceptId = NWKS.registry ? NWKS.registry.getActive(door) : null;
-    var module = conceptId && NWKS.transitions ? NWKS.transitions[conceptId] : null;
-    if (module && module.door !== door) module = null; // guard: mismatched/unregistered door (e.g. unite)
 
-    var canAnimate = !reduce && typeof document.startViewTransition === 'function' && !!module;
-
-    function present() {
+    NWKS.tx.run(conceptId, { dir: 'enter', door: door }).then(function () {
+      busy = false;
       openDoor = door;
-      if (stage) stage.classList.add('world-open');
-      // 4) push history so browser Back returns to gateway
+      // push history so browser Back returns to gateway (reversed via popstate -> exit)
       history.pushState({ nwksDoor: door }, document.title, '');
       worldEl.setAttribute('tabindex', '-1');
       worldEl.focus();
-    }
-
-    // 3) reduced-motion / no-VT / no-module fallback → reveal instantly; else run the module
-    if (!canAnimate) {
-      worldEl.hidden = false;
-      present();
-      return;
-    }
-    module.run(doorEl, worldEl, { reduced: false }).then(present, present);
+    });
   }
 
   function exit(door) {
-    if (NWKS.worlds && typeof NWKS.worlds.close === 'function') {
-      NWKS.worlds.close(door);
-    }
-    if (stage) stage.classList.remove('world-open');
-    openDoor = null;
-    var doorEl = document.querySelector('.half[data-door="' + door + '"]');
-    if (doorEl) doorEl.focus();
+    if (busy) return;
+    busy = true;
+
+    var conceptId = NWKS.registry ? NWKS.registry.getActive(door) : null;
+
+    NWKS.tx.run(conceptId, { dir: 'exit', door: door }).then(function () {
+      busy = false;
+      openDoor = null;
+      if (NWKS.worlds && typeof NWKS.worlds.close === 'function') {
+        NWKS.worlds.close(door);
+      }
+      var doorEl = document.querySelector('.half[data-door="' + door + '"]');
+      if (doorEl) doorEl.focus();
+    });
   }
+
+  // ---- boot: visible concept switcher — lists registered concepts per door,
+  // built live from NWKS.transitions at boot (so it reflects however many
+  // concept files are wired up, no hardcoded ids). Picks feed
+  // NWKS.registry.setActive(); Enter then previews whatever is active. ----
+  function buildConceptSwitcher() {
+    var panel = document.getElementById('concept-switcher');
+    if (!panel || !NWKS.registry) return;
+
+    var switcherDoors = ['men', 'women'];
+    var any = false;
+
+    switcherDoors.forEach(function (door) {
+      var select = panel.querySelector('[data-door="' + door + '"]');
+      if (!select) return;
+      var ids = NWKS.registry.list(door);
+      if (!ids.length) return;
+
+      select.innerHTML = '';
+      ids.forEach(function (id) {
+        var concept = NWKS.transitions[id];
+        var opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = (concept && concept.label) || id;
+        select.appendChild(opt);
+      });
+      select.value = NWKS.registry.getActive(door);
+      select.addEventListener('change', function () {
+        NWKS.registry.setActive(door, select.value);
+      });
+      any = true;
+    });
+
+    if (any) panel.hidden = false;
+  }
+  buildConceptSwitcher();
 })();
 
 </script>
