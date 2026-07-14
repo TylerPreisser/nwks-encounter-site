@@ -35,8 +35,8 @@ NWKS.transitions = NWKS.transitions || {};
   var COVER_MS = 340;   // cloth unfurls left -> right to full coverage -> cover() + swap()
   var UNCOVER_MS = 340;  // cloth withdraws the same direction -> uncover() + resolve()
 
-  var CLOTH_BLUSH = 'rgb(253,247,244)'; // very pale warm blush/ivory banner
-  var TEXT_ROSE = '#6b2740';            // elegant deep dark-rose FREEDOM text
+  var CLOTH_BLUSH = 'rgb(255,255,255)'; // same as men's — pure white
+  var TEXT_ROSE = '#0a0a0a';            // same as men's — near-black FREEDOM
 
   function clamp01(n) { return n < 0 ? 0 : n > 1 ? 1 : n; }
   function easeOutQuad(t) { return 1 - (1 - t) * (1 - t); }

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>NWKS Encounter — Concept: Animated Gateway</title>
 <style>
 :root{
@@ -892,8 +892,7 @@ NWKS.content.men = {
       blocks: [
         'Leave Thursday evening from a launch-point church — Norton, Hays, Colby, Gove, Hoxie, or Plainville. Arrival is 4:00–6:30 pm; each location departs at its own time, so park at the church.',
         'Return Saturday, 4:00–5:00 pm.',
-        "Destination: Lakeview Christian Camp, Stockton, KS (Webster Lake). Ride together — don't take your own vehicle.",
-        { link: { label: 'Lakeview Christian Camp ↗', href: 'https://lakeviewchristiancamp.org' } }
+        "Destination: Lakeview Christian Camp, Stockton, KS (Webster Lake). Ride together — don't take your own vehicle."
       ]
     }
   ],
@@ -967,8 +966,7 @@ NWKS.content.women = {
       blocks: [
         'Leave Friday evening from a launch-point church — Colby, Gove, Hays, Hoxie, Norton, Plainville, Sterling, or WaKeeney. Registration and launch is 4:00–5:30 pm (Sterling meets earlier).',
         'Return Sunday, 4:00–5:00 pm.',
-        'Destination: Lakeview Christian Camp, Stockton, KS.',
-        { link: { label: 'Lakeview Christian Camp ↗', href: 'https://lakeviewchristiancamp.org' } }
+        'Destination: Lakeview Christian Camp, Stockton, KS.'
       ]
     }
   ],
@@ -2114,8 +2112,8 @@ NWKS.transitions = NWKS.transitions || {};
   var COVER_MS = 340;   // cloth unfurls left -> right to full coverage -> cover() + swap()
   var UNCOVER_MS = 340;  // cloth withdraws the same direction -> uncover() + resolve()
 
-  var CLOTH_BLUSH = 'rgb(253,247,244)'; // very pale warm blush/ivory banner
-  var TEXT_ROSE = '#6b2740';            // elegant deep dark-rose FREEDOM text
+  var CLOTH_BLUSH = 'rgb(255,255,255)'; // same as men's — pure white
+  var TEXT_ROSE = '#0a0a0a';            // same as men's — near-black FREEDOM
 
   function clamp01(n) { return n < 0 ? 0 : n > 1 ? 1 : n; }
   function easeOutQuad(t) { return 1 - (1 - t) * (1 - t); }

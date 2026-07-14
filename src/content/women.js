@@ -35,8 +35,7 @@ NWKS.content.women = {
       blocks: [
         'Leave Friday evening from a launch-point church — Colby, Gove, Hays, Hoxie, Norton, Plainville, Sterling, or WaKeeney. Registration and launch is 4:00–5:30 pm (Sterling meets earlier).',
         'Return Sunday, 4:00–5:00 pm.',
-        'Destination: Lakeview Christian Camp, Stockton, KS.',
-        { link: { label: 'Lakeview Christian Camp ↗', href: 'https://lakeviewchristiancamp.org' } }
+        'Destination: Lakeview Christian Camp, Stockton, KS.'
       ]
     }
   ],

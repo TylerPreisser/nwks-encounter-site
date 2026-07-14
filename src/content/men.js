@@ -33,8 +33,7 @@ NWKS.content.men = {
       blocks: [
         'Leave Thursday evening from a launch-point church — Norton, Hays, Colby, Gove, Hoxie, or Plainville. Arrival is 4:00–6:30 pm; each location departs at its own time, so park at the church.',
         'Return Saturday, 4:00–5:00 pm.',
-        "Destination: Lakeview Christian Camp, Stockton, KS (Webster Lake). Ride together — don't take your own vehicle.",
-        { link: { label: 'Lakeview Christian Camp ↗', href: 'https://lakeviewchristiancamp.org' } }
+        "Destination: Lakeview Christian Camp, Stockton, KS (Webster Lake). Ride together — don't take your own vehicle."
       ]
     }
   ],
