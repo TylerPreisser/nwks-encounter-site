@@ -6,17 +6,17 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
 
 /* ---------- UNIFORM HALF ---------- */
 .half{position:relative;flex:1 1 0;min-width:0;overflow:hidden;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;cursor:pointer}
+  align-items:center;justify-content:center;cursor:default}
 /* No hover flex animation — the two doors are static 50/50. The mouse-over resize
    was fussy and caused the hover-steal jerk at the start of a transition. */
 .half__inner{position:relative;z-index:3;width:100%;display:flex;flex-direction:column;align-items:center;
   text-align:center;padding:calc(clamp(46px,6.5vh,62px) + 4vh) 7vw calc(78px + 4vh);
-  transform:translateY(16px);opacity:0}
+  transform:none;opacity:1}
 .eyebrow{font-size:clamp(.62rem,1.05vw,.82rem);letter-spacing:.4em;text-transform:uppercase;
   font-weight:700;margin-bottom:2.4vh}
 .mark{width:clamp(200px,25vw,330px);max-width:72vw;animation:float 7s ease-in-out infinite}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-.rule{width:0;height:2px;margin:2vh auto 0}
+.rule{width:clamp(110px,15vw,190px);height:2px;margin:2vh auto 0}
 .dates{font-size:clamp(.78rem,1.3vw,1rem);letter-spacing:.14em;text-transform:uppercase;margin-top:1.3em}
 .enter{margin-top:3vh;display:inline-flex;align-items:center;gap:.7em;font-size:.72rem;
   letter-spacing:.32em;text-transform:uppercase;font-weight:700;padding:.95em 1.9em;border:1px solid;
@@ -93,10 +93,7 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
 @keyframes introOut{to{opacity:0;visibility:hidden;transform:scale(1.06)}}
 
 /* ---------- ENTRANCE ---------- */
-.half--men .half__inner{animation:reveal .9s cubic-bezier(.22,.61,.36,1) 2.5s forwards}
-.half--women .half__inner{animation:reveal 1s cubic-bezier(.22,.61,.36,1) 2.7s forwards}
 @keyframes reveal{to{opacity:1;transform:translateY(0)}}
-.rule{animation:grow 1.3s ease 3.1s forwards}
 @keyframes grow{to{width:clamp(110px,15vw,190px)}}
 @keyframes fadeIn{to{opacity:1}}
 

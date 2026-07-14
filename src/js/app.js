@@ -10,32 +10,20 @@ window.NWKS = window.NWKS || {};
   var openDoor = null;
   var busy = false; // guards re-entrant enter/exit while a masked-swap animation is in flight
 
-  // ---- boot: intro sequence removal (CSS animates it out; detach after it's done) ----
-  if (intro) {
-    setTimeout(function () {
-      if (intro.parentNode) intro.parentNode.removeChild(intro);
-    }, 3400);
-  }
+  // ---- boot: no intro/entrance animation — remove any legacy overlay immediately ----
+  if (intro && intro.parentNode) intro.parentNode.removeChild(intro);
 
-  // ---- boot: wire each door's click + Enter button + keyboard ----
+  // ---- boot: ONLY the Enter button triggers entry (not the whole half) ----
   var doors = document.querySelectorAll('.half[data-door]');
   Array.prototype.forEach.call(doors, function (doorEl) {
     var door = doorEl.getAttribute('data-door');
-
-    function activate(e) {
-      if (e) e.stopPropagation();
-      enter(door);
-    }
-
-    doorEl.addEventListener('click', activate);
     var enterBtn = doorEl.querySelector('.enter');
-    if (enterBtn) enterBtn.addEventListener('click', activate);
-    doorEl.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        activate(e);
-      }
-    });
+    if (enterBtn) {
+      enterBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        enter(door);
+      });
+    }
   });
 
   // ---- boot: small "Unite" link in the frame ----

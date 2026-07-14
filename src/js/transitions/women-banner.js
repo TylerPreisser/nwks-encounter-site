@@ -176,7 +176,7 @@ NWKS.transitions = NWKS.transitions || {};
         if (t < COVER_MS) {
           var pIn = clamp01(t / COVER_MS);
           var edgePos = easeOutQuad(pIn) * edgeSpan - ampEdge;
-          var textAlpha = clamp01((pIn - 0.30) / 0.45);
+          var textAlpha = clamp01((pIn - 0.55) / 0.4);
           drawCloth(t, 'in', edgePos, textAlpha);
         } else {
           if (!didSwap) {

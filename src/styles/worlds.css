@@ -44,7 +44,7 @@
 .world-cta:hover{background:var(--f-gold);color:#fff}
 
 /* ---------- BODY ---------- */
-.world-body{max-width:720px;margin:0 auto;padding:0 6vw}
+.world-body{max-width:1000px;margin:0 auto;padding:0 6vw}
 .world-section{padding:3.4vh 0;border-top:1px solid var(--f-rule)}
 .world-section:first-child{border-top:none}
 .world-section__title{font-size:clamp(1.05rem,2.4vw,1.3rem);font-weight:600;letter-spacing:.02em;
