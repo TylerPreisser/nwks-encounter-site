@@ -73,6 +73,51 @@ window.NWKS = window.NWKS || {};
     return nav;
   }
 
+  // Full-screen register form page (Task: Register is its own page, not inline in
+  // the world). Plain show/hide via [hidden] — never touches history; app.js owns
+  // history/back for the gateway. Builds all native-form specs for this door up
+  // front (idempotent, cheap) so opening any of them is instant.
+  function buildFormPage(worldEl, door, specKeys) {
+    var page = el('div', { className: 'world-formpage' });
+    page.hidden = true;
+
+    var header = el('div', { className: 'world-formpage__header' });
+    var backLabel = door === 'men' ? "Men's Encounter" : "Women's Encounter";
+    var back = el('button', { className: 'world-formpage__back', text: '← Back to ' + backLabel });
+    back.type = 'button';
+    back.addEventListener('click', function () { page.hidden = true; });
+    header.appendChild(back);
+    page.appendChild(header);
+
+    var scroll = el('div', { className: 'world-formpage__scroll' });
+    page.appendChild(scroll);
+
+    var panels = {};
+    specKeys.forEach(function (key) {
+      var spec = NWKS.forms.specs && NWKS.forms.specs[key];
+      if (!spec) return;
+      var panel = el('div', { className: 'world-formpage__panel' });
+      panel.hidden = true;
+      panel.appendChild(el('h1', { className: 'world-formpage__title', text: spec.title || '' }));
+      var mount = el('div', { className: 'world-register__form' });
+      panel.appendChild(mount);
+      NWKS.forms.render(key, mount);
+      scroll.appendChild(panel);
+      panels[key] = panel;
+    });
+
+    worldEl.appendChild(page);
+
+    return {
+      open: function (key) {
+        if (!panels[key]) return;
+        Object.keys(panels).forEach(function (k) { panels[k].hidden = (k !== key); });
+        page.hidden = false;
+        scroll.scrollTop = 0;
+      }
+    };
+  }
+
   NWKS.worlds = {
     render: function (door) {
       var worldEl = document.getElementById('world-' + door);
@@ -114,12 +159,16 @@ window.NWKS = window.NWKS || {};
       }
       var formSpecKey = door === 'men' ? 'menAttendee' : (door === 'women' ? 'women' : null);
       var hasNativeForm = !!(formSpecKey && NWKS.forms && NWKS.forms.specs && NWKS.forms.specs[formSpecKey]);
+      // Assigned below (after the world body is built) — the hero CTA and the
+      // Register section's buttons both open this same full-screen form page.
+      var formPage = null;
 
       if (content.register && content.register.length) {
         var cta;
         if (hasNativeForm) {
-          cta = el('a', { className: 'world-cta', text: content.register[0].label });
-          cta.href = '#register';
+          cta = el('button', { className: 'world-cta', text: content.register[0].label });
+          cta.type = 'button';
+          cta.addEventListener('click', function () { if (formPage) formPage.open(formSpecKey); });
         } else {
           cta = externalLink(content.register[0].label, content.register[0].href);
           cta.className = 'world-cta';
@@ -169,35 +218,35 @@ window.NWKS = window.NWKS || {};
 
       worldEl.appendChild(body);
 
-      // ---- Register block: native in-site form when a spec exists (see
-      // src/content/forms.js + src/js/forms.js), else the external link list. ----
+      // ---- Register block: when a native form spec exists, this is just the
+      // button(s) that open the full-screen form page (see buildFormPage above);
+      // otherwise the external link list. ----
       if (content.register && content.register.length) {
         var registerSec = el('section', { className: 'world-section world-section--register' });
         registerSec.id = 'register';
         registerSec.appendChild(el('h2', { className: 'world-section__title', text: 'Register' }));
 
         if (hasNativeForm) {
-          var formMount = el('div', { className: 'world-register__form' });
-          registerSec.appendChild(formMount);
-          NWKS.forms.render(formSpecKey, formMount);
+          // Men's world: two buttons (Attendee + Server) — different Google Forms.
+          // Every other native-form door: one button for its single spec.
+          var pageButtons = door === 'men'
+            ? [
+                { key: 'menAttendee', label: content.register[0] ? content.register[0].label : 'Register as an Attendee' },
+                { key: 'menServer', label: content.register[1] ? content.register[1].label : 'Register as a Server' }
+              ]
+            : [
+                { key: formSpecKey, label: content.register[0] ? content.register[0].label : 'Register' }
+              ];
 
-          // Men's world only: a second, initially-collapsed mount for Server
-          // registration (kept separate — different Google Form / fields).
-          if (door === 'men' && NWKS.forms.specs.menServer) {
-            var toggleWrap = el('div', { className: 'world-register__toggle' });
-            var toggleBtn = el('button', { className: 'world-register__toggle-btn',
-              text: 'Registering to serve instead?' });
-            toggleBtn.type = 'button';
-            var serverMount = el('div', { className: 'world-register__form' });
-            serverMount.hidden = true;
-            toggleBtn.addEventListener('click', function () {
-              serverMount.hidden = !serverMount.hidden;
-              if (!serverMount.hidden) NWKS.forms.render('menServer', serverMount);
-            });
-            toggleWrap.appendChild(toggleBtn);
-            toggleWrap.appendChild(serverMount);
-            registerSec.appendChild(toggleWrap);
-          }
+          var nav = el('nav', { className: 'world-register' });
+          pageButtons.forEach(function (b) {
+            if (!(NWKS.forms.specs && NWKS.forms.specs[b.key])) return;
+            var btn = el('button', { className: 'world-register__btn', text: b.label });
+            btn.type = 'button';
+            btn.addEventListener('click', function () { if (formPage) formPage.open(b.key); });
+            nav.appendChild(btn);
+          });
+          registerSec.appendChild(nav);
         } else {
           registerSec.appendChild(registerNav(content));
         }
@@ -209,6 +258,11 @@ window.NWKS = window.NWKS || {};
         var verseFooter = el('footer', { className: 'world-verse' });
         verseFooter.appendChild(el('p', { text: content.verse }));
         worldEl.appendChild(verseFooter);
+      }
+
+      if (hasNativeForm) {
+        var formPageKeys = door === 'men' ? ['menAttendee', 'menServer'] : [formSpecKey];
+        formPage = buildFormPage(worldEl, door, formPageKeys);
       }
 
       worldEl.dataset.builtFor = door;

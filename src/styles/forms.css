@@ -63,14 +63,22 @@
   border-radius:2px;padding:.7em 1.2em;cursor:pointer;color:var(--f-ink);transition:.25s}
 .world-register__toggle-btn:hover{border-color:var(--f-gold);color:var(--f-gold)}
 
-/* ================= MEN'S ACCENT (olive, matching worlds.css body accent) ============ */
+/* ================= MEN'S ACCENT — dark form page (matches the dark world body):
+   labels/options/status recolored to bone/yellow since the .nwks-* base rules
+   hardcode the light-theme --f-ink/--f-gold, which are unreadable on dark. ======= */
 .world--men .nwks-field__input,.world--men .nwks-option__other-input{border-color:var(--m-dim)}
-.world--men .nwks-field__input:focus{outline-color:var(--m-olive);border-color:var(--m-olive)}
-.world--men .nwks-option__input{accent-color:var(--m-olive)}
-.world--men .nwks-form__submit{border-color:var(--m-olive);color:var(--m-olive)}
-.world--men .nwks-form__submit:hover:not(:disabled){background:var(--m-olive);color:#fff}
-.world--men .nwks-form__fallback-link{color:var(--m-olive);border-bottom-color:var(--m-olive)}
-.world--men .world-register__toggle-btn:hover{border-color:var(--m-olive);color:var(--m-olive)}
+.world--men .nwks-field__input:focus{outline-color:var(--m-yellow);border-color:var(--m-yellow)}
+.world--men .nwks-option__input{accent-color:var(--m-yellow)}
+.world--men .nwks-form__submit{border-color:var(--m-yellow);color:var(--m-yellow)}
+.world--men .nwks-form__submit:hover:not(:disabled){background:var(--m-yellow);color:var(--m-gun)}
+.world--men .nwks-form__fallback-link{color:var(--m-yellow);border-bottom-color:var(--m-yellow)}
+.world--men .world-register__toggle-btn:hover{border-color:var(--m-yellow);color:var(--m-yellow)}
+.world--men .nwks-field__label,.world--men .nwks-option__label{color:var(--m-bone)}
+.world--men .nwks-field__help,.world--men .nwks-form__fallback{color:var(--m-dim)}
+.world--men .nwks-form__status--success{color:#9fd6a0}
+.world--men .nwks-form__status--error{color:#e79b9b}
+.world--men .nwks-form--closed{border-color:rgba(232,227,210,.25)}
+.world--men .nwks-form__closed-msg{color:var(--m-bone)}
 
 /* ============ WOMEN'S ACCENT (white/baby-pink/black, clean & refined) =============== */
 .world--women{--w-form-pink:#F1D3DA;--w-form-pink-deep:#C98A9C}

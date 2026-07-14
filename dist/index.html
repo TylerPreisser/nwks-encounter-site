@@ -260,7 +260,8 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
 .world-cta{display:inline-flex;align-items:center;margin-top:2em;padding:1em 2.2em;
   font-family:"Helvetica Neue",Arial,system-ui,sans-serif;font-weight:700;letter-spacing:.24em;
   text-transform:uppercase;font-size:.72rem;border-radius:2px;text-decoration:none;
-  border:1px solid var(--f-gold);color:var(--f-gold);transition:.3s}
+  border:1px solid var(--f-gold);color:var(--f-gold);background:transparent;cursor:pointer;
+  transition:.3s}
 .world-cta:hover{background:var(--f-gold);color:#fff}
 
 /* ---------- BODY ---------- */
@@ -297,14 +298,51 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
 .world-register__btn{display:inline-flex;align-items:center;padding:.85em 1.6em;
   font-family:"Helvetica Neue",Arial,system-ui,sans-serif;font-weight:700;letter-spacing:.2em;
   text-transform:uppercase;font-size:.68rem;border-radius:2px;text-decoration:none;
-  border:1px solid var(--f-rule);color:var(--f-ink);transition:.3s}
+  border:1px solid var(--f-rule);color:var(--f-ink);background:transparent;cursor:pointer;
+  transition:.3s}
 .world-register__btn:hover{background:var(--f-gold);border-color:var(--f-gold);color:#fff}
+
+/* ---------- FULL-SCREEN REGISTER FORM PAGE ----------
+   Built by src/js/worlds.js (buildFormPage) and mounted by NWKS.forms.render() (see
+   src/js/forms.js). Plain show/hide (the [hidden] attribute) — NEVER history.pushState,
+   app.js owns history/back for the gateway. Themed per-door below. */
+.world-formpage{position:fixed;inset:0;z-index:20;background:var(--f-bg);color:var(--f-ink);
+  display:flex;flex-direction:column;font-family:var(--serif)}
+.world-formpage[hidden]{display:none}
+.world-formpage__header{position:sticky;top:0;z-index:2;display:flex;align-items:center;
+  flex:0 0 auto;padding:.85em 4vw;background:rgba(234,227,212,.92);backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--f-rule)}
+.world-formpage__back{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;font-weight:700;
+  letter-spacing:.14em;font-size:.7rem;text-transform:uppercase;color:var(--f-ink);
+  background:transparent;border:1px solid var(--f-rule);border-radius:2px;padding:.55em 1em;
+  cursor:pointer;transition:.25s}
+.world-formpage__back:hover{background:var(--f-gold);border-color:var(--f-gold);color:#fff}
+.world-formpage__scroll{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:5vh 6vw 8vh}
+.world-formpage__panel{max-width:640px;margin:0 auto}
+.world-formpage__title{font-size:clamp(1.2rem,3vw,1.7rem);font-weight:600;letter-spacing:.02em;
+  margin-bottom:1em}
+
+.world--men .world-formpage{background:var(--m-gun);color:var(--m-bone)}
+.world--men .world-formpage__header{background:rgba(27,29,23,.92);border-bottom-color:rgba(230,193,47,.25)}
+.world--men .world-formpage__back{color:var(--m-bone);border-color:var(--m-dim)}
+.world--men .world-formpage__back:hover{background:var(--m-yellow);border-color:var(--m-yellow);color:var(--m-gun)}
+
+.world--women .world-formpage{background:var(--w2-bg);color:var(--w2-ink)}
+.world--women .world-formpage__header{background:rgba(255,255,255,.92);border-bottom-color:var(--w2-rule)}
+.world--women .world-formpage__back{color:var(--w2-ink);border-color:var(--w2-pink-deep);
+  font-family:var(--w2-font-body)}
+.world--women .world-formpage__back:hover{background:var(--w2-pink-deep);border-color:var(--w2-pink-deep);color:#fff}
 
 /* ---------- VERSE FOOTER ---------- */
 .world-verse{text-align:center;padding:5vh 6vw 8vh;font-style:italic;color:var(--f-ink);
   font-size:clamp(.86rem,1.6vw,1rem)}
 
-/* ================= MEN'S THEME ================= */
+/* ================= MEN'S THEME — whole page = dark gunmetal/olive (same as the
+   header), all text lifted to light (bone/dim) with yellow accents, per operator
+   direction "make the whole Men's Encounter page the color of the top section and
+   adjust the text accordingly." ================= */
+.world--men{background:var(--m-gun);color:var(--m-bone)}
 .world--men .world-header{background:rgba(27,29,23,.92);border-bottom-color:rgba(230,193,47,.25)}
 .world--men .world-back{color:var(--m-bone);border-color:var(--m-dim)}
 .world--men .world-back:hover{background:var(--m-yellow);border-color:var(--m-yellow);color:var(--m-gun)}
@@ -314,15 +352,26 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
   linear-gradient(160deg,var(--m-olive) 0%,var(--m-olive-deep) 60%,var(--m-gun) 100%)}
 .world--men .world-hero__logo{box-shadow:0 14px 34px rgba(0,0,0,.5);
   outline:2px solid rgba(230,193,47,.45);outline-offset:4px}
+.world--men .world-hero__title{color:var(--m-bone)}
 .world--men .world-hero__tagline{color:var(--m-yellow)}
 .world--men .world-hero__dates{color:var(--m-dim)}
 .world--men .world-cta{border-color:var(--m-yellow);color:var(--m-yellow)}
 .world--men .world-cta:hover{background:var(--m-yellow);color:var(--m-gun)}
+
+/* body copy on the dark page: bone = primary text, dim = secondary, yellow = accents */
+.world--men .world-section{border-top-color:rgba(232,227,210,.14)}
+.world--men .world-section__title{color:var(--m-bone)}
+.world--men .world-p{color:var(--m-bone)}
+.world--men .world-list li{color:var(--m-bone)}
 .world--men .world-inline-link,.world--men .world-list li::before,
-.world--men .world-contact__link{color:var(--m-olive)}
-.world--men .world-inline-link{border-bottom-color:var(--m-olive)}
-.world--men .world-list li::before{background:var(--m-olive)}
-.world--men .world-register__btn:hover{background:var(--m-olive);border-color:var(--m-olive)}
+.world--men .world-contact__link{color:var(--m-yellow)}
+.world--men .world-inline-link{border-bottom-color:var(--m-yellow)}
+.world--men .world-list li::before{background:var(--m-yellow)}
+.world--men .world-contact{border-bottom-color:rgba(232,227,210,.14)}
+.world--men .world-contact__name{color:var(--m-bone)}
+.world--men .world-register__btn{border-color:var(--m-dim);color:var(--m-bone)}
+.world--men .world-register__btn:hover{background:var(--m-yellow);border-color:var(--m-yellow);color:var(--m-gun)}
+.world--men .world-verse{color:var(--m-dim)}
 
 /* ================= WOMEN'S THEME — white + light baby pink + black, elegant & distinct =================
    Local tokens (--w2-*) are self-contained here so this scope never depends on the men's palette.
@@ -382,10 +431,12 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
   .world-register__btn{width:100%;justify-content:center}
   .world-cta{width:100%;justify-content:center}
   .world-contact{flex-direction:column;align-items:flex-start;gap:.3em}
+  .world-formpage__header{padding:.75em 5vw}
+  .world-formpage__scroll{padding:4vh 6vw 6vh}
 }
 
 @media(prefers-reduced-motion:reduce){
-  .world-back,.world-cta,.world-register__btn,.world-inline-link{transition:none}
+  .world-back,.world-cta,.world-register__btn,.world-inline-link,.world-formpage__back{transition:none}
 }
 
 </style>
@@ -455,14 +506,22 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
   border-radius:2px;padding:.7em 1.2em;cursor:pointer;color:var(--f-ink);transition:.25s}
 .world-register__toggle-btn:hover{border-color:var(--f-gold);color:var(--f-gold)}
 
-/* ================= MEN'S ACCENT (olive, matching worlds.css body accent) ============ */
+/* ================= MEN'S ACCENT — dark form page (matches the dark world body):
+   labels/options/status recolored to bone/yellow since the .nwks-* base rules
+   hardcode the light-theme --f-ink/--f-gold, which are unreadable on dark. ======= */
 .world--men .nwks-field__input,.world--men .nwks-option__other-input{border-color:var(--m-dim)}
-.world--men .nwks-field__input:focus{outline-color:var(--m-olive);border-color:var(--m-olive)}
-.world--men .nwks-option__input{accent-color:var(--m-olive)}
-.world--men .nwks-form__submit{border-color:var(--m-olive);color:var(--m-olive)}
-.world--men .nwks-form__submit:hover:not(:disabled){background:var(--m-olive);color:#fff}
-.world--men .nwks-form__fallback-link{color:var(--m-olive);border-bottom-color:var(--m-olive)}
-.world--men .world-register__toggle-btn:hover{border-color:var(--m-olive);color:var(--m-olive)}
+.world--men .nwks-field__input:focus{outline-color:var(--m-yellow);border-color:var(--m-yellow)}
+.world--men .nwks-option__input{accent-color:var(--m-yellow)}
+.world--men .nwks-form__submit{border-color:var(--m-yellow);color:var(--m-yellow)}
+.world--men .nwks-form__submit:hover:not(:disabled){background:var(--m-yellow);color:var(--m-gun)}
+.world--men .nwks-form__fallback-link{color:var(--m-yellow);border-bottom-color:var(--m-yellow)}
+.world--men .world-register__toggle-btn:hover{border-color:var(--m-yellow);color:var(--m-yellow)}
+.world--men .nwks-field__label,.world--men .nwks-option__label{color:var(--m-bone)}
+.world--men .nwks-field__help,.world--men .nwks-form__fallback{color:var(--m-dim)}
+.world--men .nwks-form__status--success{color:#9fd6a0}
+.world--men .nwks-form__status--error{color:#e79b9b}
+.world--men .nwks-form--closed{border-color:rgba(232,227,210,.25)}
+.world--men .nwks-form__closed-msg{color:var(--m-bone)}
 
 /* ============ WOMEN'S ACCENT (white/baby-pink/black, clean & refined) =============== */
 .world--women{--w-form-pink:#F1D3DA;--w-form-pink-deep:#C98A9C}
@@ -1105,6 +1164,51 @@ window.NWKS = window.NWKS || {};
     return nav;
   }
 
+  // Full-screen register form page (Task: Register is its own page, not inline in
+  // the world). Plain show/hide via [hidden] — never touches history; app.js owns
+  // history/back for the gateway. Builds all native-form specs for this door up
+  // front (idempotent, cheap) so opening any of them is instant.
+  function buildFormPage(worldEl, door, specKeys) {
+    var page = el('div', { className: 'world-formpage' });
+    page.hidden = true;
+
+    var header = el('div', { className: 'world-formpage__header' });
+    var backLabel = door === 'men' ? "Men's Encounter" : "Women's Encounter";
+    var back = el('button', { className: 'world-formpage__back', text: '← Back to ' + backLabel });
+    back.type = 'button';
+    back.addEventListener('click', function () { page.hidden = true; });
+    header.appendChild(back);
+    page.appendChild(header);
+
+    var scroll = el('div', { className: 'world-formpage__scroll' });
+    page.appendChild(scroll);
+
+    var panels = {};
+    specKeys.forEach(function (key) {
+      var spec = NWKS.forms.specs && NWKS.forms.specs[key];
+      if (!spec) return;
+      var panel = el('div', { className: 'world-formpage__panel' });
+      panel.hidden = true;
+      panel.appendChild(el('h1', { className: 'world-formpage__title', text: spec.title || '' }));
+      var mount = el('div', { className: 'world-register__form' });
+      panel.appendChild(mount);
+      NWKS.forms.render(key, mount);
+      scroll.appendChild(panel);
+      panels[key] = panel;
+    });
+
+    worldEl.appendChild(page);
+
+    return {
+      open: function (key) {
+        if (!panels[key]) return;
+        Object.keys(panels).forEach(function (k) { panels[k].hidden = (k !== key); });
+        page.hidden = false;
+        scroll.scrollTop = 0;
+      }
+    };
+  }
+
   NWKS.worlds = {
     render: function (door) {
       var worldEl = document.getElementById('world-' + door);
@@ -1146,12 +1250,16 @@ window.NWKS = window.NWKS || {};
       }
       var formSpecKey = door === 'men' ? 'menAttendee' : (door === 'women' ? 'women' : null);
       var hasNativeForm = !!(formSpecKey && NWKS.forms && NWKS.forms.specs && NWKS.forms.specs[formSpecKey]);
+      // Assigned below (after the world body is built) — the hero CTA and the
+      // Register section's buttons both open this same full-screen form page.
+      var formPage = null;
 
       if (content.register && content.register.length) {
         var cta;
         if (hasNativeForm) {
-          cta = el('a', { className: 'world-cta', text: content.register[0].label });
-          cta.href = '#register';
+          cta = el('button', { className: 'world-cta', text: content.register[0].label });
+          cta.type = 'button';
+          cta.addEventListener('click', function () { if (formPage) formPage.open(formSpecKey); });
         } else {
           cta = externalLink(content.register[0].label, content.register[0].href);
           cta.className = 'world-cta';
@@ -1201,35 +1309,35 @@ window.NWKS = window.NWKS || {};
 
       worldEl.appendChild(body);
 
-      // ---- Register block: native in-site form when a spec exists (see
-      // src/content/forms.js + src/js/forms.js), else the external link list. ----
+      // ---- Register block: when a native form spec exists, this is just the
+      // button(s) that open the full-screen form page (see buildFormPage above);
+      // otherwise the external link list. ----
       if (content.register && content.register.length) {
         var registerSec = el('section', { className: 'world-section world-section--register' });
         registerSec.id = 'register';
         registerSec.appendChild(el('h2', { className: 'world-section__title', text: 'Register' }));
 
         if (hasNativeForm) {
-          var formMount = el('div', { className: 'world-register__form' });
-          registerSec.appendChild(formMount);
-          NWKS.forms.render(formSpecKey, formMount);
+          // Men's world: two buttons (Attendee + Server) — different Google Forms.
+          // Every other native-form door: one button for its single spec.
+          var pageButtons = door === 'men'
+            ? [
+                { key: 'menAttendee', label: content.register[0] ? content.register[0].label : 'Register as an Attendee' },
+                { key: 'menServer', label: content.register[1] ? content.register[1].label : 'Register as a Server' }
+              ]
+            : [
+                { key: formSpecKey, label: content.register[0] ? content.register[0].label : 'Register' }
+              ];
 
-          // Men's world only: a second, initially-collapsed mount for Server
-          // registration (kept separate — different Google Form / fields).
-          if (door === 'men' && NWKS.forms.specs.menServer) {
-            var toggleWrap = el('div', { className: 'world-register__toggle' });
-            var toggleBtn = el('button', { className: 'world-register__toggle-btn',
-              text: 'Registering to serve instead?' });
-            toggleBtn.type = 'button';
-            var serverMount = el('div', { className: 'world-register__form' });
-            serverMount.hidden = true;
-            toggleBtn.addEventListener('click', function () {
-              serverMount.hidden = !serverMount.hidden;
-              if (!serverMount.hidden) NWKS.forms.render('menServer', serverMount);
-            });
-            toggleWrap.appendChild(toggleBtn);
-            toggleWrap.appendChild(serverMount);
-            registerSec.appendChild(toggleWrap);
-          }
+          var nav = el('nav', { className: 'world-register' });
+          pageButtons.forEach(function (b) {
+            if (!(NWKS.forms.specs && NWKS.forms.specs[b.key])) return;
+            var btn = el('button', { className: 'world-register__btn', text: b.label });
+            btn.type = 'button';
+            btn.addEventListener('click', function () { if (formPage) formPage.open(b.key); });
+            nav.appendChild(btn);
+          });
+          registerSec.appendChild(nav);
         } else {
           registerSec.appendChild(registerNav(content));
         }
@@ -1241,6 +1349,11 @@ window.NWKS = window.NWKS || {};
         var verseFooter = el('footer', { className: 'world-verse' });
         verseFooter.appendChild(el('p', { text: content.verse }));
         worldEl.appendChild(verseFooter);
+      }
+
+      if (hasNativeForm) {
+        var formPageKeys = door === 'men' ? ['menAttendee', 'menServer'] : [formSpecKey];
+        formPage = buildFormPage(worldEl, door, formPageKeys);
       }
 
       worldEl.dataset.builtFor = door;
@@ -1811,6 +1924,20 @@ NWKS.transitions = NWKS.transitions || {};
       var ci;
       for (ci = 0; ci <= cols; ci++) colPix[ci] = Math.round(ci * colW);
 
+      // A second, much finer column set used ONLY for compositing the
+      // FREEDOM text (see smoothedOffsets() below for why): the coarse
+      // ~7px cloth-shading mesh above is fine for a tint (a smooth alpha
+      // blend has no hard edge), but drawImage-compositing text at that
+      // granularity draws each ~7px slice at one flat vertical offset, so
+      // even a smoothed offset curve still leaves a visible notch at every
+      // column boundary through a letter's vertical strokes. Narrow strips
+      // make each notch sub-pixel and invisible.
+      var TEXT_STRIP_PX = 3;
+      var textCols = Math.max(cols, Math.min(500, Math.ceil(w / TEXT_STRIP_PX)));
+      var textColPix = [];
+      var tci;
+      for (tci = 0; tci <= textCols; tci++) textColPix[tci] = Math.round(tci * (w / textCols));
+
       var ampText = Math.min(34, h * 0.04);   // vertical ripple amplitude at the free edge
       var ampEdge = Math.min(30, w * 0.025);  // horizontal jitter amplitude of the coverage boundary
       var edgeSpan = w + ampEdge * 2;
@@ -1837,15 +1964,49 @@ NWKS.transitions = NWKS.transitions || {};
       var rafId = null;
       var start = null;
       var totalMs = COVER_MS + UNCOVER_MS;
-      var eps = 1 / cols;
 
       coverEl.style.background = 'rgb(' + CLOTH_WHITE.join(',') + ')';
+
+      // Per-column ripple offset, low-pass smoothed across neighboring
+      // columns of whichever mesh is passed in (pixArr/nCols). The raw
+      // two-sine waveY() has enough local slope near the free edge that
+      // compositing FREEDOM's per-column text slices at the raw value
+      // tears the letterforms into jagged, disconnected black shards that
+      // reshape every frame (read as "glitching black lines" — confirmed
+      // in captured frames, worst on the D/O/M at the high-amplitude free
+      // edge). A symmetric box-smooth over a fixed PHYSICAL window (not a
+      // fixed column count, so it scales with whichever mesh resolution is
+      // passed in) removes that fine-scale jaggedness while preserving the
+      // large-scale sweep, so text/shading ride one continuous curve
+      // instead of tearing between columns.
+      var SMOOTH_PX = 130;
+      function smoothedOffsets(t, pixArr, nCols) {
+        var raw = new Array(nCols);
+        var i, xFrac;
+        for (i = 0; i < nCols; i++) {
+          xFrac = pixArr[i] / w;
+          raw[i] = waveY(xFrac, t);
+        }
+        var colWidthPx = w / nCols;
+        var radius = Math.max(1, Math.round((SMOOTH_PX / 2) / colWidthPx));
+        var out = new Array(nCols);
+        for (i = 0; i < nCols; i++) {
+          var sum = 0, count = 0, k, j;
+          for (k = -radius; k <= radius; k++) {
+            j = i + k;
+            if (j >= 0 && j < nCols) { sum += raw[j]; count++; }
+          }
+          out[i] = sum / count;
+        }
+        return out;
+      }
 
       // phase: 'in' -> boundary grows left->right, covered = colX-jitter <= edgePos
       //        'out' -> boundary grows left->right, covered = colX-jitter >= edgePos (remaining cloth recedes right)
       function drawCloth(t, phase, edgePos, textAlpha) {
         gfx.clearRect(0, 0, w, h);
         gfx.globalAlpha = 1;
+        var off = smoothedOffsets(t, colPix, cols);
         var i, colX, colX1, colWpx, xFrac, threshold, visible;
         for (i = 0; i < cols; i++) {
           colX = colPix[i];
@@ -1856,8 +2017,8 @@ NWKS.transitions = NWKS.transitions || {};
           visible = phase === 'in' ? threshold <= edgePos : threshold >= edgePos;
           if (!visible) continue;
 
-          var y0 = waveY(xFrac, t);
-          var y1 = waveY(Math.min(1, xFrac + eps), t);
+          var y0 = off[i];
+          var y1 = i + 1 < cols ? off[i + 1] : off[i];
           var slope = (y1 - y0) / colW;
           // Smooth (no hard saturation) signed map: slope 0 -> mid-tone, positive
           // slope -> slightly darker fold, negative -> slightly lighter — subtle
@@ -1873,21 +2034,22 @@ NWKS.transitions = NWKS.transitions || {};
 
         if (textAlpha > 0.01) {
           gfx.globalAlpha = clamp01(textAlpha);
-          var sx, sw;
-          for (i = 0; i < cols; i++) {
-            colX = colPix[i];
-            colX1 = colPix[i + 1];
-            colWpx = colX1 - colX;
-            xFrac = colX / w;
-            threshold = colX - edgeJitter(xFrac, t);
-            visible = phase === 'in' ? threshold <= edgePos : threshold >= edgePos;
-            if (!visible) continue;
-            sx = Math.round(colX * dpr);
-            sw = Math.round(colWpx * dpr);
+          var textOff = smoothedOffsets(t, textColPix, textCols);
+          var sx, sw, tColX, tColX1, tColWpx, tXFrac, tThreshold, tVisible;
+          for (i = 0; i < textCols; i++) {
+            tColX = textColPix[i];
+            tColX1 = textColPix[i + 1];
+            tColWpx = tColX1 - tColX;
+            tXFrac = tColX / w;
+            tThreshold = tColX - edgeJitter(tXFrac, t);
+            tVisible = phase === 'in' ? tThreshold <= edgePos : tThreshold >= edgePos;
+            if (!tVisible) continue;
+            sx = Math.round(tColX * dpr);
+            sw = Math.round(tColWpx * dpr);
             gfx.drawImage(
               textCanvas,
               sx, 0, sw, textCanvas.height,
-              colX, waveY(xFrac, t), colWpx, h
+              tColX, textOff[i], tColWpx, h
             );
           }
           gfx.globalAlpha = 1;

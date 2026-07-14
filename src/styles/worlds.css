@@ -39,7 +39,8 @@
 .world-cta{display:inline-flex;align-items:center;margin-top:2em;padding:1em 2.2em;
   font-family:"Helvetica Neue",Arial,system-ui,sans-serif;font-weight:700;letter-spacing:.24em;
   text-transform:uppercase;font-size:.72rem;border-radius:2px;text-decoration:none;
-  border:1px solid var(--f-gold);color:var(--f-gold);transition:.3s}
+  border:1px solid var(--f-gold);color:var(--f-gold);background:transparent;cursor:pointer;
+  transition:.3s}
 .world-cta:hover{background:var(--f-gold);color:#fff}
 
 /* ---------- BODY ---------- */
@@ -76,14 +77,51 @@
 .world-register__btn{display:inline-flex;align-items:center;padding:.85em 1.6em;
   font-family:"Helvetica Neue",Arial,system-ui,sans-serif;font-weight:700;letter-spacing:.2em;
   text-transform:uppercase;font-size:.68rem;border-radius:2px;text-decoration:none;
-  border:1px solid var(--f-rule);color:var(--f-ink);transition:.3s}
+  border:1px solid var(--f-rule);color:var(--f-ink);background:transparent;cursor:pointer;
+  transition:.3s}
 .world-register__btn:hover{background:var(--f-gold);border-color:var(--f-gold);color:#fff}
+
+/* ---------- FULL-SCREEN REGISTER FORM PAGE ----------
+   Built by src/js/worlds.js (buildFormPage) and mounted by NWKS.forms.render() (see
+   src/js/forms.js). Plain show/hide (the [hidden] attribute) — NEVER history.pushState,
+   app.js owns history/back for the gateway. Themed per-door below. */
+.world-formpage{position:fixed;inset:0;z-index:20;background:var(--f-bg);color:var(--f-ink);
+  display:flex;flex-direction:column;font-family:var(--serif)}
+.world-formpage[hidden]{display:none}
+.world-formpage__header{position:sticky;top:0;z-index:2;display:flex;align-items:center;
+  flex:0 0 auto;padding:.85em 4vw;background:rgba(234,227,212,.92);backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--f-rule)}
+.world-formpage__back{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;font-weight:700;
+  letter-spacing:.14em;font-size:.7rem;text-transform:uppercase;color:var(--f-ink);
+  background:transparent;border:1px solid var(--f-rule);border-radius:2px;padding:.55em 1em;
+  cursor:pointer;transition:.25s}
+.world-formpage__back:hover{background:var(--f-gold);border-color:var(--f-gold);color:#fff}
+.world-formpage__scroll{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:5vh 6vw 8vh}
+.world-formpage__panel{max-width:640px;margin:0 auto}
+.world-formpage__title{font-size:clamp(1.2rem,3vw,1.7rem);font-weight:600;letter-spacing:.02em;
+  margin-bottom:1em}
+
+.world--men .world-formpage{background:var(--m-gun);color:var(--m-bone)}
+.world--men .world-formpage__header{background:rgba(27,29,23,.92);border-bottom-color:rgba(230,193,47,.25)}
+.world--men .world-formpage__back{color:var(--m-bone);border-color:var(--m-dim)}
+.world--men .world-formpage__back:hover{background:var(--m-yellow);border-color:var(--m-yellow);color:var(--m-gun)}
+
+.world--women .world-formpage{background:var(--w2-bg);color:var(--w2-ink)}
+.world--women .world-formpage__header{background:rgba(255,255,255,.92);border-bottom-color:var(--w2-rule)}
+.world--women .world-formpage__back{color:var(--w2-ink);border-color:var(--w2-pink-deep);
+  font-family:var(--w2-font-body)}
+.world--women .world-formpage__back:hover{background:var(--w2-pink-deep);border-color:var(--w2-pink-deep);color:#fff}
 
 /* ---------- VERSE FOOTER ---------- */
 .world-verse{text-align:center;padding:5vh 6vw 8vh;font-style:italic;color:var(--f-ink);
   font-size:clamp(.86rem,1.6vw,1rem)}
 
-/* ================= MEN'S THEME ================= */
+/* ================= MEN'S THEME — whole page = dark gunmetal/olive (same as the
+   header), all text lifted to light (bone/dim) with yellow accents, per operator
+   direction "make the whole Men's Encounter page the color of the top section and
+   adjust the text accordingly." ================= */
+.world--men{background:var(--m-gun);color:var(--m-bone)}
 .world--men .world-header{background:rgba(27,29,23,.92);border-bottom-color:rgba(230,193,47,.25)}
 .world--men .world-back{color:var(--m-bone);border-color:var(--m-dim)}
 .world--men .world-back:hover{background:var(--m-yellow);border-color:var(--m-yellow);color:var(--m-gun)}
@@ -93,15 +131,26 @@
   linear-gradient(160deg,var(--m-olive) 0%,var(--m-olive-deep) 60%,var(--m-gun) 100%)}
 .world--men .world-hero__logo{box-shadow:0 14px 34px rgba(0,0,0,.5);
   outline:2px solid rgba(230,193,47,.45);outline-offset:4px}
+.world--men .world-hero__title{color:var(--m-bone)}
 .world--men .world-hero__tagline{color:var(--m-yellow)}
 .world--men .world-hero__dates{color:var(--m-dim)}
 .world--men .world-cta{border-color:var(--m-yellow);color:var(--m-yellow)}
 .world--men .world-cta:hover{background:var(--m-yellow);color:var(--m-gun)}
+
+/* body copy on the dark page: bone = primary text, dim = secondary, yellow = accents */
+.world--men .world-section{border-top-color:rgba(232,227,210,.14)}
+.world--men .world-section__title{color:var(--m-bone)}
+.world--men .world-p{color:var(--m-bone)}
+.world--men .world-list li{color:var(--m-bone)}
 .world--men .world-inline-link,.world--men .world-list li::before,
-.world--men .world-contact__link{color:var(--m-olive)}
-.world--men .world-inline-link{border-bottom-color:var(--m-olive)}
-.world--men .world-list li::before{background:var(--m-olive)}
-.world--men .world-register__btn:hover{background:var(--m-olive);border-color:var(--m-olive)}
+.world--men .world-contact__link{color:var(--m-yellow)}
+.world--men .world-inline-link{border-bottom-color:var(--m-yellow)}
+.world--men .world-list li::before{background:var(--m-yellow)}
+.world--men .world-contact{border-bottom-color:rgba(232,227,210,.14)}
+.world--men .world-contact__name{color:var(--m-bone)}
+.world--men .world-register__btn{border-color:var(--m-dim);color:var(--m-bone)}
+.world--men .world-register__btn:hover{background:var(--m-yellow);border-color:var(--m-yellow);color:var(--m-gun)}
+.world--men .world-verse{color:var(--m-dim)}
 
 /* ================= WOMEN'S THEME — white + light baby pink + black, elegant & distinct =================
    Local tokens (--w2-*) are self-contained here so this scope never depends on the men's palette.
@@ -161,8 +210,10 @@
   .world-register__btn{width:100%;justify-content:center}
   .world-cta{width:100%;justify-content:center}
   .world-contact{flex-direction:column;align-items:flex-start;gap:.3em}
+  .world-formpage__header{padding:.75em 5vw}
+  .world-formpage__scroll{padding:4vh 6vw 6vh}
 }
 
 @media(prefers-reduced-motion:reduce){
-  .world-back,.world-cta,.world-register__btn,.world-inline-link{transition:none}
+  .world-back,.world-cta,.world-register__btn,.world-inline-link,.world-formpage__back{transition:none}
 }

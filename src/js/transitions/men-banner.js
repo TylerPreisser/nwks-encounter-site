@@ -112,6 +112,20 @@ NWKS.transitions = NWKS.transitions || {};
       var ci;
       for (ci = 0; ci <= cols; ci++) colPix[ci] = Math.round(ci * colW);
 
+      // A second, much finer column set used ONLY for compositing the
+      // FREEDOM text (see smoothedOffsets() below for why): the coarse
+      // ~7px cloth-shading mesh above is fine for a tint (a smooth alpha
+      // blend has no hard edge), but drawImage-compositing text at that
+      // granularity draws each ~7px slice at one flat vertical offset, so
+      // even a smoothed offset curve still leaves a visible notch at every
+      // column boundary through a letter's vertical strokes. Narrow strips
+      // make each notch sub-pixel and invisible.
+      var TEXT_STRIP_PX = 3;
+      var textCols = Math.max(cols, Math.min(500, Math.ceil(w / TEXT_STRIP_PX)));
+      var textColPix = [];
+      var tci;
+      for (tci = 0; tci <= textCols; tci++) textColPix[tci] = Math.round(tci * (w / textCols));
+
       var ampText = Math.min(34, h * 0.04);   // vertical ripple amplitude at the free edge
       var ampEdge = Math.min(30, w * 0.025);  // horizontal jitter amplitude of the coverage boundary
       var edgeSpan = w + ampEdge * 2;
@@ -138,15 +152,49 @@ NWKS.transitions = NWKS.transitions || {};
       var rafId = null;
       var start = null;
       var totalMs = COVER_MS + UNCOVER_MS;
-      var eps = 1 / cols;
 
       coverEl.style.background = 'rgb(' + CLOTH_WHITE.join(',') + ')';
+
+      // Per-column ripple offset, low-pass smoothed across neighboring
+      // columns of whichever mesh is passed in (pixArr/nCols). The raw
+      // two-sine waveY() has enough local slope near the free edge that
+      // compositing FREEDOM's per-column text slices at the raw value
+      // tears the letterforms into jagged, disconnected black shards that
+      // reshape every frame (read as "glitching black lines" — confirmed
+      // in captured frames, worst on the D/O/M at the high-amplitude free
+      // edge). A symmetric box-smooth over a fixed PHYSICAL window (not a
+      // fixed column count, so it scales with whichever mesh resolution is
+      // passed in) removes that fine-scale jaggedness while preserving the
+      // large-scale sweep, so text/shading ride one continuous curve
+      // instead of tearing between columns.
+      var SMOOTH_PX = 130;
+      function smoothedOffsets(t, pixArr, nCols) {
+        var raw = new Array(nCols);
+        var i, xFrac;
+        for (i = 0; i < nCols; i++) {
+          xFrac = pixArr[i] / w;
+          raw[i] = waveY(xFrac, t);
+        }
+        var colWidthPx = w / nCols;
+        var radius = Math.max(1, Math.round((SMOOTH_PX / 2) / colWidthPx));
+        var out = new Array(nCols);
+        for (i = 0; i < nCols; i++) {
+          var sum = 0, count = 0, k, j;
+          for (k = -radius; k <= radius; k++) {
+            j = i + k;
+            if (j >= 0 && j < nCols) { sum += raw[j]; count++; }
+          }
+          out[i] = sum / count;
+        }
+        return out;
+      }
 
       // phase: 'in' -> boundary grows left->right, covered = colX-jitter <= edgePos
       //        'out' -> boundary grows left->right, covered = colX-jitter >= edgePos (remaining cloth recedes right)
       function drawCloth(t, phase, edgePos, textAlpha) {
         gfx.clearRect(0, 0, w, h);
         gfx.globalAlpha = 1;
+        var off = smoothedOffsets(t, colPix, cols);
         var i, colX, colX1, colWpx, xFrac, threshold, visible;
         for (i = 0; i < cols; i++) {
           colX = colPix[i];
@@ -157,8 +205,8 @@ NWKS.transitions = NWKS.transitions || {};
           visible = phase === 'in' ? threshold <= edgePos : threshold >= edgePos;
           if (!visible) continue;
 
-          var y0 = waveY(xFrac, t);
-          var y1 = waveY(Math.min(1, xFrac + eps), t);
+          var y0 = off[i];
+          var y1 = i + 1 < cols ? off[i + 1] : off[i];
           var slope = (y1 - y0) / colW;
           // Smooth (no hard saturation) signed map: slope 0 -> mid-tone, positive
           // slope -> slightly darker fold, negative -> slightly lighter — subtle
@@ -174,21 +222,22 @@ NWKS.transitions = NWKS.transitions || {};
 
         if (textAlpha > 0.01) {
           gfx.globalAlpha = clamp01(textAlpha);
-          var sx, sw;
-          for (i = 0; i < cols; i++) {
-            colX = colPix[i];
-            colX1 = colPix[i + 1];
-            colWpx = colX1 - colX;
-            xFrac = colX / w;
-            threshold = colX - edgeJitter(xFrac, t);
-            visible = phase === 'in' ? threshold <= edgePos : threshold >= edgePos;
-            if (!visible) continue;
-            sx = Math.round(colX * dpr);
-            sw = Math.round(colWpx * dpr);
+          var textOff = smoothedOffsets(t, textColPix, textCols);
+          var sx, sw, tColX, tColX1, tColWpx, tXFrac, tThreshold, tVisible;
+          for (i = 0; i < textCols; i++) {
+            tColX = textColPix[i];
+            tColX1 = textColPix[i + 1];
+            tColWpx = tColX1 - tColX;
+            tXFrac = tColX / w;
+            tThreshold = tColX - edgeJitter(tXFrac, t);
+            tVisible = phase === 'in' ? tThreshold <= edgePos : tThreshold >= edgePos;
+            if (!tVisible) continue;
+            sx = Math.round(tColX * dpr);
+            sw = Math.round(tColWpx * dpr);
             gfx.drawImage(
               textCanvas,
               sx, 0, sw, textCanvas.height,
-              colX, waveY(xFrac, t), colWpx, h
+              tColX, textOff[i], tColWpx, h
             );
           }
           gfx.globalAlpha = 1;
