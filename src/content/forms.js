@@ -24,7 +24,7 @@ NWKS.forms.specs = {
       { name: 'entry.87341896', label: 'Email Address', type: 'text', required: true,
         help: 'We will send registration and event details via email, please leave accurate email address' },
       { name: 'entry.1533571593', label: 'Phone Number', type: 'text', required: true },
-      { name: 'entry.1143291371', label: 'Phone Type', type: 'radio', required: true,
+      { name: 'entry.1143291371', label: 'Phone Type', type: 'dropdown', required: true,
         options: ['Cell', 'Home', 'Work', 'Other'] },
       { name: 'entry.2074644504', label: 'Address', type: 'text', required: true },
       { name: 'entry.1859103300', label: 'City', type: 'text', required: true },
@@ -67,7 +67,7 @@ NWKS.forms.specs = {
     fields: [
       { name: 'entry.1905834370', label: 'First Name', type: 'text', required: true },
       { name: 'entry.186114797', label: 'Last Name', type: 'text', required: true },
-      { name: 'entry.1201758753', label: 'Select a Launch Point location', type: 'radio', required: true,
+      { name: 'entry.1201758753', label: 'Select a Launch Point location', type: 'dropdown', required: true,
         options: ['Colby', 'Gove', 'Hays', 'Hoxie', 'Norton', 'Plainville', 'Sterling', 'Wakeeney'] },
       { name: 'entry.235503560', label: 'Who invited you to Encounter? Please give a first & last name(s).', type: 'text', required: false },
       { name: 'entry.784708643', label: 'Email Address', type: 'text', required: true,
@@ -96,7 +96,7 @@ NWKS.forms.specs = {
         options: ['Small', 'Medium', 'Large', 'X-Large', 'XX-Large', 'XXX-Large', 'Other'],
         otherEntry: 'entry.1770598054.other_option_response',
         help: 'There will be T-shirts available onsite for purchase.' },
-      { name: 'entry.2109726452', label: 'What kind of sandwich do you prefer?', type: 'radio', required: true,
+      { name: 'entry.2109726452', label: 'What kind of sandwich do you prefer?', type: 'dropdown', required: true,
         options: ['Ham/bun', 'Ham/lettuce wrapped unwich', 'Turkey/bun', 'Turkey/lettuce wrapped unwich', 'Veggie/bun', 'Veggie/lettuce wrapped unwich'] },
       { name: 'entry.1554249951', label: 'Do you have any questions or concerns?', type: 'textarea', required: false }
     ]

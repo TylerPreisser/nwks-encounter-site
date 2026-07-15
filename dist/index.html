@@ -231,8 +231,11 @@ html[data-world="women"],html[data-world="women"] body{background:#FAF6F1}
      women clears the toolbar/home indicator; the redundant inset on each sits at the split
      and is harmless). Both halves are 50/50 and now center content identically. */
   .half{min-height:0;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
-  /* Nudge the women's (bottom) half content down a bit on the gateway (operator). */
-  .half--women{padding-top:calc(env(safe-area-inset-top) + 6vh)}
+  /* Extend the men's green further down — the men's half has extra space (operator). */
+  .half--men{flex-grow:1.25}
+  /* Women's half: nudge content down a touch but keep the ENTER clear of the Safari toolbar. */
+  .half--women{padding-top:calc(env(safe-area-inset-top) + 2vh);
+    padding-bottom:calc(env(safe-area-inset-bottom) + 6vh)}
   .half__inner{padding:2vh 8vw}
   /* Both logo files are now padding-free (men's trimmed to 336x335), so equal element size
      = equal visible size AND equal element height -> uniform spacing. */
@@ -280,8 +283,9 @@ html[data-world="women"],html[data-world="women"] body{background:#FAF6F1}
 }
 
 /* ---------- STICKY HEADER ---------- */
-/* No bar — just the floating "Back to main" button (operator). Transparent, no border. */
-.world-header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:1em;
+/* No bar — just the "Back to main" button at the very top; NOT sticky, so it scrolls
+   away with the page instead of overlaying content (operator). */
+.world-header{position:relative;display:flex;align-items:center;gap:1em;
   padding:.85em 4vw;background:transparent;
   padding-top:max(.85em, env(safe-area-inset-top));
   padding-left:max(4vw, env(safe-area-inset-left));
@@ -326,7 +330,7 @@ html[data-world="women"],html[data-world="women"] body{background:#FAF6F1}
 .world-body{max-width:1000px;margin:0 auto;padding:0 6vw}
 .world-section{padding:3.4vh 0;border-top:1px solid var(--f-rule)}
 .world-section:first-child{border-top:none}
-.world-section__title{font-size:clamp(1.05rem,2.4vw,1.3rem);font-weight:600;letter-spacing:.02em;
+.world-section__title{font-size:clamp(1.3rem,3.4vw,1.65rem);font-weight:700;letter-spacing:.02em;
   margin-bottom:.85em}
 .world-p{line-height:1.7;font-size:clamp(.92rem,1.6vw,1rem);margin-bottom:.9em}
 .world-p:last-child{margin-bottom:0}
@@ -367,9 +371,8 @@ html[data-world="women"],html[data-world="women"] body{background:#FAF6F1}
 .world-formpage{position:fixed;inset:0;z-index:20;background:var(--f-bg);color:var(--f-ink);
   display:flex;flex-direction:column;font-family:var(--serif)}
 .world-formpage[hidden]{display:none}
-.world-formpage__header{position:sticky;top:0;z-index:2;display:flex;align-items:center;
-  flex:0 0 auto;padding:.85em 4vw;background:rgba(234,227,212,.92);backdrop-filter:blur(6px);
-  border-bottom:1px solid var(--f-rule);
+.world-formpage__header{position:relative;z-index:2;display:flex;align-items:center;
+  flex:0 0 auto;padding:.85em 4vw;background:transparent;
   padding-top:max(.85em, env(safe-area-inset-top));
   padding-left:max(4vw, env(safe-area-inset-left));
   padding-right:max(4vw, env(safe-area-inset-right))}
@@ -388,12 +391,12 @@ html[data-world="women"],html[data-world="women"] body{background:#FAF6F1}
   margin-bottom:1em}
 
 .world--men .world-formpage{background:#6E765F;color:#FAF8F0}
-.world--men .world-formpage__header{background:rgba(58,63,50,.96);border-bottom-color:rgba(230,193,47,.25)}
+.world--men .world-formpage__header{background:transparent}
 .world--men .world-formpage__back{color:#FAF8F0;border-color:var(--m-dim)}
 .world--men .world-formpage__back:hover{background:var(--m-yellow);border-color:var(--m-yellow);color:var(--m-gun)}
 
 .world--women .world-formpage{background:var(--w2-bg);color:var(--w2-ink)}
-.world--women .world-formpage__header{background:rgba(255,255,255,.92);border-bottom-color:var(--w2-rule)}
+.world--women .world-formpage__header{background:transparent}
 .world--women .world-formpage__back{color:var(--w2-ink);border-color:var(--w2-pink-deep);
   font-family:var(--w2-font-body)}
 .world--women .world-formpage__back:hover{background:var(--w2-pink-deep);border-color:var(--w2-pink-deep);color:#fff}
@@ -490,8 +493,8 @@ html[data-world="women"],html[data-world="women"] body{background:#FAF6F1}
 .world--women .world-hero__title{font-size:clamp(1.7rem,5vw,2.85rem);letter-spacing:.015em;
   line-height:1.18}
 .world--women .world-hero__tagline{font-size:clamp(1rem,2vw,1.18rem);line-height:1.5}
-.world--women .world-section__title{font-size:clamp(1.15rem,2.6vw,1.55rem);letter-spacing:.01em;
-  margin-bottom:.7em}
+.world--women .world-section__title{font-size:clamp(1.42rem,3.7vw,1.9rem);font-weight:600;
+  letter-spacing:.01em;margin-bottom:.7em}
 .world--women .world-p{font-size:clamp(1rem,1.7vw,1.08rem);line-height:1.85;
   color:var(--w2-ink);letter-spacing:.005em}
 .world--women .world-list li{line-height:1.75;margin-bottom:.7em;font-size:clamp(.95rem,1.5vw,1.02rem)}
@@ -709,10 +712,10 @@ html[data-world="women"],html[data-world="women"] body{background:#FAF6F1}
 .world--men .nwks-form{--nwks-divider:rgba(232,227,210,.16);--nwks-accent:var(--m-yellow);
   --nwks-accent-deep:#c9a423}
 .world--men .nwks-field__input,.world--men .nwks-option,.world--men .nwks-option__other-input{
-  border-color:var(--m-dim);background:#FAF8F0}
+  border-color:var(--m-dim);background-color:#FAF8F0}
 .world--men .nwks-field__input--select{
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236E765F' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")}
-.world--men .nwks-option__input{border-color:var(--m-dim);background:#FAF8F0}
+.world--men .nwks-option__input{border-color:var(--m-dim);background-color:#FAF8F0}
 .world--men .nwks-form__submit{color:var(--m-gun)}
 .world--men .nwks-form__fallback-link{color:var(--m-yellow);border-bottom-color:var(--m-yellow)}
 .world--men .world-register__toggle-btn:hover{border-color:var(--m-yellow);color:var(--m-yellow)}
@@ -741,7 +744,7 @@ html[data-world="women"],html[data-world="women"] body{background:#FAF6F1}
 .world--women .nwks-field__required{color:var(--w2-pink-deep);font-style:normal}
 .world--women .nwks-field__help{color:var(--w2-dim);font-family:var(--w2-font-body)}
 .world--women .nwks-field__input,.world--women .nwks-option,.world--women .nwks-option__other-input,
-.world--women .nwks-option__input{border-color:var(--w2-rule);background:#fff;font-family:var(--w2-font-body)}
+.world--women .nwks-option__input{border-color:var(--w2-rule);background-color:#fff;font-family:var(--w2-font-body)}
 .world--women .nwks-option__label{font-family:var(--w2-font-body);color:var(--w2-ink)}
 .world--women .nwks-form__submit{font-family:var(--w2-font-body)}
 .world--women .nwks-form__fallback-link{color:var(--w2-pink-deep);border-bottom-color:var(--w2-pink-deep)}
@@ -1233,7 +1236,7 @@ NWKS.forms.specs = {
       { name: 'entry.87341896', label: 'Email Address', type: 'text', required: true,
         help: 'We will send registration and event details via email, please leave accurate email address' },
       { name: 'entry.1533571593', label: 'Phone Number', type: 'text', required: true },
-      { name: 'entry.1143291371', label: 'Phone Type', type: 'radio', required: true,
+      { name: 'entry.1143291371', label: 'Phone Type', type: 'dropdown', required: true,
         options: ['Cell', 'Home', 'Work', 'Other'] },
       { name: 'entry.2074644504', label: 'Address', type: 'text', required: true },
       { name: 'entry.1859103300', label: 'City', type: 'text', required: true },
@@ -1276,7 +1279,7 @@ NWKS.forms.specs = {
     fields: [
       { name: 'entry.1905834370', label: 'First Name', type: 'text', required: true },
       { name: 'entry.186114797', label: 'Last Name', type: 'text', required: true },
-      { name: 'entry.1201758753', label: 'Select a Launch Point location', type: 'radio', required: true,
+      { name: 'entry.1201758753', label: 'Select a Launch Point location', type: 'dropdown', required: true,
         options: ['Colby', 'Gove', 'Hays', 'Hoxie', 'Norton', 'Plainville', 'Sterling', 'Wakeeney'] },
       { name: 'entry.235503560', label: 'Who invited you to Encounter? Please give a first & last name(s).', type: 'text', required: false },
       { name: 'entry.784708643', label: 'Email Address', type: 'text', required: true,
@@ -1305,7 +1308,7 @@ NWKS.forms.specs = {
         options: ['Small', 'Medium', 'Large', 'X-Large', 'XX-Large', 'XXX-Large', 'Other'],
         otherEntry: 'entry.1770598054.other_option_response',
         help: 'There will be T-shirts available onsite for purchase.' },
-      { name: 'entry.2109726452', label: 'What kind of sandwich do you prefer?', type: 'radio', required: true,
+      { name: 'entry.2109726452', label: 'What kind of sandwich do you prefer?', type: 'dropdown', required: true,
         options: ['Ham/bun', 'Ham/lettuce wrapped unwich', 'Turkey/bun', 'Turkey/lettuce wrapped unwich', 'Veggie/bun', 'Veggie/lettuce wrapped unwich'] },
       { name: 'entry.1554249951', label: 'Do you have any questions or concerns?', type: 'textarea', required: false }
     ]

@@ -132,10 +132,10 @@
 .world--men .nwks-form{--nwks-divider:rgba(232,227,210,.16);--nwks-accent:var(--m-yellow);
   --nwks-accent-deep:#c9a423}
 .world--men .nwks-field__input,.world--men .nwks-option,.world--men .nwks-option__other-input{
-  border-color:var(--m-dim);background:#FAF8F0}
+  border-color:var(--m-dim);background-color:#FAF8F0}
 .world--men .nwks-field__input--select{
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236E765F' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")}
-.world--men .nwks-option__input{border-color:var(--m-dim);background:#FAF8F0}
+.world--men .nwks-option__input{border-color:var(--m-dim);background-color:#FAF8F0}
 .world--men .nwks-form__submit{color:var(--m-gun)}
 .world--men .nwks-form__fallback-link{color:var(--m-yellow);border-bottom-color:var(--m-yellow)}
 .world--men .world-register__toggle-btn:hover{border-color:var(--m-yellow);color:var(--m-yellow)}
@@ -164,7 +164,7 @@
 .world--women .nwks-field__required{color:var(--w2-pink-deep);font-style:normal}
 .world--women .nwks-field__help{color:var(--w2-dim);font-family:var(--w2-font-body)}
 .world--women .nwks-field__input,.world--women .nwks-option,.world--women .nwks-option__other-input,
-.world--women .nwks-option__input{border-color:var(--w2-rule);background:#fff;font-family:var(--w2-font-body)}
+.world--women .nwks-option__input{border-color:var(--w2-rule);background-color:#fff;font-family:var(--w2-font-body)}
 .world--women .nwks-option__label{font-family:var(--w2-font-body);color:var(--w2-ink)}
 .world--women .nwks-form__submit{font-family:var(--w2-font-body)}
 .world--women .nwks-form__fallback-link{color:var(--w2-pink-deep);border-bottom-color:var(--w2-pink-deep)}

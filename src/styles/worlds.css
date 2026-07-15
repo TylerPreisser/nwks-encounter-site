@@ -21,8 +21,9 @@
 }
 
 /* ---------- STICKY HEADER ---------- */
-/* No bar — just the floating "Back to main" button (operator). Transparent, no border. */
-.world-header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:1em;
+/* No bar — just the "Back to main" button at the very top; NOT sticky, so it scrolls
+   away with the page instead of overlaying content (operator). */
+.world-header{position:relative;display:flex;align-items:center;gap:1em;
   padding:.85em 4vw;background:transparent;
   padding-top:max(.85em, env(safe-area-inset-top));
   padding-left:max(4vw, env(safe-area-inset-left));
@@ -67,7 +68,7 @@
 .world-body{max-width:1000px;margin:0 auto;padding:0 6vw}
 .world-section{padding:3.4vh 0;border-top:1px solid var(--f-rule)}
 .world-section:first-child{border-top:none}
-.world-section__title{font-size:clamp(1.05rem,2.4vw,1.3rem);font-weight:600;letter-spacing:.02em;
+.world-section__title{font-size:clamp(1.3rem,3.4vw,1.65rem);font-weight:700;letter-spacing:.02em;
   margin-bottom:.85em}
 .world-p{line-height:1.7;font-size:clamp(.92rem,1.6vw,1rem);margin-bottom:.9em}
 .world-p:last-child{margin-bottom:0}
@@ -108,9 +109,8 @@
 .world-formpage{position:fixed;inset:0;z-index:20;background:var(--f-bg);color:var(--f-ink);
   display:flex;flex-direction:column;font-family:var(--serif)}
 .world-formpage[hidden]{display:none}
-.world-formpage__header{position:sticky;top:0;z-index:2;display:flex;align-items:center;
-  flex:0 0 auto;padding:.85em 4vw;background:rgba(234,227,212,.92);backdrop-filter:blur(6px);
-  border-bottom:1px solid var(--f-rule);
+.world-formpage__header{position:relative;z-index:2;display:flex;align-items:center;
+  flex:0 0 auto;padding:.85em 4vw;background:transparent;
   padding-top:max(.85em, env(safe-area-inset-top));
   padding-left:max(4vw, env(safe-area-inset-left));
   padding-right:max(4vw, env(safe-area-inset-right))}
@@ -129,12 +129,12 @@
   margin-bottom:1em}
 
 .world--men .world-formpage{background:#6E765F;color:#FAF8F0}
-.world--men .world-formpage__header{background:rgba(58,63,50,.96);border-bottom-color:rgba(230,193,47,.25)}
+.world--men .world-formpage__header{background:transparent}
 .world--men .world-formpage__back{color:#FAF8F0;border-color:var(--m-dim)}
 .world--men .world-formpage__back:hover{background:var(--m-yellow);border-color:var(--m-yellow);color:var(--m-gun)}
 
 .world--women .world-formpage{background:var(--w2-bg);color:var(--w2-ink)}
-.world--women .world-formpage__header{background:rgba(255,255,255,.92);border-bottom-color:var(--w2-rule)}
+.world--women .world-formpage__header{background:transparent}
 .world--women .world-formpage__back{color:var(--w2-ink);border-color:var(--w2-pink-deep);
   font-family:var(--w2-font-body)}
 .world--women .world-formpage__back:hover{background:var(--w2-pink-deep);border-color:var(--w2-pink-deep);color:#fff}
@@ -231,8 +231,8 @@
 .world--women .world-hero__title{font-size:clamp(1.7rem,5vw,2.85rem);letter-spacing:.015em;
   line-height:1.18}
 .world--women .world-hero__tagline{font-size:clamp(1rem,2vw,1.18rem);line-height:1.5}
-.world--women .world-section__title{font-size:clamp(1.15rem,2.6vw,1.55rem);letter-spacing:.01em;
-  margin-bottom:.7em}
+.world--women .world-section__title{font-size:clamp(1.42rem,3.7vw,1.9rem);font-weight:600;
+  letter-spacing:.01em;margin-bottom:.7em}
 .world--women .world-p{font-size:clamp(1rem,1.7vw,1.08rem);line-height:1.85;
   color:var(--w2-ink);letter-spacing:.005em}
 .world--women .world-list li{line-height:1.75;margin-bottom:.7em;font-size:clamp(.95rem,1.5vw,1.02rem)}
