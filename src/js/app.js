@@ -51,6 +51,9 @@ window.NWKS = window.NWKS || {};
     if (!worldEl) return;
 
     busy = true;
+    // Whole screen becomes this world's color -> both Safari chrome bars match it
+    // (the gateway split-gradient body background is only right for the gateway).
+    document.body.setAttribute('data-view', door);
 
     // populate the world's content before it can ever become visible
     if (NWKS.worlds && typeof NWKS.worlds.render === 'function') {
@@ -75,6 +78,8 @@ window.NWKS = window.NWKS || {};
     // close the world.
     if (busy) return;
     openDoor = null;
+    // Back to the gateway: restore the olive-top / pearl-bottom split chrome.
+    document.body.removeAttribute('data-view');
     if (NWKS.worlds && typeof NWKS.worlds.close === 'function') {
       NWKS.worlds.close(door);
     }

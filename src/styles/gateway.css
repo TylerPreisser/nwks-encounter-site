@@ -1,12 +1,25 @@
 *{box-sizing:border-box;margin:0;padding:0}
-/* Brand olive on html AND body — NOT #000. iOS 26 Safari samples the page background
-   to tint the translucent top/bottom chrome, and viewport-fit=cover lets the page fill
-   the notch/home-indicator gutters; a black body painted those as black bars. */
-html,body{height:100%;background:#6E765F}
-body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#6E765F;color:#fff;
-  overflow:hidden;-webkit-font-smoothing:antialiased}
-/* svh→dvh stack: fills exactly top-to-bottom in every Safari toolbar state, no letterbox. */
-.stage{position:relative;display:flex;width:100%;height:100vh;height:100svh;height:100dvh;overflow:hidden}
+/* iOS Safari samples the BODY background-color to tint its translucent top/bottom
+   chrome (and viewport-fit=cover fills the notch/home-indicator gutters with it).
+   The gateway is olive on top (Men's) and pearl on the bottom (Women's), so the body
+   is a hard 50/50 split: Safari samples olive at the top edge -> green top chrome, and
+   pearl at the bottom edge -> white bottom chrome. Never #000 (that painted black bars).
+   Worlds override this to a solid color via body[data-view] below. */
+/* Body background-color is olive -> Safari tints the TOP chrome green (Men's, top half).
+   iOS Safari samples a SOLID background-color (it ignores gradients), so for the WHITE
+   bottom chrome (Women's, bottom half) we pin a solid pearl strip to the bottom edge via
+   ::after — Safari samples it for the bottom toolbar. It sits over the gateway's pearl
+   bottom half, so it's invisible there. Hidden once a world is open (body[data-view]),
+   where a single solid body color drives both bars. */
+html{height:100%;background:#FAF6F1}
+body{height:100%;font-family:"Helvetica Neue",Arial,system-ui,sans-serif;color:#fff;
+  overflow:hidden;-webkit-font-smoothing:antialiased;background:#FAF6F1}
+body[data-view="men"]{background:#6E765F}
+body[data-view="women"]{background:#FAF6F1}
+/* position:fixed + inset:0 makes the stage fill the ENTIRE physical screen — including
+   under the status bar and home indicator — so the men's/women's halves paint edge to
+   edge and iOS Safari tints its chrome from the real page content, not the body. */
+.stage{position:fixed;inset:0;display:flex;width:100%;overflow:hidden}
 
 /* Screen-reader-only: keeps a real heading in the a11y tree without showing it. */
 .visually-hidden{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;
@@ -53,8 +66,7 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#6E765F;
 
 /* ---------- WOMEN signature ---------- */
 .half--women{color:var(--w-ink);background:
-  radial-gradient(90% 70% at 70% 0%, rgba(181,152,79,.16), transparent 60%),
-  linear-gradient(200deg,var(--w-pearl) 0%,var(--w-pearl-deep) 100%)}
+  linear-gradient(180deg,#FFFFFF 0%,#FAF6F1 100%)}
 .half--women::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background-image:
   radial-gradient(2px 2px at 25% 40%,rgba(181,152,79,.5),transparent),
   radial-gradient(1.5px 1.5px at 65% 22%,rgba(181,152,79,.4),transparent),
@@ -155,13 +167,16 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#6E765F;
   /* Vertical 50/50 split — both doors visible on one screen, stacked top/bottom. */
   .stage{flex-direction:column}
   .half{min-height:0}
-  .half__inner{padding:3.5vh 8vw}
-  /* Bleed each half's background to the screen edge, but keep content clear of the
-     notch (top/men) and home indicator (bottom/women) via safe-area padding. */
-  .half--men .half__inner{padding-top:max(3.5vh, env(safe-area-inset-top))}
-  .half--women .half__inner{padding-bottom:max(3.5vh, env(safe-area-inset-bottom))}
-  .mark{width:clamp(120px,42vw,188px);animation:none}
-  .half--men .mark{width:clamp(150px,50vw,230px)}
+  /* Center each half's content within its VISIBLE area: the men's half clears the status
+     bar at the top; the women's half clears the Safari toolbar + home indicator at the
+     bottom. This makes both ENTER buttons sit an equal distance from their edge. */
+  .half--men{padding-top:env(safe-area-inset-top)}
+  .half--women{padding-bottom:env(safe-area-inset-bottom)}
+  .half__inner{padding:2vh 8vw}
+  /* Equalize the two marks visually: the men's circular badge fills less of its box than
+     the women's wide wordmark, so the men's element is larger to match rendered size. */
+  .mark{width:clamp(115px,35vw,150px);animation:none}
+  .half--men .mark{width:clamp(155px,46vw,205px)}
   .eyebrow{margin-bottom:1.3vh}
   .enter{margin-top:2.2vh;min-height:44px;padding:.95em 2.2em}
   /* No animated sparkles / floating on mobile (operator: remove the little animations). */

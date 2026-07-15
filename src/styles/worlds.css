@@ -185,7 +185,7 @@
    (links, CTA, bullets) so accessibility doesn't ride on the pale swatch. --w2-ink = near-black body
    copy. Type system: display serif for headings/tagline, clean sans for UI + body — see fonts.css. */
 .world--women{
-  --w2-bg:#FFFFFF; --w2-pink:#F8D9E0; --w2-pink-soft:#FBE9EE; --w2-pink-deep:#B5495F;
+  --w2-bg:#FAF6F1; --w2-pink:#F8D9E0; --w2-pink-soft:#FBE9EE; --w2-pink-deep:#B5495F;
   --w2-ink:#141414; --w2-dim:#6B5B5E; --w2-rule:#F3D7DE;
   --w2-font-display:'Bodoni 72','Didot','Hoefler Text',Georgia,serif;
   --w2-font-body:'Avenir Next','Avenir',-apple-system,system-ui,sans-serif;
@@ -198,7 +198,7 @@
 .world--women .world-back:hover{background:var(--w2-pink-deep);border-color:var(--w2-pink-deep);color:#fff}
 .world--women .world-header__name{color:var(--w2-ink);font-family:var(--w2-font-body)}
 .world--women .world-hero{color:var(--w2-ink);background:
-  radial-gradient(90% 80% at 50% 0%, var(--w2-pink-soft), transparent 62%), #fff}
+  radial-gradient(90% 80% at 50% 0%, var(--w2-pink-soft), transparent 62%), var(--w2-bg)}
 .world--women .world-hero__logo{outline:2px solid var(--w2-pink);outline-offset:6px;
   box-shadow:0 16px 40px rgba(181,73,95,.16)}
 .world--women .world-hero__title{letter-spacing:.03em}

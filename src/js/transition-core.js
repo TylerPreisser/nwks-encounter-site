@@ -98,6 +98,39 @@ window.NWKS = window.NWKS || {};
     return el;
   }
 
+  // ---- MOBILE transition: a bulletproof CSS-opacity cover-fade ----
+  // The canvas concepts (FREEDOM banner, veils, shatter) are desktop-tuned and
+  // overflow/jank on phones — the FREEDOM word is sized off viewport width and
+  // spills off a narrow portrait screen (verified in WebKit). On mobile we skip
+  // them entirely: fade an opaque cover in, swap the DOM hidden underneath, fade
+  // it out. No <canvas>, no requestAnimationFrame loop, no oversized text — it
+  // cannot visually break, and it's GPU-composited so it's smooth on any phone.
+  function simpleMobileFade(dir, door) {
+    var coverEl = createCoverLayer();
+    coverEl.style.background = '#FAF6F1'; // clean pearl, on-brand, never a harsh flash
+    coverEl.style.opacity = '0';
+    coverEl.style.transition = 'opacity 170ms ease';
+    var stage = stageEl();
+    if (stage) stage.classList.add('nwks-tx-active');
+    return new Promise(function (resolve) {
+      function cleanup() {
+        if (coverEl.parentNode) coverEl.parentNode.removeChild(coverEl);
+        if (stage) stage.classList.remove('nwks-tx-active');
+        resolve();
+      }
+      var safety = setTimeout(cleanup, 1200); // never leave a cover stuck
+      // fade the cover IN (double-rAF so the 0 -> 1 transition actually animates)
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () { coverEl.style.opacity = '1'; });
+      });
+      setTimeout(function () {
+        doSwap(dir, door);            // swap hidden beneath the opaque cover
+        coverEl.style.opacity = '0';  // fade cover out to reveal the new view
+        setTimeout(function () { clearTimeout(safety); cleanup(); }, 190);
+      }, 190);
+    });
+  }
+
   // ---- belt-and-suspenders rAF leak guard: track ids requested while a
   // concept's run() is in flight; cancel anything still pending once it
   // settles, so a concept that forgets to cancel its own loop can't leak. ----
@@ -155,6 +188,13 @@ window.NWKS = window.NWKS || {};
       if (reduced || !concept || typeof concept.run !== 'function') {
         doSwap(dir, door);
         return Promise.resolve();
+      }
+
+      // Mobile/phone: never run the desktop-tuned canvas concepts — use the
+      // bulletproof cover-fade instead (see simpleMobileFade above).
+      var isMobile = !!(window.matchMedia && window.matchMedia('(max-width: 760px)').matches);
+      if (isMobile) {
+        return simpleMobileFade(dir, door);
       }
 
       var coverEl = createCoverLayer();
