@@ -53,6 +53,11 @@ NWKS.forms = NWKS.forms || {};
     input.id = id;
     input.name = field.name;
     if (field.required) input.required = true;
+    // Cross-field "must match another field" (e.g. Confirm Email) — validated on submit.
+    if (field.matchName) {
+      input.dataset.matchName = field.matchName;
+      if (field.matchLabel) input.dataset.matchLabel = field.matchLabel;
+    }
     if (field.help) {
       var helpId = id + '-help';
       input.setAttribute('aria-describedby', helpId);
@@ -194,6 +199,20 @@ NWKS.forms = NWKS.forms || {};
         form.reportValidity();
         statusEl.textContent = 'Please fill in all required fields.';
         statusEl.className = 'nwks-form__status nwks-form__status--error';
+        return;
+      }
+      // Cross-field match check (e.g. Confirm Email must equal Email).
+      var mismatch = null;
+      Array.prototype.forEach.call(form.querySelectorAll('[data-match-name]'), function (inp) {
+        if (mismatch) return;
+        var target = form.querySelector('[name="' + inp.dataset.matchName + '"]');
+        if (target && inp.value !== target.value) mismatch = inp;
+      });
+      if (mismatch) {
+        var what = mismatch.dataset.matchLabel || 'those entries';
+        statusEl.textContent = 'The ' + what + ' fields don’t match — please check and try again.';
+        statusEl.className = 'nwks-form__status nwks-form__status--error';
+        mismatch.focus();
         return;
       }
       submitBtn.disabled = true;

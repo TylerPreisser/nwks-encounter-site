@@ -8,7 +8,7 @@ NWKS.content = NWKS.content || {};
    blocks[] items may be: a plain string (paragraph), { list:[...] } (bullet list), or
    { link:{label,href} } (inline call-to-action) — rendered by src/js/worlds.js. */
 NWKS.content.women = {
-  eventName: "Northwest Kansas Women's Encounter",
+  eventName: "Northwest Kansas Women’s Encounter",
   dates: 'July 17 – 19, 2026',
   logo: 'source-womens-logo-1024x1024.jpg',
   tagline: 'It is for freedom that Christ has set us free.',
@@ -23,7 +23,7 @@ NWKS.content.women = {
     },
     {
       id: 'what-is',
-      title: "What is Women's Encounter?",
+      title: "What is Women’s Encounter?",
       blocks: [
         'A weekend to encounter Christ in ways that are new, or long since felt. Through teaching, testimonies, and worship, you are free to be as social or as quiet as you wish — no comfort zones forced.',
         "This isn't a typical retreat. It's an individual, personal experience between you and God."

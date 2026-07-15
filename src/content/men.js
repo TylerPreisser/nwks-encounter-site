@@ -8,14 +8,14 @@ NWKS.content = NWKS.content || {};
    blocks[] items may be: a plain string (paragraph), { list:[...] } (bullet list), or
    { link:{label,href} } (inline call-to-action) — rendered by src/js/worlds.js. */
 NWKS.content.men = {
-  eventName: "Northwest Men's Encounter",
+  eventName: "Northwest Men’s Encounter",
   dates: 'August 6 – 8, 2026',
   logo: 'men-logo-300x300-1.jpg',
   tagline: 'It is for freedom that Christ has set us free.',
   sections: [
     {
       id: 'what-is',
-      title: "What is Men's Encounter?",
+      title: "What is Men’s Encounter?",
       blocks: [
         "Connect with other guys and take an honest look at your walk with God. Over the weekend, you'll examine 14 areas of your life through worship, testimonies, teaching, and ministry."
       ]
@@ -59,10 +59,6 @@ NWKS.content.men = {
     {
       label: 'Register as an Attendee',
       href: 'https://docs.google.com/forms/d/e/1FAIpQLSdZoPlopEZyHpBLl4EnXZuiB8X6vCDAR5v7Nw726rgtFQiNQw/viewform'
-    },
-    {
-      label: 'Register as a Server',
-      href: 'https://docs.google.com/forms/d/e/1FAIpQLSfumN5SAwGVA32X0D9k2r45hZCcd6zlAkZGv3AgWOFa_3_y6A/viewform'
     }
   ],
   verse: '"It is for freedom that Christ has set us free." — Galatians 5:1'

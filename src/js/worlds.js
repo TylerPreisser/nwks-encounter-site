@@ -261,7 +261,7 @@ window.NWKS = window.NWKS || {};
       if (!spec) return;
       var panel = el('div', { className: 'world-formpage__panel' });
       panel.hidden = true;
-      panel.appendChild(el('h1', { className: 'world-formpage__title', text: spec.title || '' }));
+      panel.appendChild(el('h2', { className: 'world-formpage__title', text: spec.title || '' }));
       var mount = el('div', { className: 'world-register__form' });
       panel.appendChild(mount);
       NWKS.forms.render(key, mount);
@@ -294,13 +294,13 @@ window.NWKS = window.NWKS || {};
       // Ambient background is the one exception: it's restarted on every door-entry
       // (its own lifecycle, torn down in close()) even when content is already built.
       if (worldEl.dataset.builtFor === door) {
-        if (door === 'men' || door === 'women') startAmbient(worldEl, door);
+        /* ambient background removed per operator */
         return;
       }
 
       worldEl.innerHTML = '';
       worldEl.className = 'world world--' + door;
-      if (door === 'men' || door === 'women') startAmbient(worldEl, door);
+      /* ambient background removed per operator */
 
       // ---- sticky header: event name + back control ----
       var header = el('header', { className: 'world-header' });
@@ -396,8 +396,8 @@ window.NWKS = window.NWKS || {};
 
       // ---- Register: native-form doors (men/women) use ONLY the hero CTAs to open the
       // full-screen form page — no redundant bottom register section (operator: "the
-      // register button's already at the top"). External-link doors (e.g. Unite) keep a
-      // small register link list here. ----
+      // register button's already at the top"). Any external-link door would keep a
+      // small register link list here instead. ----
       if (content.register && content.register.length && !hasNativeForm) {
         var registerSec = el('section', { className: 'world-section world-section--register' });
         registerSec.id = 'register';

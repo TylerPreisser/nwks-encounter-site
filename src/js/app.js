@@ -26,15 +26,6 @@ window.NWKS = window.NWKS || {};
     }
   });
 
-  // ---- boot: small "Unite" link in the frame ----
-  var uniteLink = document.getElementById('unite-link');
-  if (uniteLink) {
-    uniteLink.addEventListener('click', function (e) {
-      e.preventDefault();
-      enter('unite');
-    });
-  }
-
   // ---- back affordance: worlds render a [data-back] control; delegate its click ----
   document.addEventListener('click', function (e) {
     var backBtn = e.target && e.target.closest ? e.target.closest('[data-back]') : null;
@@ -88,7 +79,12 @@ window.NWKS = window.NWKS || {};
       NWKS.worlds.close(door);
     }
     var doorEl = document.querySelector('.half[data-door="' + door + '"]');
-    if (doorEl) doorEl.focus();
+    if (doorEl) {
+      // .half is a non-focusable <section>; focus the door's real Enter button so
+      // keyboard focus returns to the door the user came from, not <body>.
+      var enterBtn = doorEl.querySelector('.enter');
+      (enterBtn || doorEl).focus();
+    }
   }
 
   // ---- boot: visible concept switcher — lists registered concepts per door,

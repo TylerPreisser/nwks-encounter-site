@@ -3,7 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>NWKS Encounter — Concept: Animated Gateway</title>
+<title>NWKS Encounter — Men's & Women's Retreats</title>
+<meta name="description" content="Northwest Kansas Encounter — Men's Encounter (Aug 6–8, 2026) and Women's Encounter (July 17–19, 2026). It is for freedom that Christ has set us free. Galatians 5:1.">
+<meta name="theme-color" content="#6E765F" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#3D4127" media="(prefers-color-scheme: dark)">
 <link rel="stylesheet" href="styles/tokens.css">
 <link rel="stylesheet" href="styles/fonts.css">
 <link rel="stylesheet" href="styles/gateway.css">
@@ -16,10 +19,11 @@
 <body>
 
 <div class="stage" id="stage">
+  <h1 class="visually-hidden">NWKS Encounter — Men's &amp; Women's Retreats</h1>
   <section class="half half--men" data-door="men" aria-label="Men's Encounter">
     <div class="half__inner">
-      <div class="eyebrow">Men's Encounter</div>
-      <img class="mark" src="../assets/men-logo-300x300-1.jpg" alt="N.W. Kansas Freedom Encounter — Galatians 5:1">
+      <h2 class="eyebrow">Men's Encounter</h2>
+      <img class="mark" src="../assets/source-men-logo-400x400.jpg" alt="N.W. Kansas Freedom Encounter — Galatians 5:1">
       <div class="rule"></div>
       <div class="dates">August 6 – 8, 2026</div>
       <button class="enter" type="button">Enter <span class="arr">→</span></button>
@@ -28,7 +32,7 @@
 
   <section class="half half--women" data-door="women" aria-label="Women's Encounter">
     <div class="half__inner">
-      <div class="eyebrow">Women's Encounter</div>
+      <h2 class="eyebrow">Women's Encounter</h2>
       <img class="mark" src="../assets/womens-mark.png" alt="NWKS Women's Encounter — Galatians 5:1">
       <div class="rule"></div>
       <div class="dates">July 17 – 19, 2026</div>
@@ -54,7 +58,6 @@
 
   <div class="frame frame-top">
     <span class="nm">NWKS<span class="dot"></span>Encounter</span>
-    <a class="unite-link" id="unite-link" href="#unite">Unite</a>
   </div>
   <div class="frame frame-bottom">
     <span class="vs">"It is for freedom that Christ has set us free. Stand firm, then, and do not let yourselves be burdened again by a yoke of slavery."</span>
@@ -63,7 +66,6 @@
 
   <main id="world-men" class="world" hidden aria-label="Men's Encounter world"></main>
   <main id="world-women" class="world" hidden aria-label="Women's Encounter world"></main>
-  <main id="world-unite" class="world" hidden aria-label="Unite world"></main>
 </div>
 
 <!-- LOAD ORDER RULE (see src/js/transition-core.js for the full contract doc):
@@ -76,7 +78,6 @@
 <script src="js/registry.js"></script>
 <script src="content/men.js"></script>
 <script src="content/women.js"></script>
-<script src="content/unite.js"></script>
 <script src="content/forms.js"></script>
 <script src="js/worlds.js"></script>
 <script src="js/forms.js"></script>

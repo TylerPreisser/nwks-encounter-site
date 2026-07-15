@@ -1,8 +1,16 @@
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%}
-body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;color:#fff;
+/* Brand olive on html AND body — NOT #000. iOS 26 Safari samples the page background
+   to tint the translucent top/bottom chrome, and viewport-fit=cover lets the page fill
+   the notch/home-indicator gutters; a black body painted those as black bars. */
+html,body{height:100%;background:#6E765F}
+body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#6E765F;color:#fff;
   overflow:hidden;-webkit-font-smoothing:antialiased}
-.stage{position:relative;display:flex;width:100%;height:100vh;height:100dvh;overflow:hidden}
+/* svh→dvh stack: fills exactly top-to-bottom in every Safari toolbar state, no letterbox. */
+.stage{position:relative;display:flex;width:100%;height:100vh;height:100svh;height:100dvh;overflow:hidden}
+
+/* Screen-reader-only: keeps a real heading in the a11y tree without showing it. */
+.visually-hidden{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
 
 /* ---------- UNIFORM HALF ---------- */
 .half{position:relative;flex:1 1 0;min-width:0;overflow:hidden;display:flex;flex-direction:column;
@@ -23,6 +31,7 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
   background:transparent;cursor:pointer;transition:all .35s ease;border-radius:2px}
 .enter .arr{transition:transform .35s ease}
 .enter:hover .arr{transform:translateX(6px)}
+.enter:focus-visible{outline:3px solid var(--f-gold);outline-offset:3px}
 
 /* ---------- MEN signature ---------- */
 /* Flat #6E765F = the exact background color of the men's logo JPG, so the logo's
@@ -32,9 +41,12 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
 .half--men::before{display:none}
 .half--men::after{display:none}
 @keyframes drift{from{transform:translate3d(0,0,0)}to{transform:translate3d(-4%,-3%,0)}}
-.half--men .mark{filter:none}
+/* Men's mark is a tight circular badge; sized up so it reads as visually equal in mass
+   to the women's wider horizontal wordmark on the gateway. */
+.half--men .mark{filter:none;width:clamp(240px,30vw,400px)}
 .half--men .eyebrow{color:var(--m-yellow)}
-.half--men .dates{color:var(--m-dim)}
+.half--men .dates{color:#FAF8F0}
+.half--men .enter:focus-visible{outline-color:var(--m-yellow)}
 .half--men .rule{background:var(--m-yellow);box-shadow:0 1px 0 rgba(0,0,0,.4)}
 .half--men .enter{border-color:var(--m-bone);color:var(--m-bone)}
 .half--men .enter:hover{background:var(--m-yellow);border-color:var(--m-yellow);color:var(--m-gun)}
@@ -66,11 +78,6 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
   font-size:clamp(.74rem,1.3vw,.98rem);text-transform:uppercase;
   display:inline-flex;align-items:center;gap:.8em}
 .frame-top .dot{width:5px;height:5px;background:var(--f-gold);transform:rotate(45deg);display:inline-block}
-.frame-top .unite-link{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;font-weight:700;
-  letter-spacing:.28em;font-size:clamp(.6rem,1vw,.72rem);text-transform:uppercase;color:var(--f-ink);
-  text-decoration:none;border:1px solid var(--f-rule);padding:.4em .9em;border-radius:2px;
-  margin-left:1.4em;transition:.3s}
-.frame-top .unite-link:hover{background:var(--f-gold);border-color:var(--f-gold);color:#fff}
 .frame-bottom{bottom:0;flex-direction:column;padding:.85em 1em;border-top:1px solid var(--f-rule);
   animation:fadeIn 1s ease 3.2s forwards}
 .frame-bottom .vs{font-family:var(--serif);font-style:italic;
@@ -107,7 +114,7 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
 
 /* ---------- WORLDS (hidden gateway when a world is open) ---------- */
 .stage.world-open .half,.stage.world-open .frame{display:none}
-.world{position:relative;width:100%;min-height:100vh;min-height:100dvh;overflow-y:auto}
+.world{position:relative;width:100%;min-height:100vh;min-height:100svh;min-height:100dvh;overflow-y:auto}
 .world[hidden]{display:none}
 
 /* ---------- CONCEPT SWITCHER (operator control, tasteful + out of the way) ---------- */
@@ -149,9 +156,21 @@ body{font-family:"Helvetica Neue",Arial,system-ui,sans-serif;background:#000;col
   .stage{flex-direction:column}
   .half{min-height:0}
   .half__inner{padding:3.5vh 8vw}
-  .mark{width:clamp(120px,42vw,188px)}
+  /* Bleed each half's background to the screen edge, but keep content clear of the
+     notch (top/men) and home indicator (bottom/women) via safe-area padding. */
+  .half--men .half__inner{padding-top:max(3.5vh, env(safe-area-inset-top))}
+  .half--women .half__inner{padding-bottom:max(3.5vh, env(safe-area-inset-bottom))}
+  .mark{width:clamp(120px,42vw,188px);animation:none}
+  .half--men .mark{width:clamp(150px,50vw,230px)}
   .eyebrow{margin-bottom:1.3vh}
-  .enter{margin-top:2.2vh}
+  .enter{margin-top:2.2vh;min-height:44px;padding:.95em 2.2em}
+  /* No animated sparkles / floating on mobile (operator: remove the little animations). */
+  .half--women::before{display:none}
+}
+/* Short viewports (SE-class / landscape): never trap the sole ENTER below the fold. */
+@media(max-height:620px){
+  body{overflow-y:auto}
+  .stage{height:auto;min-height:100dvh}
 }
 @media(prefers-reduced-motion:reduce){
   *{animation:none !important;transition:none !important}
