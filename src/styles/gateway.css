@@ -63,7 +63,7 @@ html[data-world="women"],html[data-world="women"] body{background:#FAF6F1}
    to the women's wider horizontal wordmark on the gateway. */
 .half--men .mark{filter:none}
 .half--men .eyebrow{color:var(--m-yellow)}
-.half--men .dates{color:#FAF8F0}
+.half--men .dates{color:var(--m-yellow)}
 .half--men .enter:focus-visible{outline-color:var(--m-yellow)}
 .half--men .rule{background:var(--m-yellow);box-shadow:0 1px 0 rgba(0,0,0,.4)}
 /* Match the men's-world "Register as an Attendee" CTA (yellow on olive). */
@@ -77,9 +77,10 @@ html[data-world="women"],html[data-world="women"] body{background:#FAF6F1}
 .half--women::before{display:none}
 @keyframes motes{from{transform:translateY(0);opacity:.7}to{transform:translateY(-16px);opacity:1}}
 .half--women .mark{filter:drop-shadow(0 12px 26px rgba(42,38,34,.14))}
-.half--women .eyebrow{color:var(--w-gold-deep)}
-.half--women .dates{color:var(--w-dim)}
-.half--women .rule{background:var(--w-gold)}
+/* Everything except the logo uses the CTA rose (operator). */
+.half--women .eyebrow{color:#B5495F}
+.half--women .dates{color:#B5495F}
+.half--women .rule{background:#B5495F}
 /* Match the women's-world "Register as an Attendee" CTA (dusty rose --w2-pink-deep). */
 .half--women .enter{border-color:#B5495F;color:#B5495F}
 .half--women .enter:hover{background:#B5495F;border-color:#B5495F;color:#fff}
