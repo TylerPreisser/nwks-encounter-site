@@ -42,6 +42,15 @@ NWKS.forms = NWKS.forms || {};
     return label;
   }
 
+  // Format raw input into a pretty US phone number as the user types: (785) 123-4567.
+  function formatPhone(v) {
+    var d = (v || '').replace(/\D/g, '').slice(0, 10);
+    if (d.length > 6) return '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6);
+    if (d.length > 3) return '(' + d.slice(0, 3) + ') ' + d.slice(3);
+    if (d.length > 0) return '(' + d;
+    return '';
+  }
+
   function buildTextField(container, specKey, field, idx) {
     var id = fieldBaseId(specKey, idx);
     var wrap = el('div', { className: 'nwks-field' });
@@ -57,6 +66,16 @@ NWKS.forms = NWKS.forms || {};
     if (field.matchName) {
       input.dataset.matchName = field.matchName;
       if (field.matchLabel) input.dataset.matchLabel = field.matchLabel;
+    }
+    // Phone: tel keypad + live (785) 123-4567 formatting; 10-digit check on submit.
+    if (field.format === 'phone') {
+      input.type = 'tel';
+      input.setAttribute('inputmode', 'tel');
+      input.setAttribute('autocomplete', 'tel');
+      input.setAttribute('maxlength', '14');
+      input.placeholder = '(785) 123-4567';
+      input.dataset.phone = '1';
+      input.addEventListener('input', function () { input.value = formatPhone(input.value); });
     }
     if (field.help) {
       var helpId = id + '-help';
@@ -213,6 +232,18 @@ NWKS.forms = NWKS.forms || {};
         statusEl.textContent = 'The ' + what + ' fields don’t match — please check and try again.';
         statusEl.className = 'nwks-form__status nwks-form__status--error';
         mismatch.focus();
+        return;
+      }
+      // Phone fields must be a full 10-digit number (submitted as the pretty format).
+      var badPhone = null;
+      Array.prototype.forEach.call(form.querySelectorAll('[data-phone]'), function (inp) {
+        if (badPhone) return;
+        if (inp.value.replace(/\D/g, '').length !== 10) badPhone = inp;
+      });
+      if (badPhone) {
+        statusEl.textContent = 'Please enter a valid 10-digit phone number.';
+        statusEl.className = 'nwks-form__status nwks-form__status--error';
+        badPhone.focus();
         return;
       }
       submitBtn.disabled = true;

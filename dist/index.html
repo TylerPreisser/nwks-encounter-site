@@ -409,9 +409,9 @@ html[data-world="women"],html[data-world="women"] body{background:#FAF6F1}
    header), all text lifted to light (bone/dim) with yellow accents, per operator
    direction "make the whole Men's Encounter page the color of the top section and
    adjust the text accordingly." ================= */
-.world--men{color:#FAF8F0;
-  /* Same treatment as women's, olive instead of pink: soft top glow across the whole page. */
-  background:radial-gradient(135% 78% at 50% 0%,rgba(255,255,255,.07),#6E765F 82%)}
+/* Solid olive — identical to the chrome/status-bar tint, so there's NO break at the top
+   (the glow gradient made the content lighter than the status-bar area). */
+.world--men{color:#FAF8F0;background:#6E765F}
 .world--men .world-header{background:transparent}
 .world--men .world-back{color:#FAF8F0;border-color:var(--m-dim)}
 .world--men .world-back:hover{background:var(--m-yellow);border-color:var(--m-yellow);color:var(--m-gun)}
@@ -1234,7 +1234,7 @@ NWKS.forms.specs = {
       { name: 'entry.642074978', label: 'Last Name', type: 'text', required: true },
       { name: 'entry.87341896', label: 'Email Address', type: 'text', required: true,
         help: 'We will send registration and event details via email, please leave accurate email address' },
-      { name: 'entry.1533571593', label: 'Phone Number', type: 'text', required: true },
+      { name: 'entry.1533571593', label: 'Phone Number', type: 'text', required: true, format: 'phone' },
       { name: 'entry.1143291371', label: 'Phone Type', type: 'dropdown', required: true,
         options: ['Cell', 'Home', 'Work', 'Other'] },
       { name: 'entry.2074644504', label: 'Address', type: 'text', required: true },
@@ -1250,7 +1250,7 @@ NWKS.forms.specs = {
       { name: 'entry.1596599000', label: 'Who invited you or how did you hear about Men’s Encounter?', type: 'text', required: true },
       { name: 'entry.1153130695', label: 'Contact Name', type: 'text', required: true,
         help: 'We would like to speak with your spouse, family, and/or friend(s) 2 weeks before Encounter to ask them to pray for and encourage you. Please provide one contact below. Spouse is preferred.' },
-      { name: 'entry.1664846639', label: 'Contact Phone Number', type: 'text', required: true },
+      { name: 'entry.1664846639', label: 'Contact Phone Number', type: 'text', required: true, format: 'phone' },
       { name: 'entry.1611159078', label: 'Do you have any dietary or health restrictions?', type: 'text', required: false,
         help: 'For example: need wheelchair access, diabetic diet, food allergies, cannot climb stairs, bottom bunk, etc.' },
       { name: 'entry.417921974', label: 'Do you have any questions or concerns?', type: 'textarea', required: false }
@@ -1292,7 +1292,7 @@ NWKS.forms.specs = {
           'I have attended previously but had a major life event & would be beneficial to attend again'
         ] },
       { name: 'entry.363544414', label: 'IF you have had a major life event and need to attend as an Attendee again, please write a note to Leadership explaining said event.', type: 'textarea', required: false },
-      { name: 'entry.605524732', label: 'Your Phone Number - Cell Preferred', type: 'text', required: true },
+      { name: 'entry.605524732', label: 'Your Phone Number - Cell Preferred', type: 'text', required: true, format: 'phone' },
       { name: 'entry.250143732', label: 'If not a cell #, please check box below', type: 'checkbox', required: false,
         options: ['Land Line'] },
       { name: 'entry.506511904', label: 'Your Address', type: 'text', required: true },
@@ -1302,7 +1302,7 @@ NWKS.forms.specs = {
       { name: 'entry.54983700', label: 'What church do you attend, if any?', type: 'text', required: false },
       { name: 'entry.224992736', label: 'Contact Name', type: 'text', required: true,
         help: 'We would like to speak with your spouse, family, and/or friend(s) before Encounter to ask them to pray for and encourage you. Please provide one contact below. Spouse is preferred.' },
-      { name: 'entry.398378885', label: "Contact Person's Phone Number", type: 'text', required: true },
+      { name: 'entry.398378885', label: "Contact Person's Phone Number", type: 'text', required: true, format: 'phone' },
       { name: 'entry.1770598054', label: 'T-Shirt Size', type: 'radio', required: true,
         options: ['Small', 'Medium', 'Large', 'X-Large', 'XX-Large', 'XXX-Large', 'Other'],
         otherEntry: 'entry.1770598054.other_option_response',
@@ -1808,6 +1808,15 @@ NWKS.forms = NWKS.forms || {};
     return label;
   }
 
+  // Format raw input into a pretty US phone number as the user types: (785) 123-4567.
+  function formatPhone(v) {
+    var d = (v || '').replace(/\D/g, '').slice(0, 10);
+    if (d.length > 6) return '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6);
+    if (d.length > 3) return '(' + d.slice(0, 3) + ') ' + d.slice(3);
+    if (d.length > 0) return '(' + d;
+    return '';
+  }
+
   function buildTextField(container, specKey, field, idx) {
     var id = fieldBaseId(specKey, idx);
     var wrap = el('div', { className: 'nwks-field' });
@@ -1823,6 +1832,16 @@ NWKS.forms = NWKS.forms || {};
     if (field.matchName) {
       input.dataset.matchName = field.matchName;
       if (field.matchLabel) input.dataset.matchLabel = field.matchLabel;
+    }
+    // Phone: tel keypad + live (785) 123-4567 formatting; 10-digit check on submit.
+    if (field.format === 'phone') {
+      input.type = 'tel';
+      input.setAttribute('inputmode', 'tel');
+      input.setAttribute('autocomplete', 'tel');
+      input.setAttribute('maxlength', '14');
+      input.placeholder = '(785) 123-4567';
+      input.dataset.phone = '1';
+      input.addEventListener('input', function () { input.value = formatPhone(input.value); });
     }
     if (field.help) {
       var helpId = id + '-help';
@@ -1979,6 +1998,18 @@ NWKS.forms = NWKS.forms || {};
         statusEl.textContent = 'The ' + what + ' fields don’t match — please check and try again.';
         statusEl.className = 'nwks-form__status nwks-form__status--error';
         mismatch.focus();
+        return;
+      }
+      // Phone fields must be a full 10-digit number (submitted as the pretty format).
+      var badPhone = null;
+      Array.prototype.forEach.call(form.querySelectorAll('[data-phone]'), function (inp) {
+        if (badPhone) return;
+        if (inp.value.replace(/\D/g, '').length !== 10) badPhone = inp;
+      });
+      if (badPhone) {
+        statusEl.textContent = 'Please enter a valid 10-digit phone number.';
+        statusEl.className = 'nwks-form__status nwks-form__status--error';
+        badPhone.focus();
         return;
       }
       submitBtn.disabled = true;

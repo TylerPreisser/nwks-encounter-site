@@ -148,9 +148,9 @@
    header), all text lifted to light (bone/dim) with yellow accents, per operator
    direction "make the whole Men's Encounter page the color of the top section and
    adjust the text accordingly." ================= */
-.world--men{color:#FAF8F0;
-  /* Same treatment as women's, olive instead of pink: soft top glow across the whole page. */
-  background:radial-gradient(135% 78% at 50% 0%,rgba(255,255,255,.07),#6E765F 82%)}
+/* Solid olive — identical to the chrome/status-bar tint, so there's NO break at the top
+   (the glow gradient made the content lighter than the status-bar area). */
+.world--men{color:#FAF8F0;background:#6E765F}
 .world--men .world-header{background:transparent}
 .world--men .world-back{color:#FAF8F0;border-color:var(--m-dim)}
 .world--men .world-back:hover{background:var(--m-yellow);border-color:var(--m-yellow);color:var(--m-gun)}
