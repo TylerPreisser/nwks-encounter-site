@@ -233,8 +233,9 @@ html[data-world="women"],html[data-world="women"] body{background:#FAF6F1}
   .half{min-height:0;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
   /* Extend the men's green further down — the men's half has extra space (operator). */
   .half--men{flex-grow:1.25}
-  /* Women's half: nudge content down a touch but keep the ENTER clear of the Safari toolbar. */
-  .half--women{padding-top:calc(env(safe-area-inset-top) + 2vh);
+  /* Women's half: bias content lower in the white (padding-top > padding-bottom) while
+     keeping the ENTER clear of the Safari toolbar (padding-bottom reserves the toolbar). */
+  .half--women{padding-top:calc(env(safe-area-inset-top) + 8vh);
     padding-bottom:calc(env(safe-area-inset-bottom) + 6vh)}
   .half__inner{padding:2vh 8vw}
   /* Both logo files are now padding-free (men's trimmed to 336x335), so equal element size
