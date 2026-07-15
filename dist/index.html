@@ -233,9 +233,10 @@ html[data-world="women"],html[data-world="women"] body{background:#FAF6F1}
   .half{min-height:0;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
   /* Extend the men's green further down — the men's half has extra space (operator). */
   .half--men{flex-grow:1.32}
-  /* Women's half: content sits a bit low in the white, ENTER kept clear of the Safari toolbar. */
-  .half--women{padding-top:calc(env(safe-area-inset-top) + 4vh);
-    padding-bottom:calc(env(safe-area-inset-bottom) + 6vh)}
+  /* Women's half: center content in the VISIBLE white (split -> Safari toolbar top).
+     padding-top:0 starts the centering box at the split; padding-bottom reserves the
+     toolbar + home indicator so the box bottom lands at the toolbar top. */
+  .half--women{padding-top:0;padding-bottom:calc(env(safe-area-inset-bottom) + 6vh)}
   .half__inner{padding:2vh 8vw}
   /* Both logo files are now padding-free (men's trimmed to 336x335), so equal element size
      = equal visible size AND equal element height -> uniform spacing. */
