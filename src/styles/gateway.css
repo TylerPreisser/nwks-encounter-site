@@ -66,7 +66,8 @@ html[data-world="women"],html[data-world="women"] body{background:#FAF6F1}
 .half--men .dates{color:#FAF8F0}
 .half--men .enter:focus-visible{outline-color:var(--m-yellow)}
 .half--men .rule{background:var(--m-yellow);box-shadow:0 1px 0 rgba(0,0,0,.4)}
-.half--men .enter{border-color:var(--m-bone);color:var(--m-bone)}
+/* Match the men's-world "Register as an Attendee" CTA (yellow on olive). */
+.half--men .enter{border-color:var(--m-yellow);color:var(--m-yellow)}
 .half--men .enter:hover{background:var(--m-yellow);border-color:var(--m-yellow);color:var(--m-gun)}
 
 /* ---------- WOMEN signature ---------- */
@@ -79,8 +80,9 @@ html[data-world="women"],html[data-world="women"] body{background:#FAF6F1}
 .half--women .eyebrow{color:var(--w-gold-deep)}
 .half--women .dates{color:var(--w-dim)}
 .half--women .rule{background:var(--w-gold)}
-.half--women .enter{border-color:var(--w-gold);color:var(--w-gold-deep)}
-.half--women .enter:hover{background:var(--w-gold);border-color:var(--w-gold);color:#fff;letter-spacing:.38em}
+/* Match the women's-world "Register as an Attendee" CTA (dusty rose --w2-pink-deep). */
+.half--women .enter{border-color:#B5495F;color:#B5495F}
+.half--women .enter:hover{background:#B5495F;border-color:#B5495F;color:#fff}
 
 /* ---------- SHARED LIGHT FRAME ---------- */
 /* Gateway top/bottom bars removed per operator — the two doors now run full-height. */
