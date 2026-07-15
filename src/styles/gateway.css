@@ -175,6 +175,8 @@ html[data-world="women"],html[data-world="women"] body{background:#FAF6F1}
      women clears the toolbar/home indicator; the redundant inset on each sits at the split
      and is harmless). Both halves are 50/50 and now center content identically. */
   .half{min-height:0;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+  /* Nudge the women's (bottom) half content down a bit on the gateway (operator). */
+  .half--women{padding-top:calc(env(safe-area-inset-top) + 6vh)}
   .half__inner{padding:2vh 8vw}
   /* Both logo files are now padding-free (men's trimmed to 336x335), so equal element size
      = equal visible size AND equal element height -> uniform spacing. */

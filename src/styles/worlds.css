@@ -148,13 +148,14 @@
    header), all text lifted to light (bone/dim) with yellow accents, per operator
    direction "make the whole Men's Encounter page the color of the top section and
    adjust the text accordingly." ================= */
-.world--men{background:#6E765F;color:#FAF8F0}
+.world--men{color:#FAF8F0;
+  /* Same treatment as women's, olive instead of pink: soft top glow across the whole page. */
+  background:radial-gradient(135% 78% at 50% 0%,rgba(255,255,255,.07),#6E765F 82%)}
 .world--men .world-header{background:transparent}
 .world--men .world-back{color:#FAF8F0;border-color:var(--m-dim)}
 .world--men .world-back:hover{background:var(--m-yellow);border-color:var(--m-yellow);color:var(--m-gun)}
 .world--men .world-header__name{color:#FAF8F0}
-.world--men .world-hero{color:#FAF8F0;background:
-  radial-gradient(120% 90% at 50% 0%, rgba(255,255,255,.06), transparent 60%), #6E765F}
+.world--men .world-hero{color:#FAF8F0;background:transparent}
 .world--men .world-hero__logo{box-shadow:0 14px 34px rgba(0,0,0,.22);
   outline:2px solid rgba(230,193,47,.45);outline-offset:6px}
 .world--men .world-hero__title{color:#FAF8F0}
@@ -189,7 +190,9 @@
   --w2-ink:#141414; --w2-dim:#6B5B5E; --w2-rule:#F3D7DE;
   --w2-font-display:'Bodoni 72','Didot','Hoefler Text',Georgia,serif;
   --w2-font-body:'Avenir Next','Avenir',-apple-system,system-ui,sans-serif;
-  background:var(--w2-bg);color:var(--w2-ink);font-family:var(--w2-font-body)}
+  color:var(--w2-ink);font-family:var(--w2-font-body);
+  /* Pink gradient across the ENTIRE page (not just the hero). */
+  background:radial-gradient(135% 78% at 50% 0%,var(--w2-pink-soft),var(--w2-bg) 82%)}
 .world--women .world-hero__title,.world--women .world-section__title{
   font-family:var(--w2-font-display);font-weight:400}
 .world--women .world-header{background:transparent}
@@ -197,8 +200,7 @@
   font-family:var(--w2-font-body)}
 .world--women .world-back:hover{background:var(--w2-pink-deep);border-color:var(--w2-pink-deep);color:#fff}
 .world--women .world-header__name{color:var(--w2-ink);font-family:var(--w2-font-body)}
-.world--women .world-hero{color:var(--w2-ink);margin-top:3vh;background:
-  radial-gradient(90% 80% at 50% 0%, var(--w2-pink-soft), transparent 62%), var(--w2-bg)}
+.world--women .world-hero{color:var(--w2-ink);background:transparent}
 .world--women .world-hero__logo{outline:2px solid var(--w2-pink);outline-offset:6px;
   box-shadow:0 16px 40px rgba(181,73,95,.16)}
 .world--women .world-hero__title{letter-spacing:.03em}
