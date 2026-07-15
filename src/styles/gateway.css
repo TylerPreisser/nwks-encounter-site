@@ -65,7 +65,7 @@ html[data-world="women"],html[data-world="women"] body{background:#FAF6F1}
 .half--men .eyebrow{color:var(--m-yellow)}
 .half--men .dates{color:var(--m-yellow)}
 .half--men .enter:focus-visible{outline-color:var(--m-yellow)}
-.half--men .rule{background:var(--m-yellow);box-shadow:0 1px 0 rgba(0,0,0,.4)}
+.half--men .rule{background:var(--m-yellow)}
 /* Match the men's-world "Register as an Attendee" CTA (yellow on olive). */
 .half--men .enter{border-color:var(--m-yellow);color:var(--m-yellow)}
 .half--men .enter:hover{background:var(--m-yellow);border-color:var(--m-yellow);color:var(--m-gun)}
