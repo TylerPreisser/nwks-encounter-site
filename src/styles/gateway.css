@@ -16,6 +16,11 @@ body{height:100%;font-family:"Helvetica Neue",Arial,system-ui,sans-serif;color:#
   overflow:hidden;-webkit-font-smoothing:antialiased;background:#FAF6F1}
 body[data-view="men"]{background:#6E765F}
 body[data-view="women"]{background:#FAF6F1}
+/* World pages (own URL ?door=): hide the gateway and paint the whole screen the world's
+   color from the FIRST paint, so iOS Safari samples the correct chrome tint on load. */
+html[data-world] .half,html[data-world] .frame,html[data-world] .concept-switcher{display:none!important}
+html[data-world="men"],html[data-world="men"] body{background:#6E765F}
+html[data-world="women"],html[data-world="women"] body{background:#FAF6F1}
 /* position:fixed + inset:0 makes the stage fill the ENTIRE physical screen — including
    under the status bar and home indicator — so the men's/women's halves paint edge to
    edge and iOS Safari tints its chrome from the real page content, not the body. */
@@ -56,7 +61,7 @@ body[data-view="women"]{background:#FAF6F1}
 @keyframes drift{from{transform:translate3d(0,0,0)}to{transform:translate3d(-4%,-3%,0)}}
 /* Men's mark is a tight circular badge; sized up so it reads as visually equal in mass
    to the women's wider horizontal wordmark on the gateway. */
-.half--men .mark{filter:none;width:clamp(240px,30vw,400px)}
+.half--men .mark{filter:none}
 .half--men .eyebrow{color:var(--m-yellow)}
 .half--men .dates{color:#FAF8F0}
 .half--men .enter:focus-visible{outline-color:var(--m-yellow)}
@@ -166,18 +171,17 @@ body[data-view="women"]{background:#FAF6F1}
 @media(max-width:760px){
   /* Vertical 50/50 split — both doors visible on one screen, stacked top/bottom. */
   .stage{flex-direction:column}
-  .half{min-height:0}
-  /* Center each half's content within its VISIBLE area: the men's half clears the status
-     bar at the top; the women's half clears the Safari toolbar + home indicator at the
-     bottom. This makes both ENTER buttons sit an equal distance from their edge. */
-  .half--men{padding-top:env(safe-area-inset-top)}
-  .half--women{padding-bottom:env(safe-area-inset-bottom)}
+  /* Symmetric padding on BOTH halves so the two mirror EXACTLY (men clears the status bar,
+     women clears the toolbar/home indicator; the redundant inset on each sits at the split
+     and is harmless). Both halves are 50/50 and now center content identically. */
+  .half{min-height:0;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
   .half__inner{padding:2vh 8vw}
-  /* Equalize the two marks visually: the men's circular badge fills less of its box than
-     the women's wide wordmark, so the men's element is larger to match rendered size. */
-  .mark{width:clamp(115px,35vw,150px);animation:none}
-  .half--men .mark{width:clamp(155px,46vw,205px)}
-  .eyebrow{margin-bottom:1.3vh}
+  /* Both logo files are now padding-free (men's trimmed to 336x335), so equal element size
+     = equal visible size AND equal element height -> uniform spacing. */
+  .half--men .mark,.half--women .mark{width:clamp(120px,36vw,168px);animation:none}
+  /* More breathing room around the logo (operator): title->logo and logo->rule. */
+  .eyebrow{margin-bottom:2.7vh}
+  .rule{margin-top:2.7vh}
   .enter{margin-top:2.2vh;min-height:44px;padding:.95em 2.2em}
   /* No animated sparkles / floating on mobile (operator: remove the little animations). */
   .half--women::before{display:none}

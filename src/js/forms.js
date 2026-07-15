@@ -234,7 +234,6 @@ NWKS.forms = NWKS.forms || {};
     });
 
     mountEl.appendChild(form);
-    mountEl.appendChild(buildFallbackLink(spec));
     mountEl.dataset.builtFor = specKey;
   };
 })();

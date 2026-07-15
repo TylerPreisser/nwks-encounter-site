@@ -1,130 +1,52 @@
 window.NWKS = window.NWKS || {};
 
-/* Boot + core enter(door)/exit(door) orchestration. Depends on NWKS.registry,
-   NWKS.transitions, NWKS.tx (transition-core.js), NWKS.worlds, NWKS.content —
-   all loaded before this script (see load-order rule in transition-core.js). */
+/* Routing (multi-page). The gateway and each world are SEPARATE page loads
+   (index.html?door=men | ?door=women). This is deliberate: iOS Safari samples its
+   status-bar / toolbar tint from the page background on LOAD and does NOT re-sample when a
+   single-page app swaps views in JS — so a JS swap always left the previous view's chrome
+   color behind (green on the women's page, white back on the home page). A real navigation
+   per view makes Safari tint correctly every time. The correct chrome color is set on the
+   very first paint by the inline <head> script (html[data-world]) so even the initial
+   sample is right, before the world content finishes rendering. */
 (function () {
   'use strict';
 
+  // Remove any legacy intro overlay (no entrance animation).
   var intro = document.getElementById('intro');
-  var openDoor = null;
-  var busy = false; // guards re-entrant enter/exit while a masked-swap animation is in flight
-
-  // ---- boot: no intro/entrance animation — remove any legacy overlay immediately ----
   if (intro && intro.parentNode) intro.parentNode.removeChild(intro);
 
-  // ---- boot: ONLY the Enter button triggers entry (not the whole half) ----
-  var doors = document.querySelectorAll('.half[data-door]');
-  Array.prototype.forEach.call(doors, function (doorEl) {
-    var door = doorEl.getAttribute('data-door');
-    var enterBtn = doorEl.querySelector('.enter');
-    if (enterBtn) {
-      enterBtn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        enter(door);
-      });
-    }
-  });
+  var door = new URLSearchParams(location.search).get('door');
+  door = (door === 'men' || door === 'women') ? door : null;
 
-  // ---- back affordance: worlds render a [data-back] control; delegate its click ----
+  if (door) {
+    // ---- World page: render this world's content and reveal it (fresh load, no transition).
+    if (NWKS.worlds && typeof NWKS.worlds.render === 'function') NWKS.worlds.render(door);
+    var worldEl = document.getElementById('world-' + door);
+    if (worldEl) worldEl.hidden = false;
+    var stage = document.getElementById('stage');
+    if (stage) stage.classList.add('world-open');
+    document.body.setAttribute('data-view', door); // matches the inline head script
+  } else {
+    // ---- Gateway page: each ENTER navigates to that world's own page (real load).
+    var doors = document.querySelectorAll('.half[data-door]');
+    Array.prototype.forEach.call(doors, function (doorEl) {
+      var d = doorEl.getAttribute('data-door');
+      var enterBtn = doorEl.querySelector('.enter');
+      if (enterBtn) {
+        enterBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          location.href = '?door=' + d;
+        });
+      }
+    });
+  }
+
+  // "← Back to main page" (rendered inside each world by worlds.js) → navigate home.
   document.addEventListener('click', function (e) {
     var backBtn = e.target && e.target.closest ? e.target.closest('[data-back]') : null;
     if (backBtn) {
       e.preventDefault();
-      history.back();
+      location.href = location.pathname; // drops ?door -> fresh gateway load (correct chrome)
     }
   });
-
-  // ---- browser Back reverses via NWKS.worlds.close(door) ----
-  window.addEventListener('popstate', function () {
-    if (openDoor) exit(openDoor);
-  });
-
-  // ---- core orchestration ----
-  // Both enter and exit route through NWKS.tx.run(), the masked-swap harness:
-  // the cover layer fully hides the screen BEFORE the DOM swap happens, so
-  // nothing is ever revealed-then-hidden. Same path both directions means
-  // Back animates too, at the same fast (~600-800ms) speed as entry.
-  function enter(door) {
-    if (openDoor || busy) return; // a world is already open, or a transition is mid-flight
-    var worldEl = document.getElementById('world-' + door);
-    if (!worldEl) return;
-
-    busy = true;
-    // Whole screen becomes this world's color -> both Safari chrome bars match it
-    // (the gateway split-gradient body background is only right for the gateway).
-    document.body.setAttribute('data-view', door);
-
-    // populate the world's content before it can ever become visible
-    if (NWKS.worlds && typeof NWKS.worlds.render === 'function') {
-      NWKS.worlds.render(door);
-    }
-
-    var conceptId = NWKS.registry ? NWKS.registry.getActive(door) : null;
-
-    NWKS.tx.run(conceptId, { dir: 'enter', door: door }).then(function () {
-      busy = false;
-      openDoor = door;
-      // push history so browser Back returns to gateway (reversed via popstate -> exit)
-      history.pushState({ nwksDoor: door }, document.title, '');
-      worldEl.setAttribute('tabindex', '-1');
-      worldEl.focus();
-    });
-  }
-
-  function exit(door) {
-    // No exit animation — going back to the main page is INSTANT (operator: only
-    // animate on the way in). The gateway is already rendered underneath, so just
-    // close the world.
-    if (busy) return;
-    openDoor = null;
-    // Back to the gateway: restore the olive-top / pearl-bottom split chrome.
-    document.body.removeAttribute('data-view');
-    if (NWKS.worlds && typeof NWKS.worlds.close === 'function') {
-      NWKS.worlds.close(door);
-    }
-    var doorEl = document.querySelector('.half[data-door="' + door + '"]');
-    if (doorEl) {
-      // .half is a non-focusable <section>; focus the door's real Enter button so
-      // keyboard focus returns to the door the user came from, not <body>.
-      var enterBtn = doorEl.querySelector('.enter');
-      (enterBtn || doorEl).focus();
-    }
-  }
-
-  // ---- boot: visible concept switcher — lists registered concepts per door,
-  // built live from NWKS.transitions at boot (so it reflects however many
-  // concept files are wired up, no hardcoded ids). Picks feed
-  // NWKS.registry.setActive(); Enter then previews whatever is active. ----
-  function buildConceptSwitcher() {
-    var panel = document.getElementById('concept-switcher');
-    if (!panel || !NWKS.registry) return;
-
-    var switcherDoors = ['men', 'women'];
-    var any = false;
-
-    switcherDoors.forEach(function (door) {
-      var select = panel.querySelector('[data-door="' + door + '"]');
-      if (!select) return;
-      var ids = NWKS.registry.list(door);
-      if (!ids.length) return;
-
-      select.innerHTML = '';
-      ids.forEach(function (id) {
-        var concept = NWKS.transitions[id];
-        var opt = document.createElement('option');
-        opt.value = id;
-        opt.textContent = (concept && concept.label) || id;
-        select.appendChild(opt);
-      });
-      select.value = NWKS.registry.getActive(door);
-      select.addEventListener('change', function () {
-        NWKS.registry.setActive(door, select.value);
-      });
-      any = true;
-    });
-
-    if (any) panel.hidden = false;
-  }
-  buildConceptSwitcher();
 })();

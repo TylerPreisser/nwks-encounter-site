@@ -84,9 +84,13 @@ window.NWKS = window.NWKS || {};
     if (dir === 'enter') {
       if (worldEl) worldEl.hidden = false;
       if (stage) stage.classList.add('world-open');
+      // Chrome color follows the ATOMIC swap (can't stick/race like the async path did):
+      // men's world -> olive body, women's world -> pearl body.
+      document.body.setAttribute('data-view', door);
     } else {
       if (worldEl) worldEl.hidden = true;
       if (stage) stage.classList.remove('world-open');
+      document.body.removeAttribute('data-view'); // back to the gateway split-chrome
     }
   }
 
