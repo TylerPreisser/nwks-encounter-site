@@ -4,6 +4,21 @@ Recovered redesign concept for **nwksencounter.com** (Northwest Kansas Encounter
 Men's Encounter / Women's Encounter). This is the "Animated Gateway" concept we built
 as a Claude Artifact and iterated on.
 
+## Two projects
+
+This repository deploys as **two separate Cloudflare Pages projects**:
+
+| Project | Source | Deploy script | Purpose |
+|---------|--------|---------------|---------|
+| **worlds front-end** (e.g. `nwks-encounter-site`) | `build/bundle.mjs` (gateway/worlds SPA) | `npm run deploy` | Public animated gateway / worlds site |
+| **backend / admin / API** (e.g. `nwks-encounter-backend`) | `npm run build` → `dist/` (Hono Functions + admin SPA) | `npm run deploy:backend` | Registration API, admin dashboard, auth |
+
+The worlds front-end calls the backend **cross-origin** for public endpoints only
+(`/api/register/*`, `/api/public/*`, `/api/health`). Admin (`/api/admin/*`) and
+auth (`/api/auth/*`) routes are same-origin on the backend project and do **not**
+emit permissive CORS headers. Allowed origins are configured via the `CORS_ORIGINS`
+env var in `wrangler.toml` (comma-separated exact origins).
+
 ## Live site & repo
 
 - **Live:** https://nwks-encounter-site.pages.dev (Cloudflare Pages, production)

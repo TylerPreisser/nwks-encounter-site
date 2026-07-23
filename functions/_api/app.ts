@@ -2,6 +2,7 @@
 
 import { Hono } from 'hono';
 import type { AppVariables } from './auth';
+import { corsMiddleware } from './cors';
 import { registerRouter } from './routes/register';
 import { authRouter } from './routes/auth';
 import { dashboardRouter } from './routes/dashboard';
@@ -24,16 +25,32 @@ export interface Env {
   RESEND_API_KEY: string;
   ANTHROPIC_API_KEY: string;
   TURNSTILE_SECRET: string;
+  /** Comma-separated list of allowed cross-origin request origins for public endpoints. */
+  CORS_ORIGINS: string;
 }
 
 export const app = new Hono<{ Bindings: Env; Variables: AppVariables }>();
 
+// ── Public routes — CORS allowed (worlds site calls these cross-origin) ──────
+
+// Health: allow CORS so the worlds site can ping liveness
+app.use('/api/health', corsMiddleware);
 app.get('/api/health', (c) => {
   return c.json({ ok: true });
 });
 
-// P1: registration routes
+// P1: registration routes — CORS applied before route handler
+app.use('/api/register/*', corsMiddleware);
 app.route('/api/register', registerRouter);
+
+// P3: public events endpoint (unauthenticated) — CORS applied before route handler
+app.use('/api/public/*', corsMiddleware);
+app.route('/api/public', publicRouter);
+
+// P6: public gallery (years list, photo list, R2 stream) — shares /api/public/* middleware
+app.route('/api/public', photosPublicRouter);
+
+// ── Auth + admin routes — same-origin only, NO permissive CORS ───────────────
 
 // P2: auth routes
 app.route('/api/auth', authRouter);
@@ -50,9 +67,6 @@ app.route('/api/admin/people', peopleRouter);
 // P3: admin events CRUD
 app.route('/api/admin/events', eventsRouter);
 
-// P3: public events endpoint (unauthenticated)
-app.route('/api/public', publicRouter);
-
 // P4: admin email templates CRUD
 app.route('/api/admin/templates', templatesRouter);
 
@@ -64,6 +78,3 @@ app.route('/api/admin/ai', aiRouter);
 
 // P6: admin photo CRUD (upload/list/patch/delete)
 app.route('/api/admin/photos', photosAdminRouter);
-
-// P6: public gallery (years list, photo list, R2 stream)
-app.route('/api/public', photosPublicRouter);
