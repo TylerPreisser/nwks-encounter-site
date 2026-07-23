@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Photo Gallery — NWKS Encounter</title>
+  <meta name="description" content="Event photo galleries for NWKS Men's and Women's Encounter retreats." />
+  <link rel="stylesheet" href="gallery.css" />
+</head>
+<body>
+  <header class="gallery-header">
+    <h1 id="gallery-title">NWKS Encounter — Photo Gallery</h1>
+    <a class="back-link" href="/">← Back to Encounter</a>
+  </header>
+
+  <main id="gallery-root">
+    <nav id="year-picker" aria-label="Filter by year"></nav>
+    <p id="gallery-loading" aria-live="polite">Loading photos…</p>
+    <div id="photo-grid" aria-label="Photo gallery"></div>
+  </main>
+
+  <script type="module" src="gallery.js"></script>
+</body>
+</html>

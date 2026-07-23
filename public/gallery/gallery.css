@@ -1,0 +1,180 @@
+/* public/gallery/gallery.css */
+/* Program theming via data-program attribute on <html> */
+:root {
+  --accent: #7a6a3e;       /* olive/gold — default (men's) */
+  --accent-light: #bfa96b;
+  --bg: #f8f5ef;
+  --text: #2c2416;
+  --card-bg: #ffffff;
+  --card-radius: 8px;
+  --grid-gap: 1rem;
+}
+[data-program="women"] {
+  --accent: #b5466b;       /* rose */
+  --accent-light: #e799b0;
+  --bg: #fdf5f8;
+  --text: #2c1018;
+}
+
+*,
+*::before,
+*::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────── */
+.gallery-header {
+  background: var(--accent);
+  color: #fff;
+  padding: 2rem 1.5rem 1.5rem;
+  text-align: center;
+}
+.gallery-header h1 { font-size: clamp(1.4rem, 4vw, 2rem); font-weight: 700; letter-spacing: 0.02em; }
+.gallery-header .back-link {
+  display: inline-block;
+  margin-top: 0.75rem;
+  color: rgba(255,255,255,0.8);
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+.gallery-header .back-link:hover { color: #fff; text-decoration: underline; }
+
+/* ── Year picker ────────────────────────────────────────────────────── */
+#year-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  padding: 1.25rem 1rem;
+}
+.year-btn {
+  border: 2px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 0.35rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.year-btn:hover,
+.year-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ── Photo grid (responsive masonry-style via CSS columns) ──────────── */
+#photo-grid {
+  column-count: 2;
+  column-gap: var(--grid-gap);
+  padding: 1rem 1.5rem 3rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+@media (min-width: 640px)  { #photo-grid { column-count: 3; } }
+@media (min-width: 1024px) { #photo-grid { column-count: 4; } }
+
+.photo-item {
+  break-inside: avoid;
+  margin-bottom: var(--grid-gap);
+  background: var(--card-bg);
+  border-radius: var(--card-radius);
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+.photo-item:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  transform: translateY(-2px);
+}
+.photo-item img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+.photo-item figcaption {
+  padding: 0.4rem 0.6rem 0.5rem;
+  font-size: 0.8rem;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Empty / error states ───────────────────────────────────────────── */
+.no-photos,
+.error {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #888;
+  font-size: 1rem;
+  grid-column: 1 / -1;
+}
+.error a { color: var(--accent); }
+
+/* ── Loading indicator ──────────────────────────────────────────────── */
+#gallery-loading {
+  text-align: center;
+  padding: 2rem;
+  color: var(--accent-light);
+  font-style: italic;
+}
+#gallery-loading[hidden] { display: none; }
+
+/* ── Lightbox ───────────────────────────────────────────────────────── */
+#gallery-lightbox {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+#gallery-lightbox.open { display: flex; align-items: center; justify-content: center; }
+
+.lb-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.88);
+}
+.lb-content {
+  position: relative;
+  z-index: 1;
+  max-width: min(90vw, 1100px);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+.lb-img {
+  max-width: 100%;
+  max-height: 80vh;
+  object-fit: contain;
+  border-radius: 4px;
+}
+.lb-caption {
+  color: rgba(255,255,255,0.9);
+  font-size: 0.9rem;
+  text-align: center;
+  max-width: 40ch;
+}
+.lb-close {
+  position: absolute;
+  top: -2.5rem;
+  right: 0;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 2rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 0.25rem;
+}
+.lb-close:hover { color: var(--accent-light); }

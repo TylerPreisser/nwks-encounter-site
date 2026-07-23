@@ -35,6 +35,7 @@ export default defineConfig({
     setupFiles: ['./admin/src/__tests__/setup.ts'],
     include: [
       'public/__tests__/**/*.test.{js,ts}',
+      'public/gallery/**/*.test.{js,ts}',
       'admin/__tests__/**/*.test.{js,ts}',
       'admin/src/__tests__/**/*.test.{ts,tsx}',
     ],

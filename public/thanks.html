@@ -42,6 +42,9 @@
       If you have questions, simply reply to that email — it goes straight to our team.
     </p>
     <a href="/" class="back-link">← Back to NWKS Encounter</a>
+    <p class="gallery-cta" style="margin-top:1.5rem; font-size:0.9rem;">
+      <a href="/gallery/?program=mens" id="gallery-link">View our past event photos →</a>
+    </p>
     <p class="form-verse" style="margin-top:2.5rem;">
       "It is for freedom that Christ has set us free." — Galatians 5:1
     </p>
@@ -55,6 +58,11 @@
     const label = document.getElementById('program-label');
     if (label) {
       label.textContent = program === 'womens' ? "Women's Encounter" : "Men's Encounter";
+    }
+    // Mirror program param on gallery link
+    const galleryLink = document.getElementById('gallery-link');
+    if (galleryLink && program) {
+      galleryLink.href = '/gallery/?program=' + encodeURIComponent(program);
     }
   </script>
 </body>
