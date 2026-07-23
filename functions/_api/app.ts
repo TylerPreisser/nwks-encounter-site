@@ -9,6 +9,7 @@ import { registrationsRouter } from './routes/registrations';
 import { peopleRouter } from './routes/people';
 import { eventsRouter } from './routes/events';
 import { publicRouter } from './routes/publicRoutes';
+import { templatesRouter } from './routes/templates';
 
 export interface Env {
   DB: D1Database;
@@ -49,3 +50,6 @@ app.route('/api/admin/events', eventsRouter);
 
 // P3: public events endpoint (unauthenticated)
 app.route('/api/public', publicRouter);
+
+// P4: admin email templates CRUD
+app.route('/api/admin/templates', templatesRouter);
