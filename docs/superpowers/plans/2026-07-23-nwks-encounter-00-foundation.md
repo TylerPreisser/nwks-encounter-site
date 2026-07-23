@@ -313,7 +313,7 @@ export function requireProgram(): MiddlewareHandler;     // validates ?program=;
 ```
 `functions/_api/dedupe.ts`
 ```ts
-export async function upsertPerson(env: Env, program: Program, fields: PersonInput): Promise<{person_id:number; matched:boolean}>;
+export async function upsertPerson(env: Env, program: Program, fields: PersonInput, year?: number): Promise<{person_id:number; matched:boolean}>;  // year (event year) sets first_seen_year/last_activity_year; PersonInput has no year field. Defaults to currentYear() if omitted — P1's register route MUST pass the current event's year.
 export async function recomputeRollups(env: Env, personId: number): Promise<void>;   // recount times_attended/served from registrations
 export async function findPossibleDuplicates(env: Env, personId: number): Promise<Person[]>;
 ```
