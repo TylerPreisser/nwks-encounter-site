@@ -4,10 +4,10 @@ NWKS.forms = NWKS.forms || {};
 /* Owned by [forms builder].
    Contract: NWKS.forms.render(specKey, mountEl) — builds a themed native <form>
    from NWKS.forms.specs[specKey] (see src/content/forms.js) into mountEl, wires
-   client-side required validation, and on submit POSTs directly to the Google
-   Form's real formResponse endpoint with mode:'no-cors' (the response is opaque
-   by design — Google Forms doesn't allow reading the result cross-origin, so we
-   show an optimistic success message once the request is sent).
+   client-side required validation, and on submit POSTs JSON to the backend API:
+     POST (NWKS_API_BASE) + '/api/register/' + spec.program + '/' + spec.role
+   On {ok:true} shows a success message and resets the form.
+   On {ok:false} shows the returned error inline (real validation feedback).
    Idempotent per mountEl: re-render calls after the first are no-ops. */
 (function () {
   'use strict';
@@ -63,8 +63,13 @@ NWKS.forms = NWKS.forms || {};
     input.name = field.name;
     if (field.required) input.required = true;
     // Cross-field "must match another field" (e.g. Confirm Email) — validated on submit.
-    if (field.matchName) {
-      input.dataset.matchName = field.matchName;
+    if (field.matchField) {
+      input.dataset.matchField = field.matchField;
+      if (field.matchLabel) input.dataset.matchLabel = field.matchLabel;
+    }
+    // Backward-compat: also honour legacy matchName attribute written by older spec versions.
+    if (field.matchName && !field.matchField) {
+      input.dataset.matchField = field.matchName;
       if (field.matchLabel) input.dataset.matchLabel = field.matchLabel;
     }
     // Phone: tel keypad + live (785) 123-4567 formatting; 10-digit check on submit.
@@ -127,7 +132,7 @@ NWKS.forms = NWKS.forms || {};
       input.id = optId;
       input.name = field.name;
       var isOtherOpt = !!field.otherEntry && optLabel === 'Other';
-      input.value = isOtherOpt ? '__other_option__' : optLabel;
+      input.value = optLabel;  // always send the real label; backend reads it as-is
       if (field.required) input.required = true;
       row.appendChild(input);
       var lab = el('label', { className: 'nwks-option__label', text: optLabel });
@@ -156,25 +161,37 @@ NWKS.forms = NWKS.forms || {};
     var notice = el('div', { className: 'nwks-form nwks-form--closed' });
     notice.appendChild(el('p', { className: 'nwks-form__closed-msg',
       text: spec.closedMessage || 'This registration form is currently closed.' }));
-    if (spec.officialUrl) {
-      var link = el('a', { className: 'nwks-form__fallback-link', text: 'Check the official Google form ↗' });
-      link.href = spec.officialUrl;
-      link.target = '_blank';
-      link.rel = 'noopener';
-      notice.appendChild(link);
-    }
     mountEl.appendChild(notice);
   }
 
-  function buildFallbackLink(spec) {
-    var p = el('p', { className: 'nwks-form__fallback' });
-    p.appendChild(document.createTextNode('Prefer the official Google form? '));
-    var link = el('a', { className: 'nwks-form__fallback-link', text: 'Open it here ↗' });
-    link.href = spec.officialUrl;
-    link.target = '_blank';
-    link.rel = 'noopener';
-    p.appendChild(link);
-    return p;
+  // Collect all field values from the form as a plain JS object { name: value }.
+  // checkbox fields: collect all checked values as a JSON-stringified array.
+  // radio fields: the checked value string.
+  // text/textarea/dropdown: trimmed string value.
+  // Fields with matchField (e.g. email_confirm) are included but backend ignores them
+  // (skipPersist on the server); we still send them so the backend can echo errors if needed.
+  function collectPayload(form, fields) {
+    var payload = {};
+    fields.forEach(function (field) {
+      if (field.type === 'radio') {
+        var checked = form.querySelector('input[name="' + field.name + '"]:checked');
+        // When the user selected "Other" and typed a free-text override, use that text.
+        if (checked && checked.value === 'Other' && field.otherEntry) {
+          var otherEl = form.querySelector('[name="' + field.otherEntry + '"]');
+          payload[field.name] = (otherEl && otherEl.value.trim()) ? otherEl.value.trim() : 'Other';
+        } else {
+          payload[field.name] = checked ? checked.value : '';
+        }
+      } else if (field.type === 'checkbox') {
+        var checkeds = Array.prototype.slice.call(
+          form.querySelectorAll('input[name="' + field.name + '"]:checked'));
+        payload[field.name] = JSON.stringify(checkeds.map(function (c) { return c.value; }));
+      } else {
+        var inputEl = form.querySelector('[name="' + field.name + '"]');
+        payload[field.name] = inputEl ? inputEl.value.trim() : '';
+      }
+    });
+    return payload;
   }
 
   NWKS.forms.render = function (specKey, mountEl) {
@@ -202,6 +219,25 @@ NWKS.forms = NWKS.forms || {};
       else buildTextField(form, specKey, field, idx);
     });
 
+    // Turnstile widget — rendered when NWKS_TURNSTILE_SITEKEY is set.
+    var turnstileToken = '__TEST_BYPASS__';
+    var sitekey = (typeof window !== 'undefined' && window.NWKS_TURNSTILE_SITEKEY) || '';
+    if (sitekey) {
+      var tsDiv = el('div', { className: 'cf-turnstile' });
+      tsDiv.dataset.sitekey = sitekey;
+      tsDiv.dataset.theme = 'dark';
+      tsDiv.dataset.callback = '__nwks_turnstile_cb_' + specKey;
+      window['__nwks_turnstile_cb_' + specKey] = function (token) { turnstileToken = token; };
+      // Load Turnstile script once
+      if (!document.querySelector('script[src*="turnstile"]')) {
+        var ts = document.createElement('script');
+        ts.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+        ts.async = true;
+        document.head.appendChild(ts);
+      }
+      form.appendChild(tsDiv);
+    }
+
     var statusEl = el('p', { className: 'nwks-form__status' });
     statusEl.setAttribute('role', 'status');
     statusEl.setAttribute('aria-live', 'polite');
@@ -222,9 +258,9 @@ NWKS.forms = NWKS.forms || {};
       }
       // Cross-field match check (e.g. Confirm Email must equal Email).
       var mismatch = null;
-      Array.prototype.forEach.call(form.querySelectorAll('[data-match-name]'), function (inp) {
+      Array.prototype.forEach.call(form.querySelectorAll('[data-match-field]'), function (inp) {
         if (mismatch) return;
-        var target = form.querySelector('[name="' + inp.dataset.matchName + '"]');
+        var target = form.querySelector('[name="' + inp.dataset.matchField + '"]');
         if (target && inp.value !== target.value) mismatch = inp;
       });
       if (mismatch) {
@@ -246,19 +282,38 @@ NWKS.forms = NWKS.forms || {};
         badPhone.focus();
         return;
       }
+
       submitBtn.disabled = true;
       statusEl.textContent = 'Submitting…';
       statusEl.className = 'nwks-form__status';
-      fetch(spec.action, { method: 'POST', mode: 'no-cors', body: new FormData(form) })
-        .then(function () {
-          // no-cors -> opaque response; a resolved fetch is the best signal we get.
-          statusEl.textContent = "Thanks — you're registered! (Google Forms doesn't let us confirm receipt directly, but your submission was sent.)";
-          statusEl.className = 'nwks-form__status nwks-form__status--success';
-          form.reset();
-          submitBtn.disabled = false;
+
+      var apiBase = (typeof window !== 'undefined' && window.NWKS_API_BASE) || '';
+      var url = apiBase + '/api/register/' + spec.program + '/' + spec.role;
+      var payload = collectPayload(form, spec.fields);
+      payload.cf_turnstile_response = turnstileToken;
+
+      fetch(url, {
+        method: 'POST',
+        mode: 'cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (data.ok) {
+            statusEl.textContent = "You're registered! We'll be in touch with details. Thank you!";
+            statusEl.className = 'nwks-form__status nwks-form__status--success';
+            form.reset();
+            submitBtn.disabled = false;
+          } else {
+            var errMsg = (data.errors && data.errors.join(' ')) || data.error || 'Registration failed. Please try again.';
+            statusEl.textContent = errMsg;
+            statusEl.className = 'nwks-form__status nwks-form__status--error';
+            submitBtn.disabled = false;
+          }
         })
         .catch(function () {
-          statusEl.textContent = 'Something went wrong sending your registration — check your connection and try again, or use the official Google form link below.';
+          statusEl.textContent = 'Something went wrong sending your registration — check your connection and try again.';
           statusEl.className = 'nwks-form__status nwks-form__status--error';
           submitBtn.disabled = false;
         });
