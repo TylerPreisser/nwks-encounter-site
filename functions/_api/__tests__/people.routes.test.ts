@@ -364,6 +364,14 @@ describe('POST /api/admin/people/:id/merge', () => {
     expect(json.person.id).toBe(targetId);
     // target should now have times_attended incremented from the moved registration
     expect(json.person.times_attended).toBeGreaterThanOrEqual(1);
+
+    // Defense-in-depth: all moved registrations must still carry the correct program
+    const db = (env as unknown as { DB: D1Database }).DB;
+    const moved = await db
+      .prepare(`SELECT program FROM registrations WHERE person_id = ?`)
+      .bind(targetId)
+      .all<{ program: string }>();
+    expect(moved.results.every((r) => r.program === 'mens')).toBe(true);
   });
 
   it('merged-away person no longer appears as a duplicate candidate', async () => {

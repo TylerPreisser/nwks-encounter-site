@@ -12,8 +12,10 @@ import { requireAuth, requireProgram } from '../auth.js';
 import { nowIso } from '../db.js';
 import { runAgentLoop } from '../ai/agent.js';
 import { sendCampaignById } from './campaigns.js';
+import { resolveSegment } from '../segment.js';
 import type { Env } from '../app.js';
 import type { AppVariables } from '../auth.js';
+import type { Program } from '../db.js';
 
 export const aiRouter = new Hono<{ Bindings: Env; Variables: AppVariables }>();
 
@@ -129,7 +131,7 @@ aiRouter.post('/threads/:id/message', async (c) => {
     .all();
 
   // Fetch any pending actions created this turn
-  const pendingActions = agentOutput.pendingActionIds.length > 0
+  const rawPendingActions = agentOutput.pendingActionIds.length > 0
     ? await c.env.DB
         .prepare(
           `SELECT * FROM ai_pending_actions WHERE id IN (${agentOutput.pendingActionIds.map(() => '?').join(',')})`,
@@ -138,14 +140,48 @@ aiRouter.post('/threads/:id/message', async (c) => {
         .all()
     : { results: [] };
 
+  const pendingActions = await Promise.all(
+    (rawPendingActions.results as Record<string, unknown>[]).map((a) =>
+      enrichPendingAction(c.env, program, a),
+    ),
+  );
+
   return c.json({
     ok: true,
     messages: updatedMessages.results,
-    pending_actions: pendingActions.results,
+    pending_actions: pendingActions,
   });
 });
 
 // ── Pending Actions ───────────────────────────────────────────────────────────
+
+/**
+ * Enriches a pending action row with a real subject, recipient_count, and
+ * body_preview so the approval UI shows exactly what will send — not just the
+ * AI-authored summary string.  Errors are swallowed; missing fields degrade
+ * gracefully to undefined so callers can fall back to summary.
+ */
+async function enrichPendingAction(
+  env: Env,
+  program: Program,
+  action: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  try {
+    const payload = JSON.parse(action.payload as string) as {
+      subject?: string;
+      body_text?: string;
+      segment?: Record<string, unknown>;
+    };
+    const subject = payload.subject;
+    const bodyPreview = payload.body_text?.slice(0, 200) ?? undefined;
+    const segment = payload.segment ?? {};
+    // resolveSegment counts recipients — call it just for the count
+    const recipients = await resolveSegment(env, program, segment as Parameters<typeof resolveSegment>[2]);
+    return { ...action, subject, recipient_count: recipients.length, body_preview: bodyPreview };
+  } catch {
+    return action;
+  }
+}
 
 // GET /api/admin/ai/pending
 aiRouter.get('/pending', async (c) => {
@@ -158,18 +194,28 @@ aiRouter.get('/pending', async (c) => {
     )
     .bind(program)
     .all();
-  return c.json({ ok: true, pending_actions: actions.results });
+
+  const enriched = await Promise.all(
+    (actions.results as Record<string, unknown>[]).map((a) =>
+      enrichPendingAction(c.env, program, a),
+    ),
+  );
+  return c.json({ ok: true, pending_actions: enriched });
 });
 
 // POST /api/admin/ai/pending/:id/approve
 // THE ONLY place an AI-proposed email actually executes.
+//
+// TOCTOU-safe: the status CAS (compare-and-swap) UPDATE runs BEFORE we build
+// or send the campaign. Only the requester that wins changes===1 may proceed.
+// If changes===0 someone else already claimed it → return 409 immediately.
 aiRouter.post('/pending/:id/approve', async (c) => {
   const user = c.get('user');
   const program = c.get('program');
   const actionId = Number(c.req.param('id'));
   const now = nowIso();
 
-  // Must belong to this program and still be pending — otherwise 409
+  // First verify the action exists and belongs to this program (for a clean 404)
   const action = await c.env.DB
     .prepare(
       `SELECT * FROM ai_pending_actions WHERE id = ? AND program = ?`,
@@ -187,10 +233,24 @@ aiRouter.post('/pending/:id/approve', async (c) => {
     return c.json({ ok: false, error: 'Pending action not found' }, 404);
   }
 
-  if (action.status !== 'pending') {
-    return c.json({ ok: false, error: 'Action already resolved' }, 409);
+  // Atomic CAS claim: UPDATE only succeeds when status is still 'pending' AND
+  // program matches. Check meta.changes===1 to detect the race winner.
+  const claimResult = await c.env.DB
+    .prepare(
+      `UPDATE ai_pending_actions
+       SET status = 'executed', resolved_at = ?, resolved_by = ?
+       WHERE id = ? AND program = ? AND status = 'pending'`,
+    )
+    .bind(now, user.id, actionId, program)
+    .run();
+
+  if (claimResult.meta.changes !== 1) {
+    // Another concurrent approve already claimed it (or status was already resolved)
+    return c.json({ ok: false, error: 'already resolved' }, 409);
   }
 
+  // We won the CAS — now build and send. If an error occurs here the action
+  // remains 'executed' (claimed). We do NOT un-claim to avoid reopening the race.
   const payload = JSON.parse(action.payload) as {
     subject?: string;
     body_html?: string;
@@ -236,16 +296,6 @@ aiRouter.post('/pending/:id/approve', async (c) => {
   if (action.kind === 'send_campaign') {
     await sendCampaignById(c.env, campaignResult.id, program);
   }
-
-  // Mark as executed (idempotency: already-executed case caught above as 409)
-  await c.env.DB
-    .prepare(
-      `UPDATE ai_pending_actions
-       SET status = 'executed', resolved_at = ?, resolved_by = ?
-       WHERE id = ?`,
-    )
-    .bind(now, user.id, actionId)
-    .run();
 
   return c.json({ ok: true, campaign_id: campaignResult.id });
 });

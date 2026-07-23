@@ -59,6 +59,8 @@ export async function verifyPassword(pw: string, stored: string): Promise<boolea
 /**
  * Creates a new session token, stores it in KV with a 7-day TTL, and returns the token.
  * KV key: "session:<token>", value: JSON { userId, expiresAt }
+ *
+ * Sessions use opaque random 32-byte hex tokens stored in KV — no signing secret needed.
  */
 export async function createSession(env: Env, userId: number): Promise<string> {
   const token = randomBytes(32).toString('hex');

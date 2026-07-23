@@ -518,4 +518,71 @@ describe('AI routes', () => {
     );
     expect(res.status).toBe(409);
   });
+
+  // ── TOCTOU double-send guard ─────────────────────────────────────────────────
+
+  it('two simultaneous approve calls on the same action produce exactly ONE campaign and return 409 on the second', async () => {
+    // Arrange: one pending send_campaign action
+    const threadId = await seedThread(DB(), 'mens', adminId);
+    const actionId = await seedPendingAction(DB(), threadId, 'mens', 'send_campaign');
+
+    // Act: fire both requests concurrently (simulate TOCTOU race)
+    const [res1, res2] = await Promise.all([
+      app.fetch(makeReq('POST', `/api/admin/ai/pending/${actionId}/approve`, cookie, 'mens'), testEnv),
+      app.fetch(makeReq('POST', `/api/admin/ai/pending/${actionId}/approve`, cookie, 'mens'), testEnv),
+    ]);
+
+    const statuses = [res1.status, res2.status].sort();
+    // Exactly one 200 (winner) and one 409 (loser)
+    expect(statuses).toEqual([200, 409]);
+
+    // Assert: exactly ONE campaign row was created
+    const campaigns = await DB().prepare('SELECT * FROM email_campaigns').all();
+    expect(campaigns.results).toHaveLength(1);
+
+    // Assert: the action is marked executed (not pending)
+    const action = await DB()
+      .prepare('SELECT status FROM ai_pending_actions WHERE id = ?')
+      .bind(actionId)
+      .first<{ status: string }>();
+    expect(action!.status).toBe('executed');
+
+    // Assert: the 409 response carries the expected error message
+    const loserRes = res1.status === 409 ? res1 : res2;
+    const loserData = await loserRes.json<{ ok: boolean; error: string }>();
+    expect(loserData.ok).toBe(false);
+    expect(loserData.error).toBe('already resolved');
+  });
+
+  // ── Pending actions preview enrichment ────────────────────────────────────────
+
+  it('GET /api/admin/ai/pending returns enriched subject, recipient_count, and body_preview', async () => {
+    const threadId = await seedThread(DB(), 'mens', adminId);
+    await seedPendingAction(DB(), threadId, 'mens', 'send_campaign', {
+      subject: 'Packing list',
+      body_html: '<p>Please pack</p>',
+      body_text: 'Please pack light for the trip.',
+      summary: 'Send packing list to all attendees.',
+    });
+
+    const res = await app.fetch(
+      makeReq('GET', '/api/admin/ai/pending', cookie, 'mens'),
+      testEnv,
+    );
+    expect(res.status).toBe(200);
+    const data = await res.json<{
+      ok: boolean;
+      pending_actions: Array<{
+        subject?: string;
+        recipient_count?: number;
+        body_preview?: string;
+      }>;
+    }>();
+    expect(data.ok).toBe(true);
+    expect(data.pending_actions).toHaveLength(1);
+    const action = data.pending_actions[0];
+    expect(action.subject).toBe('Packing list');
+    expect(typeof action.recipient_count).toBe('number');
+    expect(action.body_preview).toContain('Please pack');
+  });
 });

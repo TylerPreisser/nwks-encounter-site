@@ -319,13 +319,26 @@ describe('executeReadTool', () => {
   });
 
   // event_summary
-  it('event_summary returns event + counts', async () => {
+  it('event_summary returns event + counts (no event_id — uses current)', async () => {
     const result = await executeReadTool('event_summary', {}, toolEnv);
     const parsed = JSON.parse(result);
     expect(parsed.event.title).toBe('Mens Encounter');
     expect(parsed.counts.total_registrations).toBe(1);
     expect(parsed.counts.attendees).toBe(1);
     expect(parsed.counts.servers).toBe(0);
+  });
+
+  it('event_summary honors explicit event_id when supplied', async () => {
+    // eventId was seeded in beforeEach — pass it explicitly and expect same event
+    const result = await executeReadTool('event_summary', { event_id: eventId }, toolEnv);
+    const parsed = JSON.parse(result);
+    expect(parsed.event.title).toBe('Mens Encounter');
+    expect(parsed.counts.total_registrations).toBe(1);
+  });
+
+  it('event_summary returns error for unknown event_id', async () => {
+    const result = await executeReadTool('event_summary', { event_id: 9999 }, toolEnv);
+    expect(JSON.parse(result).error).toBeTruthy();
   });
 
   it('event_summary returns error when no current event for program', async () => {

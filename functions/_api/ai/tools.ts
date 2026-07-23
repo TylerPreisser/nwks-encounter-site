@@ -131,13 +131,19 @@ export const READ_TOOLS: Anthropic.Tool[] = [
   {
     name: 'event_summary',
     description:
-      'Return the current (is_current=1) event details for this program: ' +
-      'dates, launch locations, registration open/closed flags, attendee + ' +
-      'server count totals. Call first when the admin asks a general question ' +
+      'Return event details for this program: dates, launch locations, ' +
+      'registration open/closed flags, attendee + server count totals. ' +
+      'Pass event_id to query a specific event; omit to use the current ' +
+      '(is_current=1) event. Call first when the admin asks a general question ' +
       'about the upcoming event.',
     input_schema: {
       type: 'object' as const,
-      properties: {},
+      properties: {
+        event_id: {
+          type: 'number',
+          description: 'D1 event id to query. Omit to use the current event.',
+        },
+      },
       required: [],
       additionalProperties: false,
     },
@@ -304,11 +310,18 @@ export async function executeReadTool(
     }
 
     case 'event_summary': {
-      const event = await db
-        .prepare('SELECT * FROM events WHERE program = ? AND is_current = 1 LIMIT 1')
-        .bind(program)
-        .first();
-      if (!event) return JSON.stringify({ error: 'No current event found.' });
+      const eventId = input.event_id as number | undefined;
+      // Honor a supplied event_id; fall back to the current (is_current=1) event.
+      const event = eventId
+        ? await db
+            .prepare('SELECT * FROM events WHERE id = ? AND program = ? LIMIT 1')
+            .bind(eventId, program)
+            .first()
+        : await db
+            .prepare('SELECT * FROM events WHERE program = ? AND is_current = 1 LIMIT 1')
+            .bind(program)
+            .first();
+      if (!event) return JSON.stringify({ error: 'No matching event found.' });
 
       const counts = await db
         .prepare(
@@ -318,7 +331,7 @@ export async function executeReadTool(
             SUM(CASE WHEN role='server'   THEN 1 ELSE 0 END) as servers
            FROM registrations WHERE program = ? AND event_id = ?`,
         )
-        .bind(program, event.id)
+        .bind(program, (event as { id: number }).id)
         .first();
 
       return JSON.stringify({ event, counts });

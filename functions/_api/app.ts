@@ -23,7 +23,6 @@ export interface Env {
   EMAIL_REPLY_TO: string;
   RESEND_API_KEY: string;
   ANTHROPIC_API_KEY: string;
-  SESSION_SECRET: string;
   TURNSTILE_SECRET: string;
 }
 

@@ -19,6 +19,10 @@ interface PendingAction {
   payload: string;
   status: 'pending' | 'approved' | 'rejected' | 'executed';
   created_at: string;
+  /** Enriched preview fields added by the API */
+  subject?: string;
+  recipient_count?: number;
+  body_preview?: string;
 }
 
 interface AssistantProps {
@@ -216,7 +220,22 @@ export default function Assistant({ program: programProp }: AssistantProps) {
                   ? '📤 Send Campaign'
                   : '📅 Schedule Campaign'}
               </div>
-              <p className="text-gray-600 text-xs mb-3">{action.summary}</p>
+              {action.subject && (
+                <p className="text-gray-900 text-xs font-semibold mb-0.5 truncate" title={action.subject}>
+                  Subject: {action.subject}
+                </p>
+              )}
+              {action.recipient_count !== undefined && (
+                <p className="text-blue-600 text-xs mb-0.5">
+                  {action.recipient_count} recipient{action.recipient_count !== 1 ? 's' : ''}
+                </p>
+              )}
+              {action.body_preview && (
+                <p className="text-gray-500 text-xs mb-1 italic line-clamp-2" title={action.body_preview}>
+                  {action.body_preview}
+                </p>
+              )}
+              <p className="text-gray-400 text-xs mb-3">{action.summary}</p>
               <div className="flex gap-2">
                 <button
                   onClick={() => handleApprove(action.id)}

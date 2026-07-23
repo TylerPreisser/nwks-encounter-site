@@ -88,10 +88,10 @@ peopleRouter.post('/:id/merge', async (c) => {
   if (!source) return c.json({ ok: false, error: 'Source person not found' }, 404);
   if (!target) return c.json({ ok: false, error: 'Target person not found' }, 404);
 
-  // Move all registrations from source to target
+  // Move all registrations from source to target, scoped to this program for defense-in-depth
   await c.env.DB.prepare(
-    `UPDATE registrations SET person_id = ? WHERE person_id = ?`
-  ).bind(targetId, sourceId).run();
+    `UPDATE registrations SET person_id = ? WHERE person_id = ? AND program = ?`
+  ).bind(targetId, sourceId, program).run();
 
   // Soft-delete source by marking merged_into_id
   await c.env.DB.prepare(
