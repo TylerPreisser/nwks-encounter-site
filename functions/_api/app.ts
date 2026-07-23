@@ -4,6 +4,7 @@ import { Hono } from 'hono';
 import type { AppVariables } from './auth';
 import { registerRouter } from './routes/register';
 import { authRouter } from './routes/auth';
+import { dashboardRouter } from './routes/dashboard';
 
 export interface Env {
   DB: D1Database;
@@ -29,3 +30,6 @@ app.route('/api/register', registerRouter);
 
 // P2: auth routes
 app.route('/api/auth', authRouter);
+
+// P2: admin dashboard route
+app.route('/api/admin/dashboard', dashboardRouter);
