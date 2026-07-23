@@ -10,6 +10,7 @@ import { createContext, useContext } from 'react';
 import { apiFetch, setApiProgram } from './api';
 import { applyTheme, type Program } from './theme';
 import LoginPage from './pages/LoginPage';
+import DashboardPage from './pages/DashboardPage';
 import AppShell from './components/AppShell';
 
 /* ── Auth types ─────────────────────────────────────────────────── */
@@ -84,7 +85,7 @@ export default function App() {
         {/* Protected — AuthGuard verifies session, AppShell provides layout */}
         <Route element={<AuthGuard />}>
           <Route element={<AppShell />}>
-            <Route path="/admin/" element={<div>Dashboard (Task 8)</div>} />
+            <Route path="/admin/" element={<DashboardPage />} />
             <Route
               path="/admin/registrations"
               element={<div>Registrations (Task 9)</div>}
