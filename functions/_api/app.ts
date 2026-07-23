@@ -7,6 +7,7 @@ import { authRouter } from './routes/auth';
 import { dashboardRouter } from './routes/dashboard';
 import { registrationsRouter } from './routes/registrations';
 import { peopleRouter } from './routes/people';
+import { eventsRouter } from './routes/events';
 
 export interface Env {
   DB: D1Database;
@@ -41,3 +42,6 @@ app.route('/api/admin/registrations', registrationsRouter);
 
 // P2: admin people profile and merge
 app.route('/api/admin/people', peopleRouter);
+
+// P3: admin events CRUD
+app.route('/api/admin/events', eventsRouter);
