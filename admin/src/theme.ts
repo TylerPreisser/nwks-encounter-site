@@ -47,3 +47,11 @@ export function applyTheme(program: Program): void {
 export function themeFor(program: Program): ThemeTokens {
   return THEMES[program];
 }
+
+// useProgram is the primary way Gallery (and future pages) read the active program.
+// The real context lives in App.tsx (ProgramContext); we re-export the hook here
+// so tests can mock '../theme' cleanly without touching the App module.
+// Circular dep is safe: theme.ts exports only plain values/functions at module load;
+// App.tsx only imports those (Program, THEMES, applyTheme) — no values are consumed
+// from App.tsx at theme.ts module-init time, only at call time.
+export { useProgram } from './App';

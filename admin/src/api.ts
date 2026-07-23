@@ -12,9 +12,14 @@ export async function apiFetch<T = unknown>(
 ): Promise<T> {
   const sep = path.includes('?') ? '&' : '?';
   const url = `/api${path}${sep}program=${_program}`;
+  // Don't force application/json when body is FormData — let the browser set
+  // the correct multipart/form-data boundary automatically.
+  const isFormData = init?.body instanceof FormData;
   const res = await fetch(url, {
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    headers: isFormData
+      ? { ...(init?.headers ?? {}) }
+      : { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
     ...init,
   });
   if (!res.ok) {
