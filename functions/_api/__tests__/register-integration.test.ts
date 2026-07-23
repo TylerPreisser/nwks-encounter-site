@@ -320,15 +320,15 @@ describe('POST /api/register/:program/:role — integration', () => {
     expect(body.error.length).toBeGreaterThan(0);
   });
 
-  // ── No current event → 400 ───────────────────────────────────────────────
-  it('no current event for program → 400', async () => {
+  // ── No current event → 409 ───────────────────────────────────────────────
+  it('no current event for program → 409', async () => {
     // Deliberately do NOT seed an event
 
     const res = await app.fetch(
       makeRequest('/api/register/mens/attendee', VALID_MENS_ATTENDEE),
       testEnv
     );
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(409);
     const body = await res.json<any>();
     expect(body.ok).toBe(false);
     expect(body.error).toMatch(/no current event/i);
@@ -416,5 +416,139 @@ describe('POST /api/register/:program/:role — integration', () => {
     const body4 = await res4.json<any>();
     expect(body4.ok).toBe(false);
     expect(body4.error).toMatch(/too many/i);
+  });
+
+  // ── Edge case: de-dupe returns same person_id, people table has 1 row ────
+  it('deduplicates by email: second registration reuses same person', async () => {
+    await seedCurrentEvent(env.DB as D1Database, 'mens');
+    const post = () => app.fetch(new Request('http://localhost/api/register/mens/attendee', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '1.2.3.4' },
+      body: JSON.stringify(VALID_MENS_ATTENDEE),
+    }), testEnv);
+    const r1 = await (await post()).json<any>();
+    const r2 = await (await post()).json<any>();
+    expect(r1.person_id).toBe(r2.person_id);
+    const count = await (env.DB as D1Database)
+      .prepare('SELECT COUNT(*) as n FROM people')
+      .first<{ n: number }>();
+    expect(count?.n).toBe(1);
+  });
+
+  // ── Edge case: missing first_name → 400 with "First Name" in error ────────
+  it('returns 400 when required field first_name is missing', async () => {
+    await seedCurrentEvent(env.DB as D1Database, 'mens');
+    const body = { ...VALID_MENS_ATTENDEE } as Record<string, unknown>;
+    delete body.first_name;
+    const res = await app.fetch(new Request('http://localhost/api/register/mens/attendee', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '1.2.3.4' },
+      body: JSON.stringify(body),
+    }), testEnv);
+    expect(res.status).toBe(400);
+    const json = await res.json<any>();
+    expect(json.ok).toBe(false);
+    expect(json.error).toMatch(/First Name/i);
+  });
+
+  // ── Edge case: invalid email format → 400 ────────────────────────────────
+  it('returns 400 for invalid email format', async () => {
+    await seedCurrentEvent(env.DB as D1Database, 'mens');
+    const res = await app.fetch(new Request('http://localhost/api/register/mens/attendee', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '1.2.3.4' },
+      body: JSON.stringify({ ...VALID_MENS_ATTENDEE, email: 'notanemail' }),
+    }), testEnv);
+    expect(res.status).toBe(400);
+    const json = await res.json<any>();
+    expect(json.ok).toBe(false);
+  });
+
+  // ── Edge case: no current event → 409 (brief spec) ───────────────────────
+  it('returns 409 when no current event exists', async () => {
+    // No event seeded
+    const res = await app.fetch(new Request('http://localhost/api/register/mens/attendee', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '1.2.3.4' },
+      body: JSON.stringify(VALID_MENS_ATTENDEE),
+    }), testEnv);
+    expect(res.status).toBe(409);
+  });
+
+  // ── Edge case: attendee registration closed → 409 ─────────────────────────
+  it('returns 409 when attendee registration is closed', async () => {
+    const now = nowIso();
+    await (env.DB as D1Database).prepare(
+      `INSERT INTO events (program, year, start_date, end_date, launch_locations,
+         attendee_registration_open, server_registration_open, is_current, created_at, updated_at)
+       VALUES ('mens', 2099, '2099-08-06', '2099-08-08', '[]', 0, 1, 1, ?, ?)`
+    ).bind(now, now).run();
+    const res = await app.fetch(new Request('http://localhost/api/register/mens/attendee', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '1.2.3.4' },
+      body: JSON.stringify(VALID_MENS_ATTENDEE),
+    }), testEnv);
+    expect(res.status).toBe(409);
+  });
+
+  // ── Edge case: Turnstile absent with real secret → 422 ────────────────────
+  it('returns 422 when Turnstile token is absent and secret is real', async () => {
+    await seedCurrentEvent(env.DB as D1Database, 'mens');
+    const strictEnv = { ...testEnv, TURNSTILE_SECRET: 'real-secret-not-test' };
+    const body = { ...VALID_MENS_ATTENDEE } as Record<string, unknown>;
+    delete body.cf_turnstile_response;
+    const res = await app.fetch(new Request('http://localhost/api/register/mens/attendee', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '1.2.3.4' },
+      body: JSON.stringify(body),
+    }), strictEnv as any);
+    expect(res.status).toBe(422);
+  });
+
+  // ── Edge case: email_log has type='transactional' and template_key='welcome' ─
+  it('writes email_log row on successful registration', async () => {
+    await seedCurrentEvent(env.DB as D1Database, 'mens');
+    await app.fetch(new Request('http://localhost/api/register/mens/attendee', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '1.2.3.4' },
+      body: JSON.stringify(VALID_MENS_ATTENDEE),
+    }), testEnv);
+    const log = await (env.DB as D1Database)
+      .prepare("SELECT * FROM email_log WHERE type='transactional' AND template_key='welcome'")
+      .first<{ id: number; status: string }>();
+    expect(log).not.toBeNull();
+  });
+
+  // ── Edge case: rollup times_attended = 1 after single registration ─────────
+  it('recomputes rollups after registration: times_attended = 1', async () => {
+    await seedCurrentEvent(env.DB as D1Database, 'mens');
+    const res = await app.fetch(new Request('http://localhost/api/register/mens/attendee', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '1.2.3.4' },
+      body: JSON.stringify(VALID_MENS_ATTENDEE),
+    }), testEnv);
+    const { person_id } = await res.json<any>();
+    const person = await (env.DB as D1Database)
+      .prepare('SELECT times_attended FROM people WHERE id = ?')
+      .bind(person_id)
+      .first<{ times_attended: number }>();
+    expect(person?.times_attended).toBe(1);
+  });
+
+  // ── Edge case: womens/server with server_registration_open=0 → 409 ─────────
+  it('returns 409 for womens/server (server_registration_open=0)', async () => {
+    const now = nowIso();
+    await (env.DB as D1Database).prepare(
+      `INSERT INTO events (program, year, start_date, end_date, launch_locations,
+         attendee_registration_open, server_registration_open, is_current, created_at, updated_at)
+       VALUES ('women', 2099, '2099-07-17', '2099-07-19', '[]', 1, 0, 1, ?, ?)`
+    ).bind(now, now).run();
+    const body = { ...VALID_MENS_ATTENDEE, cf_turnstile_response: '__TEST_BYPASS__' };
+    const res = await app.fetch(new Request('http://localhost/api/register/womens/server', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '1.2.3.4' },
+      body: JSON.stringify(body),
+    }), testEnv);
+    expect(res.status).toBe(409);
   });
 });

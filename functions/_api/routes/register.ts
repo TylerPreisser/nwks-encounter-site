@@ -390,7 +390,7 @@ registerRouter.post('/:program/:role', async (c) => {
     }>();
 
   if (!event) {
-    return c.json({ ok: false, error: 'No current event found for this program.' }, 400);
+    return c.json({ ok: false, error: 'No current event found for this program.' }, 409);
   }
 
   const regOpen = role === 'server'
