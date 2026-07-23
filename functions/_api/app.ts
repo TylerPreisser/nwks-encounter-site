@@ -6,6 +6,7 @@ import { registerRouter } from './routes/register';
 import { authRouter } from './routes/auth';
 import { dashboardRouter } from './routes/dashboard';
 import { registrationsRouter } from './routes/registrations';
+import { peopleRouter } from './routes/people';
 
 export interface Env {
   DB: D1Database;
@@ -37,3 +38,6 @@ app.route('/api/admin/dashboard', dashboardRouter);
 
 // P2: admin registrations list + CSV export
 app.route('/api/admin/registrations', registrationsRouter);
+
+// P2: admin people profile and merge
+app.route('/api/admin/people', peopleRouter);
