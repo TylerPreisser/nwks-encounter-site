@@ -346,7 +346,7 @@ registerRouter.post('/:program/:role', async (c) => {
     return c.json({ ok: false, error: 'Invalid role.' }, 400);
   }
 
-  // Rate-limit check
+  // Rate-limit check precedes Turnstile verify on purpose: cheap KV lookup before the network siteverify call.
   const rateResult = await checkRateLimit(c.env, ip);
   if (!rateResult.allowed) {
     return c.json({ ok: false, error: 'Too many registration attempts. Please wait and try again.' }, 429);

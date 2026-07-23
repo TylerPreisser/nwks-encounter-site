@@ -193,6 +193,30 @@ describe('POST /api/register/:program/:role — integration', () => {
     expect(log.to_email).toBe('john.doe@example.com');
   });
 
+  // ── Render correctness: email subject is substituted, no unrendered tokens ──
+  it('welcome email subject contains program name and no unsubstituted {{ tokens', async () => {
+    await seedCurrentEvent(env.DB as D1Database, 'mens');
+
+    const res = await app.fetch(
+      makeRequest('/api/register/mens/attendee', VALID_MENS_ATTENDEE),
+      testEnv
+    );
+    const body = await res.json<any>();
+    expect(body.ok).toBe(true);
+
+    const log = await (env.DB as D1Database)
+      .prepare('SELECT subject FROM email_log WHERE person_id = ? AND template_key = ?')
+      .bind(body.person_id, 'welcome')
+      .first<{ subject: string }>();
+
+    expect(log).toBeTruthy();
+    // Subject must contain "Men's" (program substituted) and not have bare {{ placeholders
+    expect(log!.subject).toMatch(/Men's/);
+    expect(log!.subject).not.toMatch(/\{\{/);
+    // body_html and body_text are not stored in email_log, but subject correctness proves
+    // renderTemplate was called and returned real content (not empty/unsubstituted)
+  });
+
   // ── Happy path: mens/server ──────────────────────────────────────────────
   it('happy path: mens/server registration works and rolls up times_served', async () => {
     await seedCurrentEvent(env.DB as D1Database, 'mens');
