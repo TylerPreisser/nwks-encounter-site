@@ -3,6 +3,7 @@
 import { Hono } from 'hono';
 import type { AppVariables } from './auth';
 import { registerRouter } from './routes/register';
+import { authRouter } from './routes/auth';
 
 export interface Env {
   DB: D1Database;
@@ -25,3 +26,6 @@ app.get('/api/health', (c) => {
 
 // P1: registration routes
 app.route('/api/register', registerRouter);
+
+// P2: auth routes
+app.route('/api/auth', authRouter);
