@@ -10,8 +10,9 @@ async function seedEvent(
   startDate = '2026-08-06',
   endDate = '2026-08-08'
 ): Promise<void> {
+  // INSERT OR REPLACE so this is safe when 0003_seed_events.sql already inserted the row.
   await env.DB.prepare(
-    `INSERT INTO events
+    `INSERT OR REPLACE INTO events
        (program, year, title, start_date, end_date, launch_locations,
         attendee_registration_open, server_registration_open, is_current, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, '["Colby"]', 1, 1, ?, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`

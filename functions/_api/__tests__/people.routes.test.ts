@@ -19,18 +19,24 @@ async function seedEvent(opts: {
   year?: number;
 }): Promise<number> {
   const now = nowIso();
+  const year = opts.year ?? 2026;
   const db = (env as unknown as { DB: D1Database }).DB;
-  const { meta } = await db
+  // INSERT OR REPLACE so this is safe when 0003_seed_events.sql already inserted the row.
+  await db
     .prepare(
-      `INSERT INTO events
+      `INSERT OR REPLACE INTO events
          (program, year, title, start_date, end_date, launch_locations,
           attendee_registration_open, server_registration_open, is_current, created_at, updated_at)
        VALUES (?, ?, 'Test Event', '2026-08-06', '2026-08-08', '["Oakley"]',
                1, 1, 1, ?, ?)`
     )
-    .bind(opts.program, opts.year ?? 2026, now, now)
+    .bind(opts.program, year, now, now)
     .run();
-  return meta.last_row_id as number;
+  const row = await db
+    .prepare(`SELECT id FROM events WHERE program = ? AND year = ?`)
+    .bind(opts.program, year)
+    .first<{ id: number }>();
+  return row!.id;
 }
 
 async function seedPerson(opts: {

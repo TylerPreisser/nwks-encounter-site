@@ -86,15 +86,18 @@ describe('db.ts helpers', () => {
 
   describe('getCurrentEvent()', () => {
     it('returns null when no event is marked current', async () => {
+      // Clear is_current on seed events so we can test the null path.
+      await DB().prepare('UPDATE events SET is_current=0').run();
       const result = await getCurrentEvent(DB(), 'mens');
       expect(result).toBeNull();
     });
 
     it('returns the event with is_current=true (boolean) and parsed launch_locations', async () => {
       const ts = nowIso();
+      // Upsert the seeded mens 2026 row with our test-specific launch_locations.
       await DB()
         .prepare(
-          `INSERT INTO events (program, year, is_current, launch_locations, created_at, updated_at)
+          `INSERT OR REPLACE INTO events (program, year, is_current, launch_locations, created_at, updated_at)
            VALUES ('mens', 2026, 1, ?, ?, ?)`
         )
         .bind(JSON.stringify(['Garden City', 'Colby']), ts, ts).run();
@@ -109,24 +112,19 @@ describe('db.ts helpers', () => {
     });
 
     it('returns null for a different program', async () => {
-      const ts = nowIso();
-      await DB()
-        .prepare(
-          `INSERT INTO events (program, year, is_current, created_at, updated_at)
-           VALUES ('women', 2026, 1, ?, ?)`
-        )
-        .bind(ts, ts).run();
-
+      // Seed has women 2026 with is_current=1; clear it so mens truly has nothing current.
+      await DB().prepare("UPDATE events SET is_current=0 WHERE program='mens'").run();
       const result = await getCurrentEvent(DB(), 'mens');
       expect(result).toBeNull();
     });
 
     it('returns empty array for launch_locations when stored as []', async () => {
       const ts = nowIso();
+      // Upsert the seeded mens 2026 row with explicit empty launch_locations.
       await DB()
         .prepare(
-          `INSERT INTO events (program, year, is_current, created_at, updated_at)
-           VALUES ('mens', 2026, 1, ?, ?)`
+          `INSERT OR REPLACE INTO events (program, year, is_current, launch_locations, created_at, updated_at)
+           VALUES ('mens', 2026, 1, '[]', ?, ?)`
         )
         .bind(ts, ts).run();
 

@@ -10,14 +10,19 @@ const DB = () => (env as any).DB as D1Database;
 
 async function insertEvent(program: 'mens' | 'women'): Promise<number> {
   const ts = nowIso();
-  const { meta } = await DB()
+  // Use INSERT OR IGNORE so this is safe when the seed migration (0003) already inserted the row.
+  await DB()
     .prepare(
-      `INSERT INTO events (program, year, is_current, created_at, updated_at)
+      `INSERT OR IGNORE INTO events (program, year, is_current, created_at, updated_at)
        VALUES (?, 2026, 1, ?, ?)`
     )
     .bind(program, ts, ts)
     .run();
-  return meta.last_row_id as number;
+  const row = await DB()
+    .prepare(`SELECT id FROM events WHERE program = ? AND year = 2026`)
+    .bind(program)
+    .first<{ id: number }>();
+  return row!.id;
 }
 
 /** Insert a person row directly (bypasses upsertPerson dedup logic). */

@@ -25,9 +25,10 @@ async function seedEvent(opts: {
 }): Promise<number> {
   const now = nowIso();
   const db = (env as unknown as { DB: D1Database }).DB;
-  const { meta } = await db
+  // INSERT OR REPLACE so this is safe when 0003_seed_events.sql already inserted the row.
+  await db
     .prepare(
-      `INSERT INTO events
+      `INSERT OR REPLACE INTO events
          (program, year, title, start_date, end_date, launch_locations,
           attendee_registration_open, server_registration_open, is_current, created_at, updated_at)
        VALUES (?, 2026, 'Test Event', '2026-08-06', '2026-08-08', '["Oakley","Colby","Norton"]',
@@ -35,7 +36,11 @@ async function seedEvent(opts: {
     )
     .bind(opts.program, opts.isCurrent ?? 1, now, now)
     .run();
-  return meta.last_row_id as number;
+  const row = await db
+    .prepare(`SELECT id FROM events WHERE program = ? AND year = 2026`)
+    .bind(opts.program)
+    .first<{ id: number }>();
+  return row!.id;
 }
 
 /**
@@ -165,6 +170,8 @@ describe('GET /api/admin/dashboard', () => {
   });
 
   it('returns zero stats when no current event exists', async () => {
+    // Remove seed events (0003_seed_events.sql) so the dashboard sees no current event.
+    await (env as unknown as { DB: D1Database }).DB.prepare('DELETE FROM events').run();
     await seedAdmin();
     const cookie = await getAuthCookie();
     const res = await app.fetch(

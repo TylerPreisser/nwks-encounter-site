@@ -71,6 +71,8 @@ describe('Admin Events API', () => {
   // ── GET list ──────────────────────────────────────────────────────────────
 
   it('GET /api/admin/events returns empty list when no events exist', async () => {
+    // Remove seed events (0003_seed_events.sql) so we can test the empty-list path.
+    await testEnv.DB.prepare('DELETE FROM events').run();
     const res = await app.fetch(makeReq('GET', '/api/admin/events', cookie, 'mens'), testEnv);
     expect(res.status).toBe(200);
     const body = await res.json<{ ok: boolean; events: unknown[] }>();
@@ -79,12 +81,13 @@ describe('Admin Events API', () => {
   });
 
   it('GET /api/admin/events scopes results to the requested program', async () => {
+    // Seed rows for both programs already exist from 0003_seed_events.sql; use OR IGNORE.
     await testEnv.DB.prepare(
-      `INSERT INTO events (program, year, launch_locations, attendee_registration_open, server_registration_open, is_current, created_at, updated_at)
+      `INSERT OR IGNORE INTO events (program, year, launch_locations, attendee_registration_open, server_registration_open, is_current, created_at, updated_at)
        VALUES ('mens', 2026, '[]', 1, 1, 0, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`
     ).run();
     await testEnv.DB.prepare(
-      `INSERT INTO events (program, year, launch_locations, attendee_registration_open, server_registration_open, is_current, created_at, updated_at)
+      `INSERT OR IGNORE INTO events (program, year, launch_locations, attendee_registration_open, server_registration_open, is_current, created_at, updated_at)
        VALUES ('women', 2026, '[]', 1, 1, 0, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`
     ).run();
 
@@ -97,12 +100,13 @@ describe('Admin Events API', () => {
   // ── POST create ───────────────────────────────────────────────────────────
 
   it('POST /api/admin/events creates an event', async () => {
+    // Use year 2027 since the seed migration (0003) already owns mens/2026.
     const res = await app.fetch(
       makeReq('POST', '/api/admin/events', cookie, 'mens', {
-        year: 2026,
-        title: "Men's Encounter 2026",
-        start_date: '2026-08-06',
-        end_date: '2026-08-08',
+        year: 2027,
+        title: "Men's Encounter 2027",
+        start_date: '2027-08-06',
+        end_date: '2027-08-08',
         launch_locations: ['Colby', 'Hays', 'Dodge City'],
       }),
       testEnv
@@ -110,31 +114,34 @@ describe('Admin Events API', () => {
     expect(res.status).toBe(201);
     const body = await res.json<{ ok: boolean; event: Record<string, unknown> }>();
     expect(body.ok).toBe(true);
-    expect(body.event.year).toBe(2026);
+    expect(body.event.year).toBe(2027);
     expect(body.event.program).toBe('mens');
-    expect(body.event.start_date).toBe('2026-08-06');
+    expect(body.event.start_date).toBe('2027-08-06');
     expect(JSON.parse(body.event.launch_locations as string)).toEqual(['Colby', 'Hays', 'Dodge City']);
     expect(body.event.is_current).toBe(0);
   });
 
   it('POST /api/admin/events returns 409 on duplicate program+year', async () => {
-    const payload = { year: 2026 };
+    // Use year 2027 (not 2026 which the seed already owns); first POST creates, second gets 409.
+    const payload = { year: 2027 };
     await app.fetch(makeReq('POST', '/api/admin/events', cookie, 'mens', payload), testEnv);
     const res2 = await app.fetch(makeReq('POST', '/api/admin/events', cookie, 'mens', payload), testEnv);
     expect(res2.status).toBe(409);
   });
 
   it('POST /api/admin/events returns 400 for invalid start_date format', async () => {
+    // Use year 2027 (seed owns 2026); validation error is thrown before the INSERT anyway.
     const res = await app.fetch(
-      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2026, start_date: '08-06-2026' }),
+      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2027, start_date: '08-06-2027' }),
       testEnv
     );
     expect(res.status).toBe(400);
   });
 
   it('POST /api/admin/events returns 400 for invalid launch_locations type', async () => {
+    // Use year 2027 (seed owns 2026); validation error is thrown before the INSERT anyway.
     const res = await app.fetch(
-      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2026, launch_locations: 'Colby' }),
+      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2027, launch_locations: 'Colby' }),
       testEnv
     );
     expect(res.status).toBe(400);
@@ -143,8 +150,9 @@ describe('Admin Events API', () => {
   // ── PATCH update ──────────────────────────────────────────────────────────
 
   it('PATCH /api/admin/events/:id updates title and dates', async () => {
+    // Use year 2027 since seed owns mens/2026.
     const createRes = await app.fetch(
-      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2026 }),
+      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2027 }),
       testEnv
     );
     const { event } = await createRes.json<{ event: { id: number } }>();
@@ -152,8 +160,8 @@ describe('Admin Events API', () => {
     const res = await app.fetch(
       makeReq('PATCH', `/api/admin/events/${event.id}`, cookie, 'mens', {
         title: 'Updated Title',
-        start_date: '2026-08-06',
-        end_date: '2026-08-08',
+        start_date: '2027-08-06',
+        end_date: '2027-08-08',
       }),
       testEnv
     );
@@ -163,8 +171,9 @@ describe('Admin Events API', () => {
   });
 
   it('PATCH /api/admin/events/:id returns 404 for wrong program', async () => {
+    // Use year 2027 since seed owns mens/2026.
     const createRes = await app.fetch(
-      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2026 }),
+      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2027 }),
       testEnv
     );
     const { event } = await createRes.json<{ event: { id: number } }>();
@@ -180,13 +189,13 @@ describe('Admin Events API', () => {
   // ── set-current invariant ─────────────────────────────────────────────────
 
   it('POST /api/admin/events/:id/set-current enforces one-current invariant within program', async () => {
-    // Create two mens events
+    // Use years 2025 + 2027 (seed owns mens/2026).
     const r1 = await app.fetch(
       makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2025 }),
       testEnv
     );
     const r2 = await app.fetch(
-      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2026 }),
+      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2027 }),
       testEnv
     );
     const { event: ev1 } = await r1.json<{ event: { id: number } }>();
@@ -195,7 +204,7 @@ describe('Admin Events API', () => {
     // Set ev1 current
     await app.fetch(makeReq('POST', `/api/admin/events/${ev1.id}/set-current`, cookie, 'mens'), testEnv);
 
-    // Now set ev2 current — ev1 must become 0
+    // Now set ev2 current — ev1 (and seed 2026) must become 0
     await app.fetch(makeReq('POST', `/api/admin/events/${ev2.id}/set-current`, cookie, 'mens'), testEnv);
 
     const listRes = await app.fetch(makeReq('GET', '/api/admin/events', cookie, 'mens'), testEnv);
@@ -206,15 +215,15 @@ describe('Admin Events API', () => {
   });
 
   it('set-current for mens does NOT affect womens is_current', async () => {
-    // Create one event per program
+    // Use year 2027 (seed owns both mens/2026 and women/2026).
     const mr = await app.fetch(
-      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2026 }),
+      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2027 }),
       testEnv
     );
     const { event: mensEv } = await mr.json<{ event: { id: number } }>();
 
     const wr = await app.fetch(
-      makeReq('POST', '/api/admin/events', cookie, 'women', { year: 2026 }),
+      makeReq('POST', '/api/admin/events', cookie, 'women', { year: 2027 }),
       testEnv
     );
     const { event: womenEv } = await wr.json<{ event: { id: number } }>();

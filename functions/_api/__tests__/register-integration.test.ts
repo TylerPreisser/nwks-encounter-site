@@ -22,9 +22,10 @@ async function seedCurrentEvent(
   } = {}
 ): Promise<number> {
   const now = nowIso();
-  const { meta } = await db
+  // INSERT OR REPLACE so this is safe when 0003_seed_events.sql already inserted the row.
+  await db
     .prepare(
-      `INSERT INTO events
+      `INSERT OR REPLACE INTO events
          (program, year, title, start_date, end_date, launch_locations,
           attendee_registration_open, server_registration_open, is_current, created_at, updated_at)
        VALUES (?, 2026, 'Test Event', '2026-08-06', '2026-08-08', '["Hays","Norton"]',
@@ -38,7 +39,11 @@ async function seedCurrentEvent(
       now
     )
     .run();
-  return meta.last_row_id as number;
+  const row = await db
+    .prepare(`SELECT id FROM events WHERE program = ? AND year = 2026`)
+    .bind(program)
+    .first<{ id: number }>();
+  return row!.id;
 }
 
 function makeRequest(
@@ -322,7 +327,8 @@ describe('POST /api/register/:program/:role — integration', () => {
 
   // ── No current event → 409 ───────────────────────────────────────────────
   it('no current event for program → 409', async () => {
-    // Deliberately do NOT seed an event
+    // Clear is_current on seed events (0003) so there is truly no current event.
+    await (env.DB as D1Database).prepare('UPDATE events SET is_current=0').run();
 
     const res = await app.fetch(
       makeRequest('/api/register/mens/attendee', VALID_MENS_ATTENDEE),
@@ -466,7 +472,8 @@ describe('POST /api/register/:program/:role — integration', () => {
 
   // ── Edge case: no current event → 409 (brief spec) ───────────────────────
   it('returns 409 when no current event exists', async () => {
-    // No event seeded
+    // Clear is_current on seed events (0003) so there is truly no current event.
+    await (env.DB as D1Database).prepare('UPDATE events SET is_current=0').run();
     const res = await app.fetch(new Request('http://localhost/api/register/mens/attendee', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '1.2.3.4' },
@@ -478,6 +485,8 @@ describe('POST /api/register/:program/:role — integration', () => {
   // ── Edge case: attendee registration closed → 409 ─────────────────────────
   it('returns 409 when attendee registration is closed', async () => {
     const now = nowIso();
+    // Clear is_current on seed mens event so only our test row is current.
+    await (env.DB as D1Database).prepare("UPDATE events SET is_current=0 WHERE program='mens'").run();
     await (env.DB as D1Database).prepare(
       `INSERT INTO events (program, year, start_date, end_date, launch_locations,
          attendee_registration_open, server_registration_open, is_current, created_at, updated_at)
@@ -538,6 +547,10 @@ describe('POST /api/register/:program/:role — integration', () => {
   // ── Edge case: womens/server with server_registration_open=0 → 409 ─────────
   it('returns 409 for womens/server (server_registration_open=0)', async () => {
     const now = nowIso();
+    // Clear is_current on the seed women event so only our test row is current.
+    await (env.DB as D1Database).prepare(
+      `UPDATE events SET is_current=0 WHERE program='women'`
+    ).run();
     await (env.DB as D1Database).prepare(
       `INSERT INTO events (program, year, start_date, end_date, launch_locations,
          attendee_registration_open, server_registration_open, is_current, created_at, updated_at)
