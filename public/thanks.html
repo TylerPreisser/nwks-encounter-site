@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>You're Registered! — NWKS Encounter</title>
+  <meta name="description" content="Registration confirmed for NWKS Encounter.">
+  <link rel="stylesheet" href="/shared/form.css">
+  <style>
+    .thanks-icon { font-size: 3rem; margin-bottom: 1rem; display: block; text-align: center; }
+    .thanks-card { text-align: center; }
+    .thanks-card h1 { margin-bottom: 1rem; }
+    .thanks-card p  { margin-bottom: 0.75rem; opacity: 0.85; }
+    .thanks-card a  { color: inherit; text-decoration: underline; opacity: 0.75; }
+    .thanks-card a:hover { opacity: 1; }
+    .back-link {
+      display: inline-block;
+      margin-top: 1.5rem;
+      padding: 0.5rem 1.2rem;
+      border-radius: 4px;
+      text-decoration: none;
+      font-size: 0.85rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 600;
+      opacity: 0.6;
+      border: 1px solid currentColor;
+    }
+    .back-link:hover { opacity: 0.9; }
+  </style>
+</head>
+<body class="mens">
+  <div class="form-card thanks-card">
+    <span class="thanks-icon" aria-hidden="true">✓</span>
+    <h1>You're Registered!</h1>
+    <p>
+      Thank you for registering for <strong id="program-label">Men's Encounter</strong>.
+      A confirmation email is on its way to your inbox.
+    </p>
+    <p>
+      Check your spam folder if you don't see it within a few minutes.
+      If you have questions, simply reply to that email — it goes straight to our team.
+    </p>
+    <a href="/" class="back-link">← Back to NWKS Encounter</a>
+    <p class="form-verse" style="margin-top:2.5rem;">
+      "It is for freedom that Christ has set us free." — Galatians 5:1
+    </p>
+  </div>
+
+  <script>
+    // Apply program-specific theme from query param
+    const params = new URLSearchParams(window.location.search);
+    const program = params.get('program') || 'mens';
+    document.body.className = program === 'womens' ? 'womens' : 'mens';
+    const label = document.getElementById('program-label');
+    if (label) {
+      label.textContent = program === 'womens' ? "Women's Encounter" : "Men's Encounter";
+    }
+  </script>
+</body>
+</html>

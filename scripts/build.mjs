@@ -48,10 +48,16 @@ if (existsSync(publicSrc)) {
   console.log('[build] Copied public/ → dist/');
 }
 
-// 5. Build admin SPA (skip gracefully if admin/ not present)
+// 5. Build admin SPA (skip gracefully if admin/ absent or has no real build entry)
 const adminDir = join(root, 'admin');
-if (!existsSync(adminDir)) {
-  console.log('[build] admin/ not present — skipping admin SPA build (will be added in P2).');
+const adminHasEntry =
+  existsSync(join(adminDir, 'index.html')) ||
+  existsSync(join(adminDir, 'vite.config.ts')) ||
+  existsSync(join(adminDir, 'vite.config.js')) ||
+  existsSync(join(adminDir, 'package.json'));
+
+if (!existsSync(adminDir) || !adminHasEntry) {
+  console.log('[build] admin/ has no Vite build entry — skipping admin SPA build (will be added in P2).');
 } else {
   console.log('[build] Building admin SPA...');
   execSync('npx vite build', {
