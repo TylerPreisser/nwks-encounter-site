@@ -91,8 +91,8 @@ const safeHash  = hash.replace(/'/g, "''");
 
 const sql = `INSERT INTO admin_users (email, name, password_hash, role, created_at) VALUES ('${safeEmail}', '${safeName}', '${safeHash}', 'admin', '${now}');`;
 
-const localFlag = remote ? '' : '--local';
-const cmd = `npx wrangler d1 execute nwks-encounter ${localFlag} --command "${sql.replace(/"/g, '\\"')}"`;
+const dbFlag = remote ? '--remote' : '--local';
+const cmd = `npx wrangler d1 execute nwks-encounter ${dbFlag} --command "${sql.replace(/"/g, '\\"')}"`;
 
 console.log(`[seed-admin] Creating admin user: ${email} (${name})...`);
 try {
