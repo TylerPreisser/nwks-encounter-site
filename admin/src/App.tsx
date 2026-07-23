@@ -15,6 +15,7 @@ import RegistrationsPage from './pages/RegistrationsPage';
 import PersonPage from './pages/PersonPage';
 import Events from './pages/Events';
 import { EmailPage } from './pages/Email';
+import Assistant from './pages/Assistant';
 import AppShell from './components/AppShell';
 
 /* ── Auth types ─────────────────────────────────────────────────── */
@@ -100,6 +101,7 @@ export default function App() {
             />
             <Route path="/admin/events" element={<Events />} />
             <Route path="/admin/email" element={<EmailPage />} />
+            <Route path="/admin/assistant" element={<Assistant />} />
             <Route path="/admin/*" element={<Navigate to="/admin/" replace />} />
           </Route>
         </Route>
