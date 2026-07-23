@@ -1,0 +1,231 @@
+/* public/shared/form.css — NWKS Encounter brand tokens + form utilities */
+
+:root {
+  /* Men's palette (olive / gold) — sourced from index.html --m-* vars */
+  --mens-bg:         #1a1f14;
+  --mens-surface:    #232b1a;
+  --mens-border:     #4a5a30;
+  --mens-accent:     #8fad5a;
+  --mens-gold:       #c8a84b;
+  --mens-text:       #e8e0cc;
+  --mens-muted:      #8a8a7a;
+
+  /* Women's palette (rose / mauve) — sourced from index.html --w-* vars */
+  --womens-bg:       #1f1419;
+  --womens-surface:  #2b1a20;
+  --womens-border:   #5a3040;
+  --womens-accent:   #ad5a7a;
+  --womens-rose:     #c87a9a;
+  --womens-text:     #ecddd4;
+  --womens-muted:    #8a7a80;
+
+  /* Neutral / shared */
+  --radius:          6px;
+  --font:            'Georgia', serif;
+  --font-ui:         system-ui, sans-serif;
+  --transition:      0.18s ease;
+  --max-width:       640px;
+}
+
+/* ── Layout ──────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family:      var(--font-ui);
+  line-height:      1.6;
+  min-height:       100vh;
+  display:          flex;
+  flex-direction:   column;
+  align-items:      center;
+  padding:          2rem 1rem 4rem;
+}
+
+body.mens   { background: var(--mens-bg);   color: var(--mens-text); }
+body.womens { background: var(--womens-bg); color: var(--womens-text); }
+
+.form-card {
+  width: 100%;
+  max-width: var(--max-width);
+  border-radius: calc(var(--radius) * 2);
+  padding: 2.5rem 2rem;
+}
+
+body.mens   .form-card { background: var(--mens-surface);  border: 1px solid var(--mens-border); }
+body.womens .form-card { background: var(--womens-surface); border: 1px solid var(--womens-border); }
+
+/* ── Typography ─────────────────────────────────────────────── */
+h1 {
+  font-family:  var(--font);
+  font-size:    clamp(1.4rem, 4vw, 2rem);
+  font-weight:  600;
+  margin-bottom: 0.25rem;
+  letter-spacing: 0.02em;
+}
+body.mens   h1 { color: var(--mens-gold); }
+body.womens h1 { color: var(--womens-rose); }
+
+.form-subtitle {
+  font-size: 0.9rem;
+  margin-bottom: 2rem;
+  opacity: 0.75;
+}
+
+/* ── Fields ─────────────────────────────────────────────────── */
+.field-group {
+  margin-bottom: 1.25rem;
+}
+
+label {
+  display:       block;
+  font-size:     0.85rem;
+  font-weight:   600;
+  margin-bottom: 0.35rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+body.mens   label { color: var(--mens-accent); }
+body.womens label { color: var(--womens-accent); }
+
+label .required { color: #e06060; margin-left: 2px; }
+
+.field-help {
+  font-size:    0.78rem;
+  margin-bottom: 0.4rem;
+  opacity:       0.7;
+  line-height:   1.4;
+}
+
+input[type="text"],
+input[type="email"],
+select,
+textarea {
+  width:         100%;
+  padding:       0.6rem 0.75rem;
+  border-radius: var(--radius);
+  font-size:     0.95rem;
+  font-family:   var(--font-ui);
+  outline:       none;
+  transition:    border-color var(--transition), box-shadow var(--transition);
+  background:    rgba(255,255,255,0.05);
+}
+
+body.mens input, body.mens select, body.mens textarea {
+  border: 1px solid var(--mens-border);
+  color:  var(--mens-text);
+}
+body.mens input:focus, body.mens select:focus, body.mens textarea:focus {
+  border-color: var(--mens-accent);
+  box-shadow:   0 0 0 2px rgba(143,173,90,0.25);
+}
+
+body.womens input, body.womens select, body.womens textarea {
+  border: 1px solid var(--womens-border);
+  color:  var(--womens-text);
+}
+body.womens input:focus, body.womens select:focus, body.womens textarea:focus {
+  border-color: var(--womens-accent);
+  box-shadow:   0 0 0 2px rgba(173,90,122,0.25);
+}
+
+textarea { min-height: 100px; resize: vertical; }
+
+select option { background: #222; color: inherit; }
+
+/* Radio / checkbox groups */
+.radio-group, .checkbox-group {
+  display:       flex;
+  flex-direction: column;
+  gap:           0.5rem;
+}
+.radio-group label, .checkbox-group label {
+  display:     flex;
+  align-items: flex-start;
+  gap:         0.5rem;
+  font-size:   0.9rem;
+  text-transform: none;
+  font-weight: normal;
+  letter-spacing: 0;
+  cursor:      pointer;
+}
+.radio-group input, .checkbox-group input {
+  width:       1rem;
+  height:      1rem;
+  flex-shrink: 0;
+  margin-top:  0.15rem;
+}
+
+/* Phone formatting hint */
+.phone-hint {
+  font-size:  0.75rem;
+  opacity:    0.55;
+  margin-top: 0.2rem;
+}
+
+/* ── Validation errors ──────────────────────────────────────── */
+.field-error {
+  font-size:  0.78rem;
+  color:      #e06060;
+  margin-top: 0.3rem;
+}
+input.invalid, select.invalid, textarea.invalid {
+  border-color: #e06060 !important;
+}
+
+/* ── Submit button ──────────────────────────────────────────── */
+.btn-submit {
+  display:       block;
+  width:         100%;
+  padding:       0.85rem 1.5rem;
+  border:        none;
+  border-radius: var(--radius);
+  font-size:     1rem;
+  font-weight:   700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor:        pointer;
+  margin-top:    2rem;
+  transition:    opacity var(--transition), transform var(--transition);
+}
+.btn-submit:hover  { opacity: 0.88; transform: translateY(-1px); }
+.btn-submit:active { transform: translateY(0); }
+.btn-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+body.mens   .btn-submit { background: var(--mens-gold);  color: var(--mens-bg); }
+body.womens .btn-submit { background: var(--womens-rose); color: var(--womens-bg); }
+
+/* ── Status banner ──────────────────────────────────────────── */
+.form-status {
+  padding:       0.75rem 1rem;
+  border-radius: var(--radius);
+  font-size:     0.9rem;
+  margin-top:    1rem;
+  display:       none;
+}
+.form-status.visible { display: block; }
+.form-status.error   { background: rgba(224,96,96,0.15); color: #f08080; border: 1px solid rgba(224,96,96,0.3); }
+.form-status.success { background: rgba(90,180,90,0.15);  color: #80c880; border: 1px solid rgba(90,180,90,0.3); }
+
+/* ── Closed notice ──────────────────────────────────────────── */
+.closed-notice {
+  padding:       1.5rem;
+  border-radius: var(--radius);
+  text-align:    center;
+  font-size:     1.05rem;
+  opacity:       0.85;
+}
+body.mens   .closed-notice { border: 1px solid var(--mens-border); }
+body.womens .closed-notice { border: 1px solid var(--womens-border); }
+
+/* ── Verse / footer ─────────────────────────────────────────── */
+.form-verse {
+  font-family: var(--font);
+  font-style:  italic;
+  text-align:  center;
+  margin-top:  2rem;
+  font-size:   0.85rem;
+  opacity:     0.55;
+}
+
+@media (max-width: 480px) {
+  .form-card { padding: 1.5rem 1rem; }
+}
