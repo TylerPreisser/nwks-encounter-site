@@ -1,17 +1,102 @@
-import React from 'react';
-import { ProgramProvider } from './context/ProgramContext';
+import { useEffect, useState } from 'react';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  Outlet,
+} from 'react-router-dom';
+import { createContext, useContext } from 'react';
+import { apiFetch, setApiProgram } from './api';
+import { applyTheme, type Program } from './theme';
+import LoginPage from './pages/LoginPage';
 
+/* ── Auth types ─────────────────────────────────────────────────── */
+interface AuthUser {
+  id: number;
+  email: string;
+  name: string | null;
+  role: string;
+}
+
+/* ── Program context ─────────────────────────────────────────────── */
+interface ProgramCtx {
+  program: Program;
+  setProgram: (p: Program) => void;
+}
+
+export const ProgramContext = createContext<ProgramCtx>({
+  program: 'mens',
+  setProgram: () => {},
+});
+
+export const useProgram = () => useContext(ProgramContext);
+
+/* ── Auth guard ──────────────────────────────────────────────────── */
+function AuthGuard() {
+  const [status, setStatus] = useState<'loading' | 'ok' | 'unauth'>('loading');
+  const [program, setProgramState] = useState<Program>(
+    (localStorage.getItem('nwks_program') ?? 'mens') as Program,
+  );
+
+  useEffect(() => {
+    apiFetch<{ ok: boolean; user?: AuthUser }>('/auth/me')
+      .then(() => setStatus('ok'))
+      .catch(() => setStatus('unauth'));
+  }, []);
+
+  function setProgram(p: Program) {
+    setProgramState(p);
+    setApiProgram(p);
+    applyTheme(p);
+    localStorage.setItem('nwks_program', p);
+  }
+
+  if (status === 'loading') {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: 'var(--color-bg, #F5F3EC)' }}
+      >
+        <span className="text-sm" style={{ color: '#78716c' }}>Loading…</span>
+      </div>
+    );
+  }
+
+  if (status === 'unauth') return <Navigate to="/admin/login" replace />;
+
+  return (
+    <ProgramContext.Provider value={{ program, setProgram }}>
+      <Outlet />
+    </ProgramContext.Provider>
+  );
+}
+
+/* ── App shell ───────────────────────────────────────────────────── */
 export default function App() {
   return (
-    <ProgramProvider>
-      <div className="min-h-full bg-[var(--color-bg,#F5F3EC)]">
-        <header className="bg-[var(--color-primary,#6B7645)] text-white px-6 py-4">
-          <h1 className="text-xl font-semibold tracking-wide">NWKS Encounter Admin</h1>
-        </header>
-        <main className="p-6">
-          <p className="text-gray-600">Admin panel loading…</p>
-        </main>
-      </div>
-    </ProgramProvider>
+    <BrowserRouter>
+      <Routes>
+        {/* Public */}
+        <Route path="/admin/login" element={<LoginPage />} />
+
+        {/* Protected */}
+        <Route element={<AuthGuard />}>
+          <Route path="/admin/" element={<div>Dashboard (Task 8)</div>} />
+          <Route
+            path="/admin/registrations"
+            element={<div>Registrations (Task 9)</div>}
+          />
+          <Route
+            path="/admin/people/:id"
+            element={<div>Person (Task 10)</div>}
+          />
+          <Route path="/admin/*" element={<Navigate to="/admin/" replace />} />
+        </Route>
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/admin/" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
