@@ -12,6 +12,7 @@ import { applyTheme, type Program } from './theme';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import RegistrationsPage from './pages/RegistrationsPage';
+import PersonPage from './pages/PersonPage';
 import AppShell from './components/AppShell';
 
 /* ── Auth types ─────────────────────────────────────────────────── */
@@ -93,7 +94,7 @@ export default function App() {
             />
             <Route
               path="/admin/people/:id"
-              element={<div>Person (Task 10)</div>}
+              element={<PersonPage />}
             />
             <Route path="/admin/*" element={<Navigate to="/admin/" replace />} />
           </Route>
