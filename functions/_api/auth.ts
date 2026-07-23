@@ -4,6 +4,15 @@ import { scrypt, randomBytes, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import type { MiddlewareHandler } from 'hono';
 import type { Env } from './app';
+import type { Program } from './db';
+
+/** Shape of variables set by auth middleware — consumed by all route handlers. */
+export type AppVariables = {
+  user: { id: number; email: string; name: string; role: string };
+  program: Program;
+};
+
+type AppMiddleware = MiddlewareHandler<{ Bindings: Env; Variables: AppVariables }>;
 
 const scryptAsync = promisify(scrypt);
 
@@ -96,20 +105,16 @@ export async function getSessionUser(
 
 /**
  * Hono middleware: requires a valid nwks_session cookie.
- * On success sets c.var.user. On failure returns 401.
- *
- * Optionally accepts an explicit env for testing; otherwise reads from c.env
- * (the standard Cloudflare Workers binding).
+ * On success sets c.var.user. On failure returns 401 {ok:false,error:'unauthorized'}.
  */
-export function requireAuth(envOverride?: Env): MiddlewareHandler {
+export function requireAuth(): AppMiddleware {
   return async (c, next) => {
     const token = getCookieValue(c.req.raw.headers.get('Cookie') ?? '', 'nwks_session');
-    const resolvedEnv = envOverride ?? (c.env as Env);
-    const user = await getSessionUser(resolvedEnv, token);
+    const user = await getSessionUser(c.env, token);
     if (!user) {
-      return c.json({ ok: false, error: 'Unauthorized' }, 401);
+      return c.json({ ok: false, error: 'unauthorized' }, 401);
     }
-    c.set('user' as never, user as never);
+    c.set('user', user);
     await next();
   };
 }
@@ -118,13 +123,13 @@ export function requireAuth(envOverride?: Env): MiddlewareHandler {
  * Hono middleware: validates ?program= query param (or X-Program header).
  * Accepts 'mens' or 'women'. On success sets c.var.program. On failure returns 400.
  */
-export function requireProgram(): MiddlewareHandler {
+export function requireProgram(): AppMiddleware {
   return async (c, next) => {
     const program = c.req.query('program') ?? c.req.header('X-Program');
     if (program !== 'mens' && program !== 'women') {
-      return c.json({ ok: false, error: 'program must be mens or women' }, 400);
+      return c.json({ ok: false, error: 'program required' }, 400);
     }
-    c.set('program' as never, program as never);
+    c.set('program', program);
     await next();
   };
 }

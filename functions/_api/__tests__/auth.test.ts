@@ -6,6 +6,7 @@ import {
   hashPassword, verifyPassword,
   createSession, getSessionUser,
   requireAuth, requireProgram,
+  type AppVariables,
 } from '../auth';
 import { nowIso } from '../db';
 import type { Env } from '../app';
@@ -81,19 +82,18 @@ describe('auth.ts', () => {
 
   describe('requireAuth middleware', () => {
     it('returns 401 when no cookie is present', async () => {
-      const app = new Hono();
+      const app = new Hono<{ Bindings: Env; Variables: AppVariables }>();
       app.use('/protected', requireAuth());
       app.get('/protected', (c) => c.json({ ok: true }));
 
-      const res = await app.request('/protected');
+      const res = await app.fetch(new Request('http://localhost/protected'), testEnv());
       expect(res.status).toBe(401);
       const body = await res.json() as any;
       expect(body.ok).toBe(false);
-      expect(body.error).toBe('Unauthorized');
+      expect(body.error).toBe('unauthorized');
     });
 
     it('passes through and sets user when a valid session cookie is present', async () => {
-      // Seed an admin and create a real session token
       const ts = nowIso();
       const hash = await hashPassword('pass');
       const { meta } = await (env as any).DB
@@ -103,16 +103,19 @@ describe('auth.ts', () => {
       const userId = meta.last_row_id as number;
       const token = await createSession(testEnv(), userId);
 
-      const app = new Hono<{ Variables: { user: { id: number; email: string; name: string; role: string } } }>();
-      app.use('/protected', requireAuth(testEnv()));
+      const app = new Hono<{ Bindings: Env; Variables: AppVariables }>();
+      app.use('/protected', requireAuth());
       app.get('/protected', (c) => {
-        const user = c.get('user' as never) as any;
+        const user = c.get('user');
         return c.json({ ok: true, email: user.email });
       });
 
-      const res = await app.request('/protected', {
-        headers: { Cookie: `nwks_session=${token}` },
-      });
+      const res = await app.fetch(
+        new Request('http://localhost/protected', {
+          headers: { Cookie: `nwks_session=${token}` },
+        }),
+        testEnv(),
+      );
       expect(res.status).toBe(200);
       const body = await res.json() as any;
       expect(body.ok).toBe(true);
@@ -122,45 +125,75 @@ describe('auth.ts', () => {
 
   describe('requireProgram middleware', () => {
     it('returns 400 when program is missing', async () => {
-      const app = new Hono();
+      const app = new Hono<{ Bindings: Env; Variables: AppVariables }>();
       app.use('*', requireProgram());
       app.get('/test', (c) => c.json({ ok: true }));
 
-      const res = await app.request('/test');
+      const res = await app.fetch(new Request('http://localhost/test'), testEnv());
       expect(res.status).toBe(400);
       const body = await res.json() as any;
-      expect(body.error).toBe('program must be mens or women');
+      expect(body.error).toBe('program required');
     });
 
     it('returns 400 for an invalid program value', async () => {
-      const app = new Hono();
+      const app = new Hono<{ Bindings: Env; Variables: AppVariables }>();
       app.use('*', requireProgram());
       app.get('/test', (c) => c.json({ ok: true }));
 
-      const res = await app.request('/test?program=other');
+      const res = await app.fetch(
+        new Request('http://localhost/test?program=other'),
+        testEnv(),
+      );
       expect(res.status).toBe(400);
     });
 
     it('passes through for a valid program "mens"', async () => {
-      const app = new Hono<{ Variables: { program: string } }>();
+      const app = new Hono<{ Bindings: Env; Variables: AppVariables }>();
       app.use('*', requireProgram());
-      app.get('/test', (c) => c.json({ ok: true, program: c.get('program' as never) }));
+      app.get('/test', (c) => c.json({ ok: true, program: c.get('program') }));
 
-      const res = await app.request('/test?program=mens');
+      const res = await app.fetch(
+        new Request('http://localhost/test?program=mens'),
+        testEnv(),
+      );
       expect(res.status).toBe(200);
       const body = await res.json() as any;
       expect(body.program).toBe('mens');
     });
 
     it('passes through for a valid program "women"', async () => {
-      const app = new Hono<{ Variables: { program: string } }>();
+      const app = new Hono<{ Bindings: Env; Variables: AppVariables }>();
       app.use('*', requireProgram());
-      app.get('/test', (c) => c.json({ ok: true, program: c.get('program' as never) }));
+      app.get('/test', (c) => c.json({ ok: true, program: c.get('program') }));
 
-      const res = await app.request('/test?program=women');
+      const res = await app.fetch(
+        new Request('http://localhost/test?program=women'),
+        testEnv(),
+      );
       expect(res.status).toBe(200);
       const body = await res.json() as any;
       expect(body.program).toBe('women');
+    });
+
+    it('sets program via X-Program header when query param is absent', async () => {
+      const app = new Hono<{ Bindings: Env; Variables: AppVariables }>();
+      app.use('*', requireProgram());
+      app.get('/test', (c) => c.json({ ok: true, program: c.get('program') }));
+
+      const res = await app.fetch(
+        new Request('http://localhost/test', { headers: { 'X-Program': 'womens' } }),
+        testEnv(),
+      );
+      // 'womens' is not a valid value — expect 400
+      expect(res.status).toBe(400);
+
+      const res2 = await app.fetch(
+        new Request('http://localhost/test', { headers: { 'X-Program': 'mens' } }),
+        testEnv(),
+      );
+      expect(res2.status).toBe(200);
+      const body = await res2.json() as any;
+      expect(body.program).toBe('mens');
     });
   });
 });
