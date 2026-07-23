@@ -1,0 +1,22 @@
+name = "nwks-encounter-site"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-07-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "nwks-encounter"
+database_id = "REPLACE_ME"
+
+[[r2_buckets]]
+binding = "PHOTOS"
+bucket_name = "nwks-encounter-photos"
+
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "REPLACE_ME"
+
+[vars]
+EMAIL_ENABLED  = "false"
+EMAIL_FROM     = "NWKS Encounter <noreply@nwksencounter.com>"
+EMAIL_REPLY_TO = ""
