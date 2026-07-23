@@ -7,6 +7,7 @@ compatibility_flags = ["nodejs_compat"]
 binding = "DB"
 database_name = "nwks-encounter"
 database_id = "REPLACE_ME"
+migrations_dir = "db/migrations"
 
 [[r2_buckets]]
 binding = "PHOTOS"
