@@ -6,10 +6,10 @@ interface NavItem {
   icon: string;
 }
 
-// Dashboard + Registrations for now; later phases append to this array.
 const NAV_ITEMS: NavItem[] = [
   { to: '/admin/',              label: 'Dashboard',     icon: '📊' },
   { to: '/admin/registrations', label: 'Registrations', icon: '📋' },
+  { to: '/admin/events',        label: 'Events',        icon: '📅' },
 ];
 
 interface NavProps {

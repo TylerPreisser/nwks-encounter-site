@@ -13,6 +13,7 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import RegistrationsPage from './pages/RegistrationsPage';
 import PersonPage from './pages/PersonPage';
+import Events from './pages/Events';
 import AppShell from './components/AppShell';
 
 /* ── Auth types ─────────────────────────────────────────────────── */
@@ -96,6 +97,7 @@ export default function App() {
               path="/admin/people/:id"
               element={<PersonPage />}
             />
+            <Route path="/admin/events" element={<Events />} />
             <Route path="/admin/*" element={<Navigate to="/admin/" replace />} />
           </Route>
         </Route>
