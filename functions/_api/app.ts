@@ -8,4 +8,5 @@ export interface Env {
   EMAIL_ENABLED: string;
   EMAIL_FROM: string;
   EMAIL_REPLY_TO: string;
+  RESEND_API_KEY: string;
 }
