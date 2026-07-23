@@ -8,6 +8,7 @@ import { dashboardRouter } from './routes/dashboard';
 import { registrationsRouter } from './routes/registrations';
 import { peopleRouter } from './routes/people';
 import { eventsRouter } from './routes/events';
+import { publicRouter } from './routes/publicRoutes';
 
 export interface Env {
   DB: D1Database;
@@ -45,3 +46,6 @@ app.route('/api/admin/people', peopleRouter);
 
 // P3: admin events CRUD
 app.route('/api/admin/events', eventsRouter);
+
+// P3: public events endpoint (unauthenticated)
+app.route('/api/public', publicRouter);
