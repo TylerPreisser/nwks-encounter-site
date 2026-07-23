@@ -10,6 +10,7 @@ import { createContext, useContext } from 'react';
 import { apiFetch, setApiProgram } from './api';
 import { applyTheme, type Program } from './theme';
 import LoginPage from './pages/LoginPage';
+import AppShell from './components/AppShell';
 
 /* ── Auth types ─────────────────────────────────────────────────── */
 interface AuthUser {
@@ -80,18 +81,20 @@ export default function App() {
         {/* Public */}
         <Route path="/admin/login" element={<LoginPage />} />
 
-        {/* Protected */}
+        {/* Protected — AuthGuard verifies session, AppShell provides layout */}
         <Route element={<AuthGuard />}>
-          <Route path="/admin/" element={<div>Dashboard (Task 8)</div>} />
-          <Route
-            path="/admin/registrations"
-            element={<div>Registrations (Task 9)</div>}
-          />
-          <Route
-            path="/admin/people/:id"
-            element={<div>Person (Task 10)</div>}
-          />
-          <Route path="/admin/*" element={<Navigate to="/admin/" replace />} />
+          <Route element={<AppShell />}>
+            <Route path="/admin/" element={<div>Dashboard (Task 8)</div>} />
+            <Route
+              path="/admin/registrations"
+              element={<div>Registrations (Task 9)</div>}
+            />
+            <Route
+              path="/admin/people/:id"
+              element={<div>Person (Task 10)</div>}
+            />
+            <Route path="/admin/*" element={<Navigate to="/admin/" replace />} />
+          </Route>
         </Route>
 
         {/* Fallback */}
