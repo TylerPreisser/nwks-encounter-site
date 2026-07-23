@@ -1,26 +1,41 @@
 {
   "name": "nwks-encounter-site",
-  "version": "1.0.0",
+  "version": "0.1.0",
+  "private": true,
   "description": "Recovered redesign concept for **nwksencounter.com** (Northwest Kansas Encounter — Men's Encounter / Women's Encounter). This is the \"Animated Gateway\" concept we built as a Claude Artifact and iterated on.",
-  "main": "index.js",
-  "directories": {
-    "doc": "docs"
-  },
+  "type": "module",
+  "engines": { "node": ">=22" },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build":            "node scripts/build.mjs",
+    "dev":              "npm run build && npx wrangler pages dev dist --local",
+    "deploy":           "npm run build && npx wrangler pages deploy dist --project-name nwks-encounter-site --branch main",
+    "test":             "vitest run --config vitest.config.ts",
+    "test:api":         "vitest run --config vitest.config.ts",
+    "test:api:watch":   "vitest --config vitest.config.ts",
+    "test:admin":       "vitest run --config admin/vitest.config.ts",
+    "test:e2e":         "playwright test",
+    "db:migrate":       "npx wrangler d1 migrations apply nwks-encounter",
+    "db:migrate:local": "npx wrangler d1 migrations apply nwks-encounter --local"
   },
+  "devDependencies": {
+    "@anthropic-ai/sdk":               "^0.52.0",
+    "@cloudflare/vitest-pool-workers": "^0.8.0",
+    "@cloudflare/workers-types":       "^4.20260702.1",
+    "hono":                            "^4.7.0",
+    "playwright":                      "^1.61.1",
+    "resend":                          "^4.7.0",
+    "typescript":                      "^5.8.0",
+    "vitest":                          "^3.2.0",
+    "wrangler":                        "4.35.0"
+  },
+  "author": "",
+  "license": "ISC",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/TylerPreisser/nwks-encounter-site.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "bugs": {
     "url": "https://github.com/TylerPreisser/nwks-encounter-site/issues"
   },
-  "homepage": "https://github.com/TylerPreisser/nwks-encounter-site#readme",
-  "devDependencies": {
-    "playwright": "^1.61.1"
-  }
+  "homepage": "https://github.com/TylerPreisser/nwks-encounter-site#readme"
 }
