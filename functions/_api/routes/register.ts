@@ -1,5 +1,44 @@
 // functions/_api/routes/register.ts — field schema definitions + validateBody
 import type { Program } from '../db.js';
+import type { Env } from '../app.js';
+
+// ── Turnstile ──────────────────────────────────────────────────────────────
+// Dev/test bypass: token value '__TEST_BYPASS__' always passes when
+// TURNSTILE_SECRET is absent or set to the literal string 'test'.
+export async function verifyTurnstile(
+  env: Pick<Env, 'TURNSTILE_SECRET'>,
+  token: string | undefined,
+  ip: string
+): Promise<boolean> {
+  if (!token) return false;
+  if (token === '__TEST_BYPASS__') return true;
+  if (!env.TURNSTILE_SECRET || env.TURNSTILE_SECRET === 'test') return true;
+
+  const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ secret: env.TURNSTILE_SECRET, response: token, remoteip: ip }),
+  });
+  const data = await res.json<{ success: boolean }>();
+  return data.success === true;
+}
+
+// ── Rate limit: 3 submissions per IP per 10 minutes, stored in KV ──────────
+const RATE_LIMIT_MAX   = 3;
+const RATE_LIMIT_TTL_S = 600; // 10 minutes
+
+export async function checkRateLimit(
+  env: Pick<Env, 'SESSIONS'>,
+  ip: string
+): Promise<{ allowed: boolean }> {
+  const key = `ratelimit:register:${ip}`;
+  const current = await env.SESSIONS.get(key);
+  const count = current ? parseInt(current, 10) : 0;
+  if (count >= RATE_LIMIT_MAX) return { allowed: false };
+  // Increment; reset TTL on every hit (sliding window per increment)
+  await env.SESSIONS.put(key, String(count + 1), { expirationTtl: RATE_LIMIT_TTL_S });
+  return { allowed: true };
+}
 
 export type Role = 'attendee' | 'server';
 

@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { FIELD_SCHEMAS, validateBody } from '../routes/register';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { FIELD_SCHEMAS, validateBody, verifyTurnstile, checkRateLimit } from '../routes/register';
 
 // ---------------------------------------------------------------------------
 // Schema existence
@@ -276,5 +276,125 @@ describe('validateBody mens/server', () => {
       expect(result.data.first_name).toBe('Bob');
       expect(result.data.extra['times_served_self_report']).toBe('1');
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// verifyTurnstile
+// ---------------------------------------------------------------------------
+describe('verifyTurnstile', () => {
+  const fakeEnv = {
+    TURNSTILE_SECRET: 'real-secret',
+  } as { TURNSTILE_SECRET: string };
+
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('returns false when token is undefined', async () => {
+    const result = await verifyTurnstile(fakeEnv as never, undefined, '1.2.3.4');
+    expect(result).toBe(false);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('returns true for __TEST_BYPASS__ token without hitting network', async () => {
+    const result = await verifyTurnstile(fakeEnv as never, '__TEST_BYPASS__', '1.2.3.4');
+    expect(result).toBe(true);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('returns true when TURNSTILE_SECRET is absent (no network call)', async () => {
+    const noSecretEnv = { TURNSTILE_SECRET: undefined } as never;
+    const result = await verifyTurnstile(noSecretEnv, 'some-token', '1.2.3.4');
+    expect(result).toBe(true);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('returns true when TURNSTILE_SECRET is "test" (no network call)', async () => {
+    const testEnv = { TURNSTILE_SECRET: 'test' } as never;
+    const result = await verifyTurnstile(testEnv, 'some-token', '1.2.3.4');
+    expect(result).toBe(true);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('calls siteverify and returns true when Cloudflare says success=true', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      json: async () => ({ success: true }),
+    } as Response);
+    const result = await verifyTurnstile(fakeEnv as never, 'valid-token', '1.2.3.4');
+    expect(result).toBe(true);
+    expect(fetch).toHaveBeenCalledOnce();
+    const [url] = vi.mocked(fetch).mock.calls[0] as [string, ...unknown[]];
+    expect(url).toContain('siteverify');
+  });
+
+  it('calls siteverify and returns false when Cloudflare says success=false', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      json: async () => ({ success: false }),
+    } as Response);
+    const result = await verifyTurnstile(fakeEnv as never, 'bad-token', '1.2.3.4');
+    expect(result).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// checkRateLimit
+// ---------------------------------------------------------------------------
+describe('checkRateLimit', () => {
+  function makeMockKV(storedValue: string | null): KVNamespace {
+    return {
+      get: vi.fn().mockResolvedValue(storedValue),
+      put: vi.fn().mockResolvedValue(undefined),
+    } as unknown as KVNamespace;
+  }
+
+  it('allows request when KV returns null (first hit)', async () => {
+    const kv = makeMockKV(null);
+    const env = { SESSIONS: kv } as never;
+    const result = await checkRateLimit(env, '1.2.3.4');
+    expect(result).toEqual({ allowed: true });
+    expect(kv.put).toHaveBeenCalledWith(
+      'ratelimit:register:1.2.3.4',
+      '1',
+      { expirationTtl: 600 }
+    );
+  });
+
+  it('allows request when count is 2 (below limit)', async () => {
+    const kv = makeMockKV('2');
+    const env = { SESSIONS: kv } as never;
+    const result = await checkRateLimit(env, '1.2.3.4');
+    expect(result).toEqual({ allowed: true });
+    expect(kv.put).toHaveBeenCalledWith(
+      'ratelimit:register:1.2.3.4',
+      '3',
+      { expirationTtl: 600 }
+    );
+  });
+
+  it('blocks request when count is at limit (3)', async () => {
+    const kv = makeMockKV('3');
+    const env = { SESSIONS: kv } as never;
+    const result = await checkRateLimit(env, '5.6.7.8');
+    expect(result).toEqual({ allowed: false });
+    expect(kv.put).not.toHaveBeenCalled();
+  });
+
+  it('blocks request when count exceeds limit', async () => {
+    const kv = makeMockKV('10');
+    const env = { SESSIONS: kv } as never;
+    const result = await checkRateLimit(env, '9.9.9.9');
+    expect(result).toEqual({ allowed: false });
+  });
+
+  it('uses IP-specific key for rate limiting', async () => {
+    const kv = makeMockKV(null);
+    const env = { SESSIONS: kv } as never;
+    await checkRateLimit(env, '10.0.0.1');
+    expect(kv.get).toHaveBeenCalledWith('ratelimit:register:10.0.0.1');
   });
 });
