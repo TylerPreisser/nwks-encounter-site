@@ -87,3 +87,20 @@ assets/                                 ← original high-res source logos from 
 Open `index.html` in a browser to see it render. Edit it directly — it's a single
 self-contained HTML file (inline CSS + JS, embedded images), so it works from any
 machine or Claude account with no build step and no external dependencies.
+
+## Admin AI Assistant — secret provisioning
+
+The AI Ops Assistant (P5) uses the Anthropic API. The key is a Cloudflare Pages
+Worker secret — it is **never** stored in the repo or logged. Provision it once per
+environment:
+
+```sh
+wrangler pages secret put ANTHROPIC_API_KEY
+# Enter the key value when prompted. This is the only way the key should be configured.
+```
+
+The key is accessed at runtime as `c.env.ANTHROPIC_API_KEY` (injected by the Workers
+runtime). For the draft-and-approve safety model, see
+`docs/superpowers/plans/2026-07-23-nwks-encounter-p5-ai-assistant.md` and the
+`SAFETY CONTRACT` comment blocks in `functions/_api/ai/agent.ts` and
+`functions/_api/ai/tools.ts`.
