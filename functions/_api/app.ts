@@ -11,6 +11,7 @@ import { eventsRouter } from './routes/events';
 import { publicRouter } from './routes/publicRoutes';
 import { templatesRouter } from './routes/templates';
 import { campaignsRouter } from './routes/campaigns';
+import { aiRouter } from './routes/ai';
 
 export interface Env {
   DB: D1Database;
@@ -57,3 +58,6 @@ app.route('/api/admin/templates', templatesRouter);
 
 // P4: admin email campaigns CRUD + preview/send/schedule
 app.route('/api/admin/campaigns', campaignsRouter);
+
+// P5: AI assistant threads + pending actions (approve is the ONLY send gate)
+app.route('/api/admin/ai', aiRouter);
