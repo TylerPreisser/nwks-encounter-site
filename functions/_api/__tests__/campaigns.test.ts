@@ -487,6 +487,30 @@ describe('Admin Campaigns API', () => {
     expect(row?.status).toBe('failed');
   });
 
+  // ── T7: EMAIL_ENABLED guard ──────────────────────────────────────────────
+
+  it('send marks campaign sent even when EMAIL_ENABLED=false (skipped mode)', async () => {
+    // env.EMAIL_ENABLED is 'false' in test environment per wrangler test config
+    const draft = await testEnv.DB.prepare(
+      `INSERT INTO email_campaigns
+         (program,subject,body_html,body_text,segment,status,recipient_count,created_at)
+       VALUES ('mens','Skip Test','<p>Hi</p>','Hi','{}','draft',0,?)`
+    ).bind(new Date().toISOString()).run();
+    const id = draft.meta.last_row_id;
+
+    const req = new Request(`http://localhost/api/admin/campaigns/${id}/send?program=mens`, {
+      method: 'POST',
+      headers: { cookie: `nwks_session=${cookie.replace('nwks_session=', '')}` },
+    });
+    const res = await app.fetch(req, testEnv);
+    expect(res.status).toBe(200);
+
+    const campaign = await testEnv.DB.prepare(
+      `SELECT status FROM email_campaigns WHERE id=?`
+    ).bind(id).first<{ status: string }>();
+    expect(campaign?.status).toBe('sent');
+  });
+
   // ── C1: Wrong-program isolation in sendCampaignById ──────────────────────
 
   it('sendCampaignById with wrong program sends nothing and returns {sent:0, failed:0}', async () => {

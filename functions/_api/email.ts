@@ -61,9 +61,10 @@ export async function sendEmail(
   const logId = meta.last_row_id as number;
 
   if (!emailEnabled) {
+    // Still stamp sent_at so the audit trail has a completion timestamp.
     await env.DB.prepare(
-      `UPDATE email_log SET status='queued' WHERE id=?`
-    ).bind(logId).run();
+      `UPDATE email_log SET status='queued', sent_at=? WHERE id=?`
+    ).bind(nowIso(), logId).run();
     return { ok: true, skipped: true };
   }
 

@@ -100,7 +100,7 @@ describe('email.ts', () => {
       expect(result.providerId).toBeUndefined();
     });
 
-    it('writes an email_log row with status=queued when skipped', async () => {
+    it('writes an email_log row with status=queued and a sent_at timestamp when skipped', async () => {
       const e = makeEnv({ EMAIL_ENABLED: 'false' });
       await sendEmail(e, {
         to: 'logged@example.com',
@@ -112,10 +112,12 @@ describe('email.ts', () => {
 
       const row = await (env as any).DB
         .prepare(`SELECT * FROM email_log WHERE to_email='logged@example.com'`)
-        .first<{ status: string; to_email: string }>();
+        .first<{ status: string; to_email: string; sent_at: string | null }>();
       expect(row).not.toBeNull();
       expect(row!.to_email).toBe('logged@example.com');
       expect(row!.status).toBe('queued');
+      // Guard: audit trail must include a completion timestamp even when skipped
+      expect(row!.sent_at).toBeTruthy();
     });
 
     it('does NOT call resend.emails.send when skipped', async () => {
