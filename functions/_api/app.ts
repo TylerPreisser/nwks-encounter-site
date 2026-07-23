@@ -2,6 +2,7 @@
 
 import { Hono } from 'hono';
 import type { AppVariables } from './auth';
+import { registerRouter } from './routes/register';
 
 export interface Env {
   DB: D1Database;
@@ -22,7 +23,5 @@ app.get('/api/health', (c) => {
   return c.json({ ok: true });
 });
 
-// P1+: mount additional routers here as each phase adds them.
-// Example:
-//   import { registerRouter } from './routes/register';
-//   app.route('/api', registerRouter);
+// P1: registration routes
+app.route('/api/register', registerRouter);

@@ -1,6 +1,10 @@
-// functions/_api/routes/register.ts — field schema definitions + validateBody
+// functions/_api/routes/register.ts — field schema definitions + validateBody + Hono router
+import { Hono } from 'hono';
 import type { Program } from '../db.js';
 import type { Env } from '../app.js';
+import { nowIso } from '../db.js';
+import { upsertPerson, recomputeRollups } from '../dedupe.js';
+import { sendEmail, renderTemplate } from '../email.js';
 
 // ── Turnstile ──────────────────────────────────────────────────────────────
 // Dev/test bypass: token value '__TEST_BYPASS__' always passes when
@@ -293,3 +297,202 @@ export function validateBody(
     },
   };
 }
+
+// ── Inline welcome template (P4 moves this to email_templates table) ────────
+function welcomeTemplate(program: Program, role: string): {
+  subject: string;
+  body_html: string;
+  body_text: string;
+} {
+  const programLabel = program === 'mens' ? "Men's" : "Women's";
+  const roleLabel    = role === 'server' ? 'Server' : 'Attendee';
+  return {
+    subject:   `You're registered for ${programLabel} Encounter!`,
+    body_html: `
+      <h2>Thank you for registering for ${programLabel} Encounter!</h2>
+      <p>We're excited to have you join us as a ${roleLabel}. You'll receive more details closer to the event.</p>
+      <p>If you have questions, simply reply to this email — it goes straight to our team.</p>
+      <p>Blessings,<br>NWKS Encounter Team</p>
+    `.trim(),
+    body_text: [
+      `Thank you for registering for ${programLabel} Encounter!`,
+      `We're excited to have you join us as a ${roleLabel}. You'll receive more details closer to the event.`,
+      `If you have questions, simply reply to this email — it goes straight to our team.`,
+      `Blessings, NWKS Encounter Team`,
+    ].join('\n\n'),
+  };
+}
+
+// ── Hono router ─────────────────────────────────────────────────────────────
+
+export const registerRouter = new Hono<{ Bindings: Env }>();
+
+// Valid slug → DB program mapping (URL uses 'mens'/'womens'; DB stores 'mens'/'women')
+const SLUG_TO_PROGRAM: Record<string, Program> = { mens: 'mens', womens: 'women' };
+
+registerRouter.post('/:program/:role', async (c) => {
+  const programSlug = c.req.param('program');
+  const role        = c.req.param('role');
+  const ip          = c.req.header('CF-Connecting-IP') ?? '0.0.0.0';
+
+  // Validate :program
+  const program = SLUG_TO_PROGRAM[programSlug];
+  if (!program) {
+    return c.json({ ok: false, error: 'Invalid program.' }, 400);
+  }
+
+  // Validate :role
+  if (role !== 'attendee' && role !== 'server') {
+    return c.json({ ok: false, error: 'Invalid role.' }, 400);
+  }
+
+  // Rate-limit check
+  const rateResult = await checkRateLimit(c.env, ip);
+  if (!rateResult.allowed) {
+    return c.json({ ok: false, error: 'Too many registration attempts. Please wait and try again.' }, 429);
+  }
+
+  // Parse body
+  let rawBody: Record<string, unknown>;
+  try {
+    rawBody = await c.req.json();
+  } catch {
+    return c.json({ ok: false, error: 'Invalid JSON body.' }, 400);
+  }
+
+  // Turnstile verification
+  const token = rawBody['cf_turnstile_response'];
+  const turnstileOk = await verifyTurnstile(
+    c.env,
+    typeof token === 'string' ? token : undefined,
+    ip
+  );
+  if (!turnstileOk) {
+    return c.json({ ok: false, error: 'Bot verification failed. Please try again.' }, 422);
+  }
+
+  // Validate body fields
+  const validation = validateBody(programSlug, role, rawBody);
+  if (!validation.ok) {
+    return c.json({ ok: false, error: validation.errors.join(' ') }, 400);
+  }
+  const fields = validation.data;
+
+  // Look up current event
+  const event = await c.env.DB
+    .prepare('SELECT * FROM events WHERE program = ? AND is_current = 1 LIMIT 1')
+    .bind(program)
+    .first<{
+      id: number;
+      year: number;
+      attendee_registration_open: number;
+      server_registration_open: number;
+    }>();
+
+  if (!event) {
+    return c.json({ ok: false, error: 'No current event found for this program.' }, 400);
+  }
+
+  const regOpen = role === 'server'
+    ? event.server_registration_open
+    : event.attendee_registration_open;
+
+  if (!regOpen) {
+    return c.json({ ok: false, error: 'Registration is not open for this event.' }, 409);
+  }
+
+  // Upsert person (de-dupe by email / fuzzy match)
+  const { person_id } = await upsertPerson(
+    c.env,
+    program,
+    {
+      first_name: fields.first_name,
+      last_name:  fields.last_name,
+      email:      fields.email,
+      phone:      fields.phone,
+      phone_type: fields.phone_type,
+      address:    fields.address,
+      city:       fields.city,
+      state:      fields.state,
+      church:     fields.church,
+    },
+    event.year
+  );
+
+  // Insert registration row (full snapshot of all submitted fields)
+  const now      = nowIso();
+  const extraJson = JSON.stringify(fields.extra ?? {});
+
+  const regResult = await c.env.DB
+    .prepare(`
+      INSERT INTO registrations
+        (program, event_id, person_id, role,
+         first_name, last_name, email, phone, phone_type,
+         address, city, state,
+         launch_location, shirt_size, church,
+         times_attended_self_report, invited_by,
+         prayer_contact_name, prayer_contact_phone,
+         dietary_health, questions, extra, status, created_at)
+      VALUES
+        (?, ?, ?, ?,
+         ?, ?, ?, ?, ?,
+         ?, ?, ?,
+         ?, ?, ?,
+         ?, ?,
+         ?, ?,
+         ?, ?, ?, 'registered', ?)
+    `)
+    .bind(
+      program, event.id, person_id, role,
+      fields.first_name,
+      fields.last_name,
+      fields.email      ?? null,
+      fields.phone      ?? null,
+      fields.phone_type ?? null,
+      fields.address    ?? null,
+      fields.city       ?? null,
+      fields.state      ?? null,
+      fields.launch_location            ?? null,
+      fields.shirt_size                 ?? null,
+      fields.church                     ?? null,
+      fields.times_attended_self_report ?? null,
+      fields.invited_by                 ?? null,
+      fields.prayer_contact_name        ?? null,
+      fields.prayer_contact_phone       ?? null,
+      fields.dietary_health             ?? null,
+      fields.questions                  ?? null,
+      extraJson,
+      now
+    )
+    .run();
+
+  const registration_id = regResult.meta.last_row_id as number;
+
+  // Recompute rollup counts (times_attended / times_served)
+  await recomputeRollups(c.env, person_id);
+
+  // Send welcome email (EMAIL_ENABLED='false' in test → writes log row, no network call)
+  if (fields.email) {
+    const tpl      = welcomeTemplate(program, role);
+    const rendered = renderTemplate(tpl, {
+      first_name: fields.first_name,
+      last_name:  fields.last_name ?? '',
+      program:    program === 'mens' ? "Men's" : "Women's",
+      role:       role === 'server' ? 'Server' : 'Attendee',
+    });
+
+    await sendEmail(c.env, {
+      to:          fields.email,
+      subject:     rendered.subject,
+      html:        rendered.html,
+      text:        rendered.text,
+      replyTo:     c.env.EMAIL_REPLY_TO || undefined,
+      type:        'transactional',
+      templateKey: 'welcome',
+      personId:    person_id,
+      program,
+    });
+  }
+
+  return c.json({ ok: true, registration_id, person_id }, 200);
+});
