@@ -12,6 +12,7 @@ import { publicRouter } from './routes/publicRoutes';
 import { templatesRouter } from './routes/templates';
 import { campaignsRouter } from './routes/campaigns';
 import { aiRouter } from './routes/ai';
+import { photosAdminRouter, photosPublicRouter } from './routes/photos';
 
 export interface Env {
   DB: D1Database;
@@ -61,3 +62,9 @@ app.route('/api/admin/campaigns', campaignsRouter);
 
 // P5: AI assistant threads + pending actions (approve is the ONLY send gate)
 app.route('/api/admin/ai', aiRouter);
+
+// P6: admin photo CRUD (upload/list/patch/delete)
+app.route('/api/admin/photos', photosAdminRouter);
+
+// P6: public gallery (years list, photo list, R2 stream)
+app.route('/api/public', photosPublicRouter);
