@@ -11,6 +11,7 @@ import { apiFetch, setApiProgram } from './api';
 import { applyTheme, type Program } from './theme';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
+import RegistrationsPage from './pages/RegistrationsPage';
 import AppShell from './components/AppShell';
 
 /* ── Auth types ─────────────────────────────────────────────────── */
@@ -88,7 +89,7 @@ export default function App() {
             <Route path="/admin/" element={<DashboardPage />} />
             <Route
               path="/admin/registrations"
-              element={<div>Registrations (Task 9)</div>}
+              element={<RegistrationsPage />}
             />
             <Route
               path="/admin/people/:id"
