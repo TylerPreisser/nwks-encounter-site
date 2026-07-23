@@ -20,20 +20,50 @@ async function insertEvent(program: 'mens' | 'women'): Promise<number> {
   return meta.last_row_id as number;
 }
 
+/** Insert a person row directly (bypasses upsertPerson dedup logic). */
+async function insertPerson(
+  program: 'mens' | 'women',
+  firstName: string,
+  lastName: string,
+  opts: { phone?: string; city?: string; email?: string; mergedIntoId?: number } = {}
+): Promise<number> {
+  const ts = nowIso();
+  const { meta } = await DB()
+    .prepare(
+      `INSERT INTO people
+         (program, first_name, last_name, email, phone, city,
+          times_attended, times_served, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?)`
+    )
+    .bind(program, firstName, lastName,
+          opts.email ?? null, opts.phone ?? null, opts.city ?? null,
+          ts, ts)
+    .run();
+  const id = meta.last_row_id as number;
+  if (opts.mergedIntoId != null) {
+    await DB()
+      .prepare('UPDATE people SET merged_into_id = ? WHERE id = ?')
+      .bind(opts.mergedIntoId, id)
+      .run();
+  }
+  return id;
+}
+
 async function insertRegistration(
   program: 'mens' | 'women',
   eventId: number,
   personId: number,
-  role: 'attendee' | 'server'
+  role: 'attendee' | 'server',
+  status: 'registered' | 'cancelled' | 'attended' | 'no_show' = 'registered'
 ): Promise<void> {
   const ts = nowIso();
   await DB()
     .prepare(
       `INSERT INTO registrations
-         (program, event_id, person_id, role, first_name, last_name, created_at)
-       VALUES (?, ?, ?, ?, 'Test', 'Person', ?)`
+         (program, event_id, person_id, role, first_name, last_name, status, created_at)
+       VALUES (?, ?, ?, ?, 'Test', 'Person', ?, ?)`
     )
-    .bind(program, eventId, personId, role, ts)
+    .bind(program, eventId, personId, role, status, ts)
     .run();
 }
 
@@ -335,6 +365,36 @@ describe('dedupe.ts', () => {
       expect(row!.times_served).toBe(1);
     });
 
+    it('excludes cancelled registrations from times_attended count', async () => {
+      const eventId = await insertEvent('mens');
+      const ts = nowIso();
+      const { meta } = await DB()
+        .prepare(
+          `INSERT INTO events (program, year, is_current, created_at, updated_at)
+           VALUES ('mens', 2025, 0, ?, ?)`
+        )
+        .bind(ts, ts)
+        .run();
+      const eventId2 = meta.last_row_id as number;
+
+      const { person_id } = await upsertPerson(testEnv(), 'mens', {
+        first_name: 'Kira',
+        last_name: 'Cancel',
+      });
+
+      // One normal attendee registration + one cancelled — only non-cancelled should count
+      await insertRegistration('mens', eventId, person_id, 'attendee', 'registered');
+      await insertRegistration('mens', eventId2, person_id, 'attendee', 'cancelled');
+      await recomputeRollups(testEnv(), person_id);
+
+      const row = await DB()
+        .prepare('SELECT times_attended FROM people WHERE id = ?')
+        .bind(person_id)
+        .first<{ times_attended: number }>();
+
+      expect(row!.times_attended).toBe(1); // only the non-cancelled one
+    });
+
     it('resets to 0 after all registrations removed', async () => {
       const eventId = await insertEvent('mens');
       const { person_id } = await upsertPerson(testEnv(), 'mens', {
@@ -367,85 +427,82 @@ describe('dedupe.ts', () => {
   // findPossibleDuplicates()
   // ──────────────────────────────────────────────
   describe('findPossibleDuplicates()', () => {
-    it('returns other people with the same last_name in the same program', async () => {
-      const a = await upsertPerson(testEnv(), 'mens', {
-        first_name: 'Tom', last_name: 'Wilson', email: 'tom1@example.com',
-      });
-      const b = await upsertPerson(testEnv(), 'mens', {
-        first_name: 'Thomas', last_name: 'Wilson', email: 'tom2@example.com',
-      });
+    it('flags two same-last_name people who share a phone number', async () => {
+      // Use insertPerson directly so upsertPerson does not merge them first
+      const aId = await insertPerson('mens', 'Tom', 'Wilson', { phone: '3161112222' });
+      const bId = await insertPerson('mens', 'Thomas', 'Wilson', { phone: '3161112222' });
 
-      const dupes = await findPossibleDuplicates(testEnv(), a.person_id);
-      expect(dupes.some(p => p.id === b.person_id)).toBe(true);
-      expect(dupes.every(p => p.id !== a.person_id)).toBe(true);
+      const dupes = await findPossibleDuplicates(testEnv(), aId);
+      expect(dupes.some(p => p.id === bId)).toBe(true);
+      expect(dupes.every(p => p.id !== aId)).toBe(true);
+    });
+
+    it('flags two same-last_name people who share a city', async () => {
+      const aId = await insertPerson('mens', 'Tom', 'Wilson', { city: 'Colby' });
+      const bId = await insertPerson('mens', 'Thomas', 'Wilson', { city: 'COLBY' });
+
+      const dupes = await findPossibleDuplicates(testEnv(), aId);
+      expect(dupes.some(p => p.id === bId)).toBe(true);
+    });
+
+    it('does NOT flag same-last_name people with different phone AND different city', async () => {
+      const aId = await insertPerson('mens', 'Tom', 'Adams', { phone: '1111111111', city: 'Dodge City' });
+      await insertPerson('mens', 'Thomas', 'Adams', { phone: '2222222222', city: 'Colby' });
+
+      const dupes = await findPossibleDuplicates(testEnv(), aId);
+      expect(dupes).toHaveLength(0);
     });
 
     it('does not include the person themselves', async () => {
-      const { person_id } = await upsertPerson(testEnv(), 'mens', {
-        first_name: 'Solo', last_name: 'Unique',
-      });
+      const personId = await insertPerson('mens', 'Solo', 'Unique', { phone: '5550000001' });
 
-      const dupes = await findPossibleDuplicates(testEnv(), person_id);
-      expect(dupes.every(p => p.id !== person_id)).toBe(true);
+      const dupes = await findPossibleDuplicates(testEnv(), personId);
+      expect(dupes.every(p => p.id !== personId)).toBe(true);
     });
 
     it('does not return people from the other program', async () => {
-      const m = await upsertPerson(testEnv(), 'mens', {
-        first_name: 'Sam', last_name: 'Cross', email: 'samm@example.com',
-      });
-      await upsertPerson(testEnv(), 'women', {
-        first_name: 'Samantha', last_name: 'Cross', email: 'samw@example.com',
-      });
+      const mId = await insertPerson('mens', 'Sam', 'Cross', { phone: '3169990000' });
+      await insertPerson('women', 'Samantha', 'Cross', { phone: '3169990000' });
 
-      const dupes = await findPossibleDuplicates(testEnv(), m.person_id);
+      const dupes = await findPossibleDuplicates(testEnv(), mId);
       expect(dupes.every(p => p.program === 'mens')).toBe(true);
     });
 
     it('excludes merged-into people from results', async () => {
-      const a = await upsertPerson(testEnv(), 'mens', {
-        first_name: 'Merge', last_name: 'Target', email: 'target@example.com',
-      });
-      const b = await upsertPerson(testEnv(), 'mens', {
-        first_name: 'Merge', last_name: 'Target', email: 'merged@example.com',
-      });
-      const c = await upsertPerson(testEnv(), 'mens', {
-        first_name: 'Merge', last_name: 'Target', email: 'active@example.com',
-      });
+      const aId = await insertPerson('mens', 'Merge', 'Target', { phone: '5559990001' });
+      const bId = await insertPerson('mens', 'Merge', 'Target', { phone: '5559990001', mergedIntoId: aId });
+      const cId = await insertPerson('mens', 'Merge', 'Target', { phone: '5559990001' });
 
-      // Mark b as merged into a
-      await DB()
-        .prepare('UPDATE people SET merged_into_id = ? WHERE id = ?')
-        .bind(a.person_id, b.person_id)
-        .run();
-
-      const dupes = await findPossibleDuplicates(testEnv(), a.person_id);
-      expect(dupes.every(p => p.id !== b.person_id)).toBe(true); // b excluded (merged)
-      expect(dupes.some(p => p.id === c.person_id)).toBe(true);  // c included
+      const dupes = await findPossibleDuplicates(testEnv(), aId);
+      expect(dupes.every(p => p.id !== bId)).toBe(true); // b excluded (merged)
+      expect(dupes.some(p => p.id === cId)).toBe(true);  // c included
     });
 
-    it('last_name match is case-insensitive', async () => {
-      const a = await upsertPerson(testEnv(), 'mens', {
-        first_name: 'Lower', last_name: 'case', email: 'lower@example.com',
-      });
-      const b = await upsertPerson(testEnv(), 'mens', {
-        first_name: 'Upper', last_name: 'CASE', email: 'upper2@example.com',
-      });
+    it('last_name + city match is case-insensitive', async () => {
+      const aId = await insertPerson('mens', 'Lower', 'case', { city: 'garden city' });
+      const bId = await insertPerson('mens', 'Upper', 'CASE', { city: 'GARDEN CITY' });
 
-      const dupes = await findPossibleDuplicates(testEnv(), a.person_id);
-      expect(dupes.some(p => p.id === b.person_id)).toBe(true);
+      const dupes = await findPossibleDuplicates(testEnv(), aId);
+      expect(dupes.some(p => p.id === bId)).toBe(true);
     });
 
     it('returns empty array when no other person shares last_name', async () => {
-      const { person_id } = await upsertPerson(testEnv(), 'mens', {
-        first_name: 'Only', last_name: 'Snowflake',
-      });
+      const personId = await insertPerson('mens', 'Only', 'Snowflake', { phone: '0000000001' });
 
-      const dupes = await findPossibleDuplicates(testEnv(), person_id);
+      const dupes = await findPossibleDuplicates(testEnv(), personId);
       expect(dupes).toHaveLength(0);
     });
 
     it('returns empty array for unknown personId', async () => {
       const dupes = await findPossibleDuplicates(testEnv(), 999999);
+      expect(dupes).toHaveLength(0);
+    });
+
+    it('does NOT match when both people have NULL phone and NULL city (no branch fires)', async () => {
+      const aId = await insertPerson('mens', 'Null', 'Fields');
+      await insertPerson('mens', 'Also Null', 'Fields');
+
+      const dupes = await findPossibleDuplicates(testEnv(), aId);
       expect(dupes).toHaveLength(0);
     });
   });

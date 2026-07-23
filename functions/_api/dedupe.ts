@@ -42,7 +42,6 @@ export async function upsertPerson(
       .first<{ id: number; first_seen_year: number | null }>();
 
     if (existing) {
-      const newFirstSeen = existing.first_seen_year ?? eventYear;
       await db
         .prepare(
           `UPDATE people
@@ -51,7 +50,7 @@ export async function upsertPerson(
                updated_at = ?
            WHERE id = ?`
         )
-        .bind(eventYear, newFirstSeen, now, existing.id)
+        .bind(eventYear, eventYear, now, existing.id)
         .run();
       return { person_id: existing.id, matched: true };
     }
@@ -153,7 +152,7 @@ export async function upsertPerson(
 /**
  * Recounts times_attended and times_served for a person from their registrations
  * and updates the people row.
- * Counts all registrations by role (including all statuses).
+ * Excludes cancelled registrations from both counts.
  */
 export async function recomputeRollups(env: Env, personId: number): Promise<void> {
   const db = env.DB;
@@ -163,6 +162,7 @@ export async function recomputeRollups(env: Env, personId: number): Promise<void
       `SELECT role, COUNT(*) as cnt
        FROM registrations
        WHERE person_id = ?
+         AND status NOT IN ('cancelled')
        GROUP BY role`
     )
     .bind(personId)
@@ -186,8 +186,10 @@ export async function recomputeRollups(env: Env, personId: number): Promise<void
 }
 
 /**
- * Returns other non-merged people in the same program with the same last_name
- * (case-insensitive), excluding personId itself and any merged rows.
+ * Returns other non-merged people in the same program who share last_name AND
+ * (matching digits-only phone OR matching city, case-insensitive).
+ * Excludes self and any rows with merged_into_id set.
+ * NULL/empty phone or city do NOT count as a match on that branch.
  */
 export async function findPossibleDuplicates(
   env: Env,
@@ -195,24 +197,45 @@ export async function findPossibleDuplicates(
 ): Promise<Person[]> {
   const db = env.DB;
 
-  // Get the person's own last_name and program
+  // Get the person's own fields to compare against
   const self = await db
-    .prepare('SELECT program, last_name FROM people WHERE id = ?')
+    .prepare(
+      `SELECT program, last_name, phone, city FROM people WHERE id = ?`
+    )
     .bind(personId)
-    .first<{ program: string; last_name: string }>();
+    .first<{ program: string; last_name: string; phone: string | null; city: string | null }>();
 
   if (!self) return [];
 
+  const phone = self.phone && self.phone.trim() !== '' ? self.phone.trim() : null;
+  const city  = self.city  && self.city.trim()  !== '' ? self.city.trim()  : null;
+
   const result = await db
     .prepare(
-      `SELECT * FROM people
+      `SELECT id, program, first_name, last_name, email, phone, phone_type,
+              address, city, state, church,
+              times_attended, times_served,
+              first_seen_year, last_activity_year,
+              notes, merged_into_id, created_at, updated_at
+       FROM people
        WHERE program = ?
          AND LOWER(last_name) = LOWER(?)
          AND id != ?
          AND merged_into_id IS NULL
+         AND (
+           (? IS NOT NULL AND ? != '' AND phone = ?)
+           OR
+           (? IS NOT NULL AND ? != '' AND LOWER(city) = LOWER(?))
+         )
        ORDER BY last_name, first_name`
     )
-    .bind(self.program, self.last_name, personId)
+    .bind(
+      self.program,
+      self.last_name,
+      personId,
+      phone, phone, phone,
+      city,  city,  city
+    )
     .all<Person>();
 
   return result.results;
