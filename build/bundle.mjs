@@ -13,7 +13,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 const SRC_DIR = resolve(ROOT, 'src');
 const SRC_INDEX = resolve(SRC_DIR, 'index.html');
-const DIST_DIR = resolve(ROOT, 'dist');
+// Output dir is overridable so the worlds bundle can be built into a CLEAN,
+// front-end-only directory (dist-worlds/) that never contains the backend's
+// functions/admin — deploying that to the worlds Pages project can't ship
+// stale Functions. Defaults to dist/ for backward compatibility.
+const DIST_DIR = resolve(ROOT, process.env.WORLDS_OUT || 'dist');
 const DIST_INDEX = resolve(DIST_DIR, 'index.html');
 
 const MIME_BY_EXT = {

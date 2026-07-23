@@ -10,7 +10,9 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "dev": "npm run build && npx wrangler pages dev dist --local",
-    "deploy": "npm run build && npx wrangler pages deploy dist --project-name nwks-encounter-site --branch main",
+    "deploy": "echo 'Refusing ambiguous deploy. Use: npm run deploy:worlds (front-end -> nwks-encounter-site) OR npm run deploy:backend (api+admin -> nwks-encounter-backend).' && exit 1",
+    "build:worlds": "rm -rf dist-worlds && WORLDS_OUT=dist-worlds node build/bundle.mjs",
+    "deploy:worlds": "npm run build:worlds && npx wrangler pages deploy dist-worlds --project-name nwks-encounter-site --branch main",
     "deploy:backend": "npm run build && npx wrangler pages deploy dist --project-name nwks-encounter-backend --branch main",
     "test": "vitest run --config vitest.config.ts && vitest run --config vitest.photos.config.ts",
     "test:api": "vitest run --config vitest.config.ts && vitest run --config vitest.photos.config.ts",

@@ -6,3 +6,4 @@ dist-worlds-test/
 .wrangler/
 playwright-report/
 test-results/
+dist-worlds
