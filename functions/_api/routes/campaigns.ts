@@ -103,20 +103,21 @@ campaignsRouter.post('/:id/send', async (c) => {
   const program = c.get('program') as Program;
   const id = Number(c.req.param('id'));
 
-  const campaign = await c.env.DB.prepare(
-    `SELECT * FROM email_campaigns WHERE id = ? AND program = ?`
-  ).bind(id, program).first<{
-    id: number; program: string; subject: string; body_html: string;
-    body_text: string; segment: string; status: string; template_key: string | null;
-  }>();
+  // [C2] Atomic CAS inside sendCampaignById is the single guard against double-send.
+  // We check existence first for a clean 404, but correctness comes from the CAS.
+  const existing = await c.env.DB.prepare(
+    `SELECT id FROM email_campaigns WHERE id = ? AND program = ?`
+  ).bind(id, program).first<{ id: number }>();
 
-  if (!campaign) return c.json({ ok: false, error: 'not found' }, 404);
-  if (campaign.status === 'sent') return c.json({ ok: false, error: 'already sent' }, 409);
-  if (campaign.status === 'sending') return c.json({ ok: false, error: 'send in progress' }, 409);
+  if (!existing) return c.json({ ok: false, error: 'not found' }, 404);
 
-  const { sent, failed } = await sendCampaignById(c.env, id);
+  const result = await sendCampaignById(c.env, id, program);
 
-  return c.json({ ok: true, sent, failed, recipient_count: sent + failed });
+  if (result.casRejected) {
+    return c.json({ ok: false, error: 'already sent or send in progress' }, 409);
+  }
+
+  return c.json({ ok: true, sent: result.sent, failed: result.failed, recipient_count: result.sent + result.failed });
 });
 
 // ── POST /api/admin/campaigns/:id/schedule ────────────────────────────────────
@@ -143,35 +144,46 @@ campaignsRouter.post('/:id/schedule', async (c) => {
   if (campaign.status === 'sent') return c.json({ ok: false, error: 'already sent' }, 409);
 
   await c.env.DB.prepare(
-    `UPDATE email_campaigns SET status='scheduled', scheduled_for=? WHERE id=?`
-  ).bind(body.scheduled_for, id).run();
+    `UPDATE email_campaigns SET status='scheduled', scheduled_for=? WHERE id=? AND program=?`
+  ).bind(body.scheduled_for, id, program).run();
 
+  // [I2] Add AND program=? to final SELECT for consistency
   const updated = await c.env.DB.prepare(
-    `SELECT * FROM email_campaigns WHERE id=?`
-  ).bind(id).first();
+    `SELECT * FROM email_campaigns WHERE id=? AND program=?`
+  ).bind(id, program).first();
 
   return c.json({ ok: true, campaign: updated });
 });
 
 // ── Shared send routine (Addendum A7) ─────────────────────────────────────────
-// Used by: /:id/send route, cron Worker (P4 T5), AI approve endpoint (P5).
+// Precondition: callers (cron Worker P4/T5, AI approve endpoint P5) MUST pass
+// the program they own so this routine enforces isolation before sending.
 export async function sendCampaignById(
   env: Env,
-  campaignId: number
-): Promise<{ sent: number; failed: number }> {
+  campaignId: number,
+  program: string
+): Promise<{ sent: number; failed: number; casRejected?: boolean }> {
+  // [C2] Atomic CAS: claim 'sending' only when not already sent/sending AND program matches
+  const cas = await env.DB.prepare(
+    `UPDATE email_campaigns
+     SET status='sending'
+     WHERE id=? AND program=? AND status NOT IN ('sent','sending')`
+  ).bind(campaignId, program).run();
+
+  if (cas.meta.changes === 0) {
+    // Campaign is already sent/sending, wrong program, or does not exist
+    return { sent: 0, failed: 0, casRejected: true };
+  }
+
+  // CAS claimed it — fetch full campaign row
   const campaign = await env.DB.prepare(
-    `SELECT * FROM email_campaigns WHERE id = ?`
-  ).bind(campaignId).first<{
+    `SELECT * FROM email_campaigns WHERE id = ? AND program = ?`
+  ).bind(campaignId, program).first<{
     id: number; program: string; subject: string; body_html: string;
     body_text: string; segment: string; status: string; template_key: string | null;
   }>();
 
   if (!campaign) return { sent: 0, failed: 0 };
-
-  // Mark as sending to prevent double-sends
-  await env.DB.prepare(
-    `UPDATE email_campaigns SET status='sending' WHERE id=?`
-  ).bind(campaignId).run();
 
   let segment: Segment = {};
   try { segment = JSON.parse(campaign.segment); } catch { /* empty */ }
@@ -210,45 +222,56 @@ export async function sendCampaignById(
   let sent = 0;
   let failed = 0;
 
-  for (const recipient of recipients) {
-    const rendered = renderTemplate(
-      { subject: campaign.subject, body_html: campaign.body_html, body_text: campaign.body_text },
-      {
-        first_name: recipient.first_name,
-        last_name: recipient.last_name,
-        event_title: eventTitle,
-        start_date: startDate,
-        end_date: endDate,
-        launch_location: recipient.launch_location ?? '',
+  // [I1] Crash safety: wrap recipient loop; on unexpected throw → set 'failed' so not stuck 'sending'
+  try {
+    for (const recipient of recipients) {
+      const rendered = renderTemplate(
+        { subject: campaign.subject, body_html: campaign.body_html, body_text: campaign.body_text },
+        {
+          first_name: recipient.first_name,
+          last_name: recipient.last_name,
+          event_title: eventTitle,
+          start_date: startDate,
+          end_date: endDate,
+          launch_location: recipient.launch_location ?? '',
+        }
+      );
+
+      const result = await sendEmail(env, {
+        to: recipient.email,
+        subject: rendered.subject,
+        html: rendered.html,
+        text: rendered.text,
+        campaignId,
+        personId: recipient.person_id,
+        templateKey: campaign.template_key ?? undefined,
+        type: 'broadcast',
+        program: campaign.program,
+      });
+
+      // sendEmail already writes the email_log row; track success/failure
+      if (result.ok) {
+        sent++;
+      } else {
+        failed++;
       }
-    );
-
-    const result = await sendEmail(env, {
-      to: recipient.email,
-      subject: rendered.subject,
-      html: rendered.html,
-      text: rendered.text,
-      campaignId,
-      personId: recipient.person_id,
-      templateKey: campaign.template_key ?? undefined,
-      type: 'broadcast',
-      program: campaign.program,
-    });
-
-    // sendEmail already writes the email_log row; track success/failure
-    if (result.ok) {
-      sent++;
-    } else {
-      failed++;
     }
+  } catch (err: unknown) {
+    // [I1] Unexpected crash: mark failed so it's not stuck at 'sending', then rethrow
+    await env.DB.prepare(
+      `UPDATE email_campaigns SET status='failed', sent_at=?, recipient_count=? WHERE id=?`
+    ).bind(nowIso(), sent + failed, campaignId).run();
+    throw err;
   }
 
+  // [C3] Correct terminal status: all-failed → 'failed'; any sent (or zero recipients) → 'sent'
+  const terminalStatus = (sent === 0 && failed > 0) ? 'failed' : 'sent';
   const sentAt = nowIso();
   await env.DB.prepare(
     `UPDATE email_campaigns
-     SET status='sent', sent_at=?, recipient_count=?
+     SET status=?, sent_at=?, recipient_count=?
      WHERE id=?`
-  ).bind(sentAt, sent + failed, campaignId).run();
+  ).bind(terminalStatus, sentAt, sent + failed, campaignId).run();
 
   return { sent, failed };
 }

@@ -416,7 +416,7 @@ describe('Admin Campaigns API', () => {
     const { sendCampaignById } = await import('../routes/campaigns');
     const id = await insertDraft({});
 
-    const result = await sendCampaignById(testEnv, id);
+    const result = await sendCampaignById(testEnv, id, 'mens');
     expect(typeof result.sent).toBe('number');
     expect(typeof result.failed).toBe('number');
     expect(result.sent).toBe(3);  // EMAIL_ENABLED=false → ok:true, skipped:true → counted as sent
@@ -425,8 +425,135 @@ describe('Admin Campaigns API', () => {
 
   it('sendCampaignById returns {sent:0, failed:0} for unknown campaign', async () => {
     const { sendCampaignById } = await import('../routes/campaigns');
-    const result = await sendCampaignById(testEnv, 999999);
+    const result = await sendCampaignById(testEnv, 999999, 'mens');
     expect(result.sent).toBe(0);
     expect(result.failed).toBe(0);
+  });
+
+  // ── C2: Atomic double-send guard ──────────────────────────────────────────
+
+  it('second send of same campaign returns 409 and does NOT create more email_log rows', async () => {
+    const id = await insertDraft({ subject: 'Double Send Test' });
+
+    // First send — should succeed
+    const res1 = await app.fetch(
+      makeReq('POST', `/api/admin/campaigns/${id}/send`, cookie, 'mens'),
+      testEnv
+    );
+    expect(res1.status).toBe(200);
+
+    // Count log rows after first send
+    const logAfterFirst = await testEnv.DB.prepare(
+      `SELECT COUNT(*) as n FROM email_log WHERE campaign_id=?`
+    ).bind(id).first<{ n: number }>();
+    const countAfterFirst = logAfterFirst?.n ?? 0;
+    expect(countAfterFirst).toBe(3);
+
+    // Second send — must be rejected
+    const res2 = await app.fetch(
+      makeReq('POST', `/api/admin/campaigns/${id}/send`, cookie, 'mens'),
+      testEnv
+    );
+    expect(res2.status).toBe(409);
+
+    // Log row count must NOT increase
+    const logAfterSecond = await testEnv.DB.prepare(
+      `SELECT COUNT(*) as n FROM email_log WHERE campaign_id=?`
+    ).bind(id).first<{ n: number }>();
+    expect(logAfterSecond?.n).toBe(countAfterFirst);
+  });
+
+  // ── C3: Total-failure sets status='failed' ────────────────────────────────
+
+  it('total-failure: all sendEmail calls failing sets campaign status to failed', async () => {
+    const { sendCampaignById } = await import('../routes/campaigns');
+    const id = await insertDraft({ subject: 'Failure Test' });
+
+    // Use EMAIL_ENABLED='true' with a bad RESEND_API_KEY: sendEmail catches the Resend error
+    // and returns {ok:false, error:...} for each recipient → failed++ for all 3.
+    const failEnv = {
+      ...testEnv,
+      EMAIL_ENABLED: 'true',
+      RESEND_API_KEY: 'bad-key-intentional-fail',
+    };
+
+    const result = await sendCampaignById(failEnv as any, id, 'mens');
+    expect(result.sent).toBe(0);
+    expect(result.failed).toBe(3);
+
+    const row = await testEnv.DB.prepare(
+      `SELECT status FROM email_campaigns WHERE id=?`
+    ).bind(id).first<{ status: string }>();
+    expect(row?.status).toBe('failed');
+  });
+
+  // ── C1: Wrong-program isolation in sendCampaignById ──────────────────────
+
+  it('sendCampaignById with wrong program sends nothing and returns {sent:0, failed:0}', async () => {
+    const { sendCampaignById } = await import('../routes/campaigns');
+    // Campaign is mens; caller passes 'women' → CAS finds no matching row → changes=0
+    const id = await insertDraft({ program: 'mens' });
+
+    const result = await sendCampaignById(testEnv, id, 'women');
+    expect(result.sent).toBe(0);
+    expect(result.failed).toBe(0);
+
+    // Campaign must still be in its original draft status (CAS did not fire)
+    const row = await testEnv.DB.prepare(
+      `SELECT status FROM email_campaigns WHERE id=?`
+    ).bind(id).first<{ status: string }>();
+    expect(row?.status).toBe('draft');
+  });
+
+  // ── I1: Crash safety ──────────────────────────────────────────────────────
+
+  it('crash safety: unhandled throw in send loop sets campaign status to failed (not stuck sending)', async () => {
+    const { sendCampaignById } = await import('../routes/campaigns');
+    const id = await insertDraft({ subject: 'Crash Test' });
+
+    // Simulate an unhandled error by providing a DB proxy that throws on email_log INSERT
+    // (i.e., the first prepare().bind().run() that sendEmail calls inside the loop).
+    // We proxy the DB: the CAS UPDATE + campaign SELECT must succeed, then throw on INSERT.
+    let prepareCount = 0;
+    const realDB = testEnv.DB;
+    const crashDB = new Proxy(realDB, {
+      get(target, prop) {
+        if (prop !== 'prepare') return (target as any)[prop];
+        return (sql: string) => {
+          prepareCount++;
+          const stmt = (target as any).prepare(sql);
+          // Throw when sendEmail tries to INSERT into email_log (after CAS + SELECT succeed)
+          if (sql.includes('INSERT INTO email_log')) {
+            return new Proxy(stmt, {
+              get(s, p) {
+                if (p !== 'bind') return (s as any)[p];
+                return (...bindArgs: any[]) => ({
+                  run: () => { throw new Error('simulated DB crash in email_log'); },
+                  first: () => (s as any).bind(...bindArgs).first(),
+                  all: () => (s as any).bind(...bindArgs).all(),
+                });
+              },
+            });
+          }
+          return stmt;
+        };
+      },
+    });
+
+    const crashEnv = { ...testEnv, DB: crashDB };
+
+    let threw = false;
+    try {
+      await sendCampaignById(crashEnv as any, id, 'mens');
+    } catch {
+      threw = true;
+    }
+    expect(threw).toBe(true);
+
+    // After rethrow, campaign status must be 'failed' (not stuck at 'sending')
+    const row = await testEnv.DB.prepare(
+      `SELECT status FROM email_campaigns WHERE id=?`
+    ).bind(id).first<{ status: string }>();
+    expect(row?.status).toBe('failed');
   });
 });
