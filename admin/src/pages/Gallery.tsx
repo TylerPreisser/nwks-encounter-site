@@ -41,7 +41,7 @@ export default function Gallery() {
 
   // ── Load years ──────────────────────────────────────────────────────
   useEffect(() => {
-    apiFetch<{ ok: boolean; years: number[] }>(`/admin/photos/years`)
+    apiFetch<{ ok: boolean; years: number[] }>(`/public/gallery/years`)
       .then((data) => {
         const ys = data.years ?? [];
         setYears(ys);
