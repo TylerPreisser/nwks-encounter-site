@@ -2,6 +2,7 @@ node_modules/
 .DS_Store
 screenshots-qa/
 dist/
+dist-worlds-test/
 .wrangler/
 playwright-report/
 test-results/
