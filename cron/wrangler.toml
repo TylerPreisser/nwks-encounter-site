@@ -1,0 +1,26 @@
+name = "nwks-encounter-cron"
+main = "worker.ts"
+compatibility_date = "2026-07-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Cron Triggers — runs every 15 minutes.
+# Cloudflare Pages does NOT support Cron Triggers, so scheduling uses this
+# separate small Worker that binds the same D1/KV and env vars.
+[triggers]
+crons = ["*/15 * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "nwks-encounter"
+database_id = "REPLACE_ME"
+migrations_dir = "../db/migrations"
+
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "REPLACE_ME"
+
+[vars]
+EMAIL_ENABLED  = "false"
+EMAIL_FROM     = "NWKS Encounter <noreply@nwksencounter.com>"
+EMAIL_REPLY_TO = ""
+# Set RESEND_API_KEY as a secret: wrangler secret put RESEND_API_KEY
