@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Women's Encounter — Attendee Registration</title>
+  <meta name="description" content="Register as an attendee for Women's Encounter — Northwest Kansas.">
+  <link rel="stylesheet" href="/shared/form.css">
+</head>
+<body class="womens">
+  <div class="form-card">
+    <h1>Women's Encounter</h1>
+    <p class="form-subtitle">Attendee Registration · Northwest Kansas</p>
+
+    <form id="registration-form" novalidate>
+      <div id="form-fields"></div>
+      <div id="form-status" class="form-status" role="alert"></div>
+      <button type="submit" id="btn-submit" class="btn-submit">Register</button>
+    </form>
+
+    <p class="form-verse">
+      "It is for freedom that Christ has set us free." — Galatians 5:1
+    </p>
+  </div>
+
+  <script src="/shared/form.js"></script>
+  <script>
+    NWKS_FORM.init({
+      program: 'womens',
+      role: 'attendee',
+      turnstileSiteKey: '',   // TODO: replace at launch
+      fields: [
+        { name: 'first_name', label: 'First Name', type: 'text', required: true },
+        { name: 'last_name', label: 'Last Name', type: 'text', required: true },
+        { name: 'launch_location', label: 'Select a Launch Point location', type: 'dropdown', required: true,
+          options: ['Colby', 'Gove', 'Hays', 'Hoxie', 'Norton', 'Plainville', 'Sterling', 'Wakeeney'] },
+        { name: 'invited_by',
+          label: 'Who invited you to Encounter? Please give a first & last name(s).',
+          type: 'text', required: false },
+        { name: 'email', label: 'Email Address', type: 'text', format: 'email', required: true,
+          help: 'Encounter communication occurs via email. Please check your inbox frequently.' },
+        { name: 'email_confirm', label: 'Confirm Email Address', type: 'text', format: 'email',
+          required: true, matchField: 'email', skipPersist: true },
+        { name: 'prior_attendance',
+          label: "Have you attended Women's Encounter previously?",
+          type: 'checkbox', required: true,
+          options: [
+            "1st Time Attendee - Never attended Women's Encounter",
+            "I have attended a previous Women's Encounter - I understand that 1st time attendees will get priority",
+            "I have attended previously but had a major life event & would be beneficial to attend again"
+          ] },
+        { name: 'life_event_note',
+          label: 'If you have had a major life event, please write a note to Leadership explaining said event.',
+          type: 'textarea', required: false },
+        { name: 'phone', label: 'Your Phone Number - Cell Preferred', type: 'text', format: 'phone', required: true },
+        { name: 'phone_type', label: 'If not a cell #, please check box below', type: 'checkbox', required: false,
+          options: ['Land Line'] },
+        { name: 'address', label: 'Your Address', type: 'text', required: true },
+        { name: 'city', label: 'City', type: 'text', required: true },
+        { name: 'state', label: 'State', type: 'text', required: true },
+        { name: 'zip', label: 'Zip', type: 'text', required: true, extraKey: true },
+        { name: 'church', label: 'What church do you attend, if any?', type: 'text', required: false },
+        { name: 'prayer_contact_name', label: 'Contact Name', type: 'text', required: true,
+          help: 'We would like to speak with your spouse, family, and/or friend(s) before Encounter to pray for and encourage you. Spouse is preferred.' },
+        { name: 'prayer_contact_phone', label: "Contact Person's Phone Number", type: 'text', format: 'phone', required: true },
+        { name: 'shirt_size', label: 'T-Shirt Size', type: 'radio', required: true,
+          options: ['Small', 'Medium', 'Large', 'X-Large', 'XX-Large', 'XXX-Large', 'Other'] },
+        { name: 'sandwich_preference', label: 'What kind of sandwich do you prefer?', type: 'dropdown', required: true,
+          options: [
+            'Ham/bun', 'Ham/lettuce wrapped unwich',
+            'Turkey/bun', 'Turkey/lettuce wrapped unwich',
+            'Veggie/bun', 'Veggie/lettuce wrapped unwich'
+          ],
+          extraKey: true },
+        { name: 'questions', label: 'Questions or concerns?', type: 'textarea', required: false },
+      ]
+    });
+  </script>
+</body>
+</html>

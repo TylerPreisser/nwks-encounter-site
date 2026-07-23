@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Men's Encounter — Attendee Registration</title>
+  <meta name="description" content="Register as an attendee for Men's Encounter — Northwest Kansas.">
+  <link rel="stylesheet" href="/shared/form.css">
+</head>
+<body class="mens">
+  <div class="form-card">
+    <h1>Men's Encounter</h1>
+    <p class="form-subtitle">Attendee Registration · Northwest Kansas</p>
+
+    <form id="registration-form" novalidate>
+      <div id="form-fields"></div>
+      <div id="form-status" class="form-status" role="alert"></div>
+      <button type="submit" id="btn-submit" class="btn-submit">Register</button>
+    </form>
+
+    <p class="form-verse">
+      "It is for freedom that Christ has set us free." — Galatians 5:1
+    </p>
+  </div>
+
+  <script src="/shared/form.js"></script>
+  <script>
+    NWKS_FORM.init({
+      program: 'mens',
+      role: 'attendee',
+      // Turnstile site key: set via env or leave blank for dev
+      turnstileSiteKey: '',   // TODO: replace with real site key at launch
+      fields: [
+        { name: 'first_name', label: 'First Name', type: 'text', required: true },
+        { name: 'last_name', label: 'Last Name', type: 'text', required: true },
+        { name: 'email', label: 'Email Address', type: 'text', format: 'email', required: true,
+          help: 'We will send registration and event details via email. Please provide an accurate address.' },
+        { name: 'phone', label: 'Phone Number', type: 'text', format: 'phone', required: true },
+        { name: 'phone_type', label: 'Phone Type', type: 'dropdown', required: true,
+          options: ['Cell', 'Home', 'Work', 'Other'] },
+        { name: 'address', label: 'Address', type: 'text', required: true },
+        { name: 'city', label: 'City', type: 'text', required: true },
+        { name: 'state', label: 'State', type: 'text', required: true },
+        { name: 'launch_location', label: 'Launch Location', type: 'dropdown', required: true,
+          options: ['Hays', 'Norton', 'Plainville', 'Hoxie', 'Colby', 'Gove', 'Sterling', 'Wakeeney'] },
+        { name: 'shirt_size', label: 'Shirt Size', type: 'dropdown', required: true,
+          options: ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'XXXXL'] },
+        { name: 'church', label: 'What Church do you attend, if any?', type: 'text', required: true },
+        { name: 'times_attended_self_report',
+          label: "How many times have you attended a Men's Encounter?",
+          type: 'dropdown', required: true,
+          options: ["This will be my first time!", '1', '2', 'More than 2'] },
+        { name: 'invited_by',
+          label: "Who invited you or how did you hear about Men's Encounter?",
+          type: 'text', required: true },
+        { name: 'prayer_contact_name', label: 'Contact Name', type: 'text', required: true,
+          help: 'We would like to speak with your spouse, family, and/or friend(s) 2 weeks before Encounter to ask them to pray for and encourage you. Spouse is preferred.' },
+        { name: 'prayer_contact_phone', label: 'Contact Phone Number', type: 'text', format: 'phone', required: true },
+        { name: 'dietary_health', label: 'Dietary or health restrictions?', type: 'text', required: false,
+          help: 'e.g. wheelchair access, diabetic diet, food allergies, cannot climb stairs, bottom bunk, etc.' },
+        { name: 'questions', label: 'Questions or concerns?', type: 'textarea', required: false },
+      ]
+    });
+  </script>
+</body>
+</html>
