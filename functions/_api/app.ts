@@ -10,6 +10,7 @@ import { peopleRouter } from './routes/people';
 import { eventsRouter } from './routes/events';
 import { publicRouter } from './routes/publicRoutes';
 import { templatesRouter } from './routes/templates';
+import { campaignsRouter } from './routes/campaigns';
 
 export interface Env {
   DB: D1Database;
@@ -53,3 +54,6 @@ app.route('/api/public', publicRouter);
 
 // P4: admin email templates CRUD
 app.route('/api/admin/templates', templatesRouter);
+
+// P4: admin email campaigns CRUD + preview/send/schedule
+app.route('/api/admin/campaigns', campaignsRouter);
