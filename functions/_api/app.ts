@@ -5,6 +5,7 @@ import type { AppVariables } from './auth';
 import { registerRouter } from './routes/register';
 import { authRouter } from './routes/auth';
 import { dashboardRouter } from './routes/dashboard';
+import { registrationsRouter } from './routes/registrations';
 
 export interface Env {
   DB: D1Database;
@@ -33,3 +34,6 @@ app.route('/api/auth', authRouter);
 
 // P2: admin dashboard route
 app.route('/api/admin/dashboard', dashboardRouter);
+
+// P2: admin registrations list + CSV export
+app.route('/api/admin/registrations', registrationsRouter);
