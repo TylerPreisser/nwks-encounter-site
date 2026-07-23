@@ -16,7 +16,7 @@
 - **GitHub:** all commits/pushes to `github.com/TylerPreisser/nwks-encounter-site`. The `TylerPreisser` gh account owns the repo (`tpreisser` is the currently-active account — activate `TylerPreisser` before pushing). No `Co-Authored-By` trailer (repo has no attribution setting).
 - **Email sends from `nwksencounter.com`** via Resend. DNS/SPF/DKIM/DMARC verification is a pre-launch step (see Plan 07); until verified, dev uses a Resend test identity behind `EMAIL_ENABLED` flag.
 - **AI is draft-and-approve:** the assistant may create `ai_pending_actions` rows but MUST NOT send/schedule email without a human approving via the approve endpoint.
-- **Secrets never in the repo.** Use Pages/Worker secrets: `RESEND_API_KEY`, `ANTHROPIC_API_KEY`, `SESSION_SECRET`, `TURNSTILE_SECRET`.
+- **Secrets never in the repo.** Use Pages/Worker secrets: `RESEND_API_KEY`, `ANTHROPIC_API_KEY`, `TURNSTILE_SECRET`.
 - **TDD, DRY, YAGNI, frequent commits.** Every task ends with a passing test and a commit.
 - **All timestamps** are ISO-8601 UTC strings (`new Date().toISOString()`). All dates (event start/end) are `YYYY-MM-DD` strings.
 
@@ -87,14 +87,14 @@ EMAIL_FROM = "NWKS Encounter <noreply@nwksencounter.com>"
 EMAIL_REPLY_TO = "<ministry inbox — open item>"
 ```
 
-Secrets (via `wrangler pages secret put`): `RESEND_API_KEY`, `ANTHROPIC_API_KEY`, `SESSION_SECRET`, `TURNSTILE_SECRET`.
+Secrets (via `wrangler pages secret put`): `RESEND_API_KEY`, `ANTHROPIC_API_KEY`, `TURNSTILE_SECRET`.
 
 `Env` TypeScript interface (in `functions/_api/app.ts`):
 ```ts
 export interface Env {
   DB: D1Database; PHOTOS: R2Bucket; SESSIONS: KVNamespace;
   EMAIL_ENABLED: string; EMAIL_FROM: string; EMAIL_REPLY_TO: string;
-  RESEND_API_KEY: string; ANTHROPIC_API_KEY: string; SESSION_SECRET: string; TURNSTILE_SECRET: string;
+  RESEND_API_KEY: string; ANTHROPIC_API_KEY: string; TURNSTILE_SECRET: string;
 }
 ```
 

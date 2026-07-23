@@ -28,7 +28,6 @@
 ### Step 2 — Secrets
 - [ ] `wrangler pages secret put RESEND_API_KEY`
 - [ ] `wrangler pages secret put ANTHROPIC_API_KEY`
-- [ ] `wrangler pages secret put SESSION_SECRET` (random 32+ bytes)
 - [ ] `wrangler pages secret put TURNSTILE_SECRET`
 - [ ] For the cron Worker (A8): `cd cron && wrangler secret put RESEND_API_KEY` (+ bind same D1/vars in `cron/wrangler.toml`).
 - [ ] Set `[vars] EMAIL_REPLY_TO` in `wrangler.toml`; leave `EMAIL_ENABLED="false"` until Step 4 verifies deliverability.
