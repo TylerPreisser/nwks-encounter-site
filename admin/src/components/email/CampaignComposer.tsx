@@ -3,6 +3,12 @@ import { useProgram } from '@/App';
 import { RecipientPreview } from './RecipientPreview';
 import { RichTextEditor } from './RichTextEditor';
 
+// Known launch locations per program
+const LAUNCH_LOCATIONS: Record<string, string[]> = {
+  mens:  ['Colby', 'Gove', 'Hays', 'Hoxie', 'Norton', 'Plainville', 'Sterling', 'WaKeeney'],
+  women: ['Colby', 'Gove', 'Hays', 'Hoxie', 'Norton', 'Plainville', 'Sterling', 'WaKeeney'],
+};
+
 interface Segment {
   event_id?: number;
   role?: 'attendee' | 'server' | '';
@@ -118,12 +124,17 @@ export function CampaignComposer({ onSent }: Props) {
           </label>
           <label className="flex flex-col text-xs text-gray-600 gap-1">
             Launch location
-            <input
+            <select
+              aria-label="Launch location"
               className="border rounded px-2 py-1 text-sm"
-              placeholder="e.g. Colby"
               value={segment.launch_location ?? ''}
               onChange={e => setSegment(s => ({ ...s, launch_location: e.target.value || undefined }))}
-            />
+            >
+              <option value="">All locations</option>
+              {(LAUNCH_LOCATIONS[program] ?? LAUNCH_LOCATIONS.mens).map(loc => (
+                <option key={loc} value={loc}>{loc}</option>
+              ))}
+            </select>
           </label>
           <label className="flex items-center gap-2 text-xs text-gray-600 mt-4">
             <input

@@ -20,7 +20,15 @@ export function TemplateEditor() {
   useEffect(() => {
     fetch(`/api/admin/templates?program=${program}`, { credentials: 'include' })
       .then(r => r.json())
-      .then(d => setTemplates(d.templates ?? []));
+      .then(d => {
+        const list: Template[] = d.templates ?? [];
+        setTemplates(list);
+        // Auto-select the first template on mount / program change
+        if (list.length > 0) {
+          selectTemplate(list[0]);
+        }
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [program]);
 
   function selectTemplate(t: Template) {

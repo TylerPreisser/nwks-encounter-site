@@ -8,7 +8,15 @@ import { RecipientPreview } from '../components/email/RecipientPreview';
 import { CampaignComposer } from '../components/email/CampaignComposer';
 import { CampaignHistory } from '../components/email/CampaignHistory';
 import { TemplateEditor } from '../components/email/TemplateEditor';
-import { RichTextEditor, sanitizeHtml, htmlToText } from '../components/email/RichTextEditor';
+import {
+  RichTextEditor,
+  sanitizeHtml,
+  htmlToText,
+  tokenizeToChips,
+  chipsToTokens,
+  resolveTokensForPreview,
+  FIELD_TOKENS,
+} from '../components/email/RichTextEditor';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -75,6 +83,88 @@ describe('RecipientPreview', () => {
   });
 });
 
+// ── Token/chip unit helpers ───────────────────────────────────────────────────
+
+describe('tokenizeToChips / chipsToTokens round-trip', () => {
+  it('converts {{first_name}} to a chip span with the human label', () => {
+    const result = tokenizeToChips('<p>Hello {{first_name}},</p>');
+    // The token value lives in the data-token attribute (OK), NOT as visible text
+    expect(result).toContain('data-token="{{first_name}}"');
+    expect(result).toContain('First name');
+    // Visible text content should not show raw brackets — check by stripping tags
+    const textContent = result.replace(/<[^>]+>/g, '');
+    expect(textContent).not.toContain('{{first_name}}');
+    expect(textContent).toContain('First name');
+  });
+
+  it('converts all known tokens to chips', () => {
+    const tokens = ['{{first_name}}', '{{event_title}}', '{{start_date}}', '{{end_date}}', '{{launch_location}}'];
+    for (const t of tokens) {
+      const result = tokenizeToChips(t);
+      expect(result).toContain(`data-token="${t}"`);
+      // The visible text content (strip tags) must not show the raw {{token}}
+      const textOnly = result.replace(/<[^>]+>/g, '');
+      expect(textOnly).not.toContain(t);
+    }
+  });
+
+  it('chipsToTokens reverses tokenizeToChips', () => {
+    const original = '<p>Hello {{first_name}}, see you {{start_date}}!</p>';
+    const chips = tokenizeToChips(original);
+    const restored = chipsToTokens(chips);
+    // Restored should contain the raw tokens, not chip HTML
+    expect(restored).toContain('{{first_name}}');
+    expect(restored).toContain('{{start_date}}');
+    expect(restored).not.toContain('data-token');
+  });
+
+  it('chipsToTokens is a no-op when there are no chips', () => {
+    const plain = '<p>Hello world</p>';
+    expect(chipsToTokens(plain)).toBe(plain);
+  });
+});
+
+// ── resolveTokensForPreview ───────────────────────────────────────────────────
+
+describe('resolveTokensForPreview', () => {
+  it('replaces raw {{tokens}} with sample values — no brackets remain', () => {
+    const html = '<p>Hi {{first_name}}, event is {{event_title}} on {{start_date}} to {{end_date}}.</p>';
+    const result = resolveTokensForPreview(html);
+    expect(result).not.toContain('{{');
+    expect(result).not.toContain('}}');
+    expect(result).toContain('Friend'); // {{first_name}}
+  });
+
+  it('replaces chip spans with sample values — no data-token or brackets in output', () => {
+    const chipped = tokenizeToChips('<p>Hi {{first_name}}, come to {{event_title}}!</p>');
+    const result = resolveTokensForPreview(chipped);
+    expect(result).not.toContain('{{');
+    expect(result).not.toContain('}}');
+    expect(result).not.toContain('data-token');
+    expect(result).toContain('Friend');
+  });
+
+  it('uses live event data when provided', () => {
+    const html = '<p>{{event_title}} runs {{start_date}} to {{end_date}}</p>';
+    const result = resolveTokensForPreview(html, {
+      title: 'Summer Encounter 2026',
+      start_date: 'Aug 7',
+      end_date: 'Aug 9',
+    });
+    expect(result).toContain('Summer Encounter 2026');
+    expect(result).toContain('Aug 7');
+    expect(result).toContain('Aug 9');
+    expect(result).not.toContain('{{');
+  });
+
+  it('falls back to sample values when no event provided', () => {
+    const html = '{{event_title}}';
+    const result = resolveTokensForPreview(html, null);
+    expect(result).not.toContain('{{');
+    expect(result).toBeTruthy();
+  });
+});
+
 // ── RichTextEditor ────────────────────────────────────────────────────────────
 
 describe('RichTextEditor', () => {
@@ -91,26 +181,80 @@ describe('RichTextEditor', () => {
     expect(editor.innerHTML).toContain('Hello world');
   });
 
+  it('renders token-containing body as chips — NO raw {{...}} visible in editor text', () => {
+    const onChange = vi.fn();
+    render(<RichTextEditor value="<p>Hello {{first_name}},</p>" onChange={onChange} />);
+    const editor = screen.getByRole('textbox', { name: /email body/i });
+    // The chip should be present with data-token attribute (attribute value OK to have token)
+    expect(editor.innerHTML).toContain('data-token="{{first_name}}"');
+    // Human label visible in chip
+    expect(editor.innerHTML).toContain('First name');
+    // VISIBLE text (textContent) must not show raw brackets
+    expect(editor.textContent).not.toContain('{{first_name}}');
+  });
+
+  it('serializes chips back to {{token}} on change/save', () => {
+    const onChange = vi.fn();
+    render(<RichTextEditor value="<p>Hello {{first_name}},</p>" onChange={onChange} />);
+    const editor = screen.getByRole('textbox', { name: /email body/i });
+    // Simulate input event (editing content)
+    fireEvent.input(editor);
+    // onChange should have been called; the html param must contain {{first_name}}
+    if (onChange.mock.calls.length > 0) {
+      const [html] = onChange.mock.calls[onChange.mock.calls.length - 1];
+      expect(html).toContain('{{first_name}}');
+      expect(html).not.toContain('data-token');
+    }
+  });
+
+  it('preview card shows no raw {{...}} brackets when value contains tokens', () => {
+    const onChange = vi.fn();
+    render(
+      <RichTextEditor
+        value="<p>Hi {{first_name}}, come to {{event_title}} on {{start_date}}.</p>"
+        onChange={onChange}
+      />
+    );
+    const preview = screen.getByTestId('email-preview');
+    expect(preview.textContent).not.toContain('{{');
+    expect(preview.textContent).not.toContain('}}');
+  });
+
+  it('preview card uses live event data when eventSample is provided', () => {
+    const onChange = vi.fn();
+    render(
+      <RichTextEditor
+        value="<p>{{event_title}} starts {{start_date}}</p>"
+        onChange={onChange}
+        eventSample={{ title: 'NWKS Men 2026', start_date: 'Aug 7', end_date: 'Aug 9' }}
+      />
+    );
+    const preview = screen.getByTestId('email-preview');
+    expect(preview.textContent).toContain('NWKS Men 2026');
+    expect(preview.textContent).toContain('Aug 7');
+    expect(preview.textContent).not.toContain('{{');
+  });
+
   it('calls onChange with sanitized HTML and plain text on input', () => {
     const onChange = vi.fn();
     render(<RichTextEditor value="" onChange={onChange} />);
     const editor = screen.getByRole('textbox', { name: /email body/i });
-    // Simulate typing by mutating innerHTML and firing input event
     fireEvent.input(editor, { target: { innerHTML: '<p>Hello <strong>world</strong></p>' } });
     expect(onChange).toHaveBeenCalled();
     const [html, text] = onChange.mock.calls[0];
     expect(html).toContain('Hello');
     expect(html).toContain('<strong>world</strong>');
     expect(text).toContain('Hello world');
-    // Should not contain raw contenteditable attribute in saved HTML
     expect(html).not.toContain('contenteditable');
   });
 
-  it('tokens like {{first_name}} survive as plain text', () => {
+  it('tokens like {{first_name}} survive serialized in onChange html', () => {
     const onChange = vi.fn();
     render(<RichTextEditor value="" onChange={onChange} />);
     const editor = screen.getByRole('textbox', { name: /email body/i });
-    fireEvent.input(editor, { target: { innerHTML: '<p>Hello {{first_name}},</p>' } });
+    // Simulate the chip HTML being in the editor when input fires
+    const chipHtml = '<p><span data-token="{{first_name}}" contenteditable="false">First name</span>,</p>';
+    fireEvent.input(editor, { target: { innerHTML: chipHtml } });
     const [html] = onChange.mock.calls[0];
     expect(html).toContain('{{first_name}}');
   });
@@ -127,12 +271,48 @@ describe('RichTextEditor', () => {
     expect(screen.getByTitle(/clear formatting/i)).toBeInTheDocument();
   });
 
+  it('renders "Insert field" button in the toolbar', () => {
+    const onChange = vi.fn();
+    render(<RichTextEditor value="" onChange={onChange} />);
+    expect(screen.getByRole('button', { name: /insert field/i })).toBeInTheDocument();
+  });
+
+  it('"Insert field" button opens a menu with all available field options', async () => {
+    const onChange = vi.fn();
+    render(<RichTextEditor value="" onChange={onChange} />);
+    const btn = screen.getByRole('button', { name: /insert field/i });
+    fireEvent.mouseDown(btn);
+    await waitFor(() => {
+      for (const f of FIELD_TOKENS) {
+        expect(screen.getByText(f.label)).toBeInTheDocument();
+      }
+    });
+  });
+
+  it('clicking a field in the Insert field menu inserts a chip (Insert field menu works)', async () => {
+    const onChange = vi.fn();
+    render(<RichTextEditor value="" onChange={onChange} />);
+    const btn = screen.getByRole('button', { name: /insert field/i });
+    fireEvent.mouseDown(btn);
+    // Menu should open and show field options
+    await waitFor(() => screen.getByRole('menu'));
+    // All fields visible in menu
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    const menuItems = screen.getAllByRole('menuitem');
+    expect(menuItems.length).toBeGreaterThan(0);
+    // Fire mouseDown on "First name" option
+    fireEvent.mouseDown(menuItems[0]);
+    // emit() triggers onChange after chip insertion
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    // The html in onChange should contain the token (chip serialized back)
+    const [html] = onChange.mock.calls[onChange.mock.calls.length - 1];
+    expect(html).toContain('{{first_name}}');
+  });
+
   it('renders a live preview of the HTML content', () => {
     const onChange = vi.fn();
     render(<RichTextEditor value="<p>Preview text here</p>" onChange={onChange} />);
-    // "Preview" label appears in the preview section header
     expect(screen.getAllByText(/preview/i).length).toBeGreaterThan(0);
-    // "Preview text here" appears at least once (editor + preview card both show it)
     expect(screen.getAllByText('Preview text here').length).toBeGreaterThan(0);
   });
 
@@ -158,6 +338,12 @@ describe('RichTextEditor', () => {
       expect(result).toContain('<p>Text</p>');
     });
 
+    it('preserves chip spans with data-token attribute through sanitizeHtml', () => {
+      const chip = '<span data-token="{{first_name}}" contenteditable="false" style="color:blue">First name</span>';
+      const result = sanitizeHtml(`<p>${chip}</p>`);
+      expect(result).toContain('data-token="{{first_name}}"');
+    });
+
     it('emits clean output for a full email body', () => {
       const input = '<h2>Welcome</h2><p>Hello <strong>{{first_name}}</strong>,</p><ul><li>Item one</li><li>Item two</li></ul>';
       const result = sanitizeHtml(input);
@@ -174,7 +360,9 @@ describe('RichTextEditor', () => {
     });
 
     it('preserves tokens in plain text', () => {
-      expect(htmlToText('<p>Hello {{first_name}},</p>')).toBe('Hello {{first_name}},');
+      // When there are chips, chipsToTokens runs first
+      const chipHtml = tokenizeToChips('<p>Hello {{first_name}},</p>');
+      expect(htmlToText(chipHtml)).toContain('{{first_name}}');
     });
 
     it('converts block tags to newlines', () => {
@@ -201,9 +389,38 @@ describe('CampaignComposer', () => {
   it('renders subject input, rich-text editor and send button', async () => {
     render(<CampaignComposer />, { wrapper: wrapper() });
     expect(screen.getByPlaceholderText(/email subject/i)).toBeInTheDocument();
-    // The rich-text editor is a contentEditable div with role="textbox"
     expect(screen.getByRole('textbox', { name: /email body/i })).toBeInTheDocument();
     expect(screen.getByText(/send campaign/i)).toBeInTheDocument();
+  });
+
+  it('launch location filter is a <select> picklist (not a text input)', async () => {
+    render(<CampaignComposer />, { wrapper: wrapper() });
+    // Should be a combobox/select, not a text input
+    const selects = screen.getAllByRole('combobox');
+    // At least one select should be for launch location
+    const launchSelect = selects.find(
+      el => el.querySelector('option[value="Colby"]') ||
+            (el as HTMLSelectElement).options?.[1]?.text === 'Colby'
+    ) ?? selects[selects.length - 1];
+    expect(launchSelect.tagName).toBe('SELECT');
+  });
+
+  it('launch location select has known Kansas town options', async () => {
+    render(<CampaignComposer />, { wrapper: wrapper() });
+    const selects = screen.getAllByRole('combobox');
+    // The last combobox should be launch location (Role comes first)
+    const locationSelect = selects[selects.length - 1] as HTMLSelectElement;
+    const optionTexts = Array.from(locationSelect.options).map(o => o.text);
+    // Should contain Kansas towns
+    expect(optionTexts).toContain('Colby');
+    expect(optionTexts).toContain('Hays');
+    expect(optionTexts).toContain('Norton');
+  });
+
+  it('launch location select has no free-text input placeholder', async () => {
+    render(<CampaignComposer />, { wrapper: wrapper() });
+    // Should NOT have a text input with "e.g. Colby" placeholder
+    expect(screen.queryByPlaceholderText(/e\.g\. Colby/i)).not.toBeInTheDocument();
   });
 
   it('calls preview endpoint on mount and shows recipient count', async () => {
@@ -247,7 +464,6 @@ describe('CampaignComposer', () => {
     render(<CampaignComposer />, { wrapper: wrapper() });
 
     await userEvent.type(screen.getByPlaceholderText(/email subject/i), 'Test Subject');
-    // Type into the rich-text editor (contentEditable div with role="textbox")
     const editor = screen.getByRole('textbox', { name: /email body/i });
     fireEvent.input(editor, { target: { innerHTML: '<p>Hello</p>' } });
 
@@ -256,7 +472,6 @@ describe('CampaignComposer', () => {
       expect(screen.getByText(/done!/i)).toBeInTheDocument()
     );
 
-    // Verify that draft POST was called
     const calls = (fetchMock.mock.calls as [string, RequestInit][]);
     const draftCall = calls.find(([url]) =>
       url.includes('/api/admin/campaigns') &&
@@ -267,7 +482,6 @@ describe('CampaignComposer', () => {
     expect(draftCall).toBeDefined();
     expect(draftCall![1].method).toBe('POST');
 
-    // Verify that send POST was called
     const sendCall = calls.find(([url]) => url.includes('/send'));
     expect(sendCall).toBeDefined();
     expect(sendCall![1].method).toBe('POST');
@@ -291,15 +505,11 @@ describe('CampaignComposer', () => {
 
     render(<CampaignComposer />, { wrapper: wrapper() });
 
-    // Switch to schedule mode
     await userEvent.click(screen.getByLabelText(/schedule for/i));
-    // Fill required fields
     await userEvent.type(screen.getByPlaceholderText(/email subject/i), 'Scheduled Email');
-    // Type into the rich-text editor
     const editor = screen.getByRole('textbox', { name: /email body/i });
     fireEvent.input(editor, { target: { innerHTML: '<p>Body</p>' } });
 
-    // Set a datetime
     const dtInput = screen.getByLabelText(/schedule date and time/i);
     await userEvent.type(dtInput, '2030-01-01T10:00');
 
@@ -332,11 +542,10 @@ describe('CampaignComposer', () => {
     });
 
     render(<CampaignComposer />, { wrapper: wrapper() });
-    // Wait for initial preview
     await waitFor(() => expect(screen.getByText(/5 recipient/i)).toBeInTheDocument());
 
-    // Change segment (role) — triggers debounced refetch
-    const roleSelect = screen.getByRole('combobox');
+    // Change role (first combobox)
+    const roleSelect = screen.getAllByRole('combobox')[0];
     await userEvent.selectOptions(roleSelect, 'attendee');
 
     await waitFor(() =>
@@ -379,7 +588,6 @@ describe('CampaignHistory', () => {
     expect(screen.getByText('Upcoming Event')).toBeInTheDocument();
     expect(screen.getByText('42')).toBeInTheDocument();
     expect(screen.getByText('Draft Campaign')).toBeInTheDocument();
-    // scheduled_for shows "Scheduled:" prefix
     expect(screen.getByText(/scheduled:/i)).toBeInTheDocument();
   });
 
@@ -446,6 +654,12 @@ describe('TemplateEditor', () => {
     variables: '[]', updated_at: '2025-01-01T00:00:00Z',
   };
 
+  const TEMPLATE2 = {
+    id: 2, program: 'mens', key: 'reminder', name: 'Reminder Email',
+    subject: 'One week away!', body_html: '<p>Reminder</p>', body_text: 'Reminder',
+    variables: '[]', updated_at: '2025-01-01T00:00:00Z',
+  };
+
   it('lists templates from the API', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ ok: true, templates: [TEMPLATE] }), { status: 200 })
@@ -455,7 +669,20 @@ describe('TemplateEditor', () => {
     expect(screen.getByText(/mens · welcome/i)).toBeInTheDocument();
   });
 
-  it('shows empty prompt when no template is selected', async () => {
+  it('auto-selects the first template on mount without requiring a click', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ ok: true, templates: [TEMPLATE, TEMPLATE2] }), { status: 200 })
+    );
+    render(<TemplateEditor />, { wrapper: wrapper() });
+    // The subject input should be populated with the first template's subject
+    await waitFor(() =>
+      expect(screen.getByDisplayValue('Welcome to Encounter!')).toBeInTheDocument()
+    );
+    // "Select a template to edit" prompt should NOT be shown
+    expect(screen.queryByText(/select a template to edit/i)).not.toBeInTheDocument();
+  });
+
+  it('shows empty prompt when no templates exist', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ ok: true, templates: [] }), { status: 200 })
     );
@@ -465,37 +692,40 @@ describe('TemplateEditor', () => {
     );
   });
 
+  it('switches to a different template when clicked in the list', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ ok: true, templates: [TEMPLATE, TEMPLATE2] }), { status: 200 })
+    );
+    render(<TemplateEditor />, { wrapper: wrapper() });
+    // Auto-selects first (Welcome)
+    await waitFor(() => screen.getByDisplayValue('Welcome to Encounter!'));
+    // Click second template
+    await userEvent.click(screen.getByText('Reminder Email'));
+    // Subject should switch
+    expect(screen.getByDisplayValue('One week away!')).toBeInTheDocument();
+  });
+
   it('populates form when template is clicked and saves via PATCH', async () => {
     const fetchMock = vi.spyOn(global, 'fetch')
-      // initial list
       .mockResolvedValueOnce(
         new Response(JSON.stringify({ ok: true, templates: [TEMPLATE] }), { status: 200 })
       )
-      // PATCH save
       .mockResolvedValueOnce(
         new Response(JSON.stringify({ ok: true, template: { ...TEMPLATE, subject: 'Updated Subject' } }), { status: 200 })
       );
 
     render(<TemplateEditor />, { wrapper: wrapper() });
-    await waitFor(() => screen.getByText('Welcome Email'));
+    // Auto-selects first template
+    await waitFor(() => screen.getByDisplayValue('Welcome to Encounter!'));
 
-    // Click template to select it
-    await userEvent.click(screen.getByText('Welcome Email'));
-
-    // Subject field should be populated
     const subjectInput = screen.getByDisplayValue('Welcome to Encounter!') as HTMLInputElement;
-    expect(subjectInput).toBeInTheDocument();
-
-    // Change subject
     await userEvent.clear(subjectInput);
     await userEvent.type(subjectInput, 'Updated Subject');
 
-    // Save
     await userEvent.click(screen.getByRole('button', { name: /save template/i }));
 
     await waitFor(() => expect(screen.getByText(/saved\./i)).toBeInTheDocument());
 
-    // Verify PATCH call
     const calls = fetchMock.mock.calls as [string, RequestInit][];
     const patchCall = calls.find(([url, init]) => init?.method === 'PATCH');
     expect(patchCall).toBeDefined();

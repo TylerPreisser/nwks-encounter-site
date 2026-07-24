@@ -79,6 +79,22 @@ describe('email_templates seed (0002_seed_templates.sql)', () => {
     expect(results.length).toBe(4);
   });
 
+  // ── Migration 0010: all templates must have a logo <img> ──────────────────
+  it.each([
+    ['mens',   'welcome'],
+    ['women',  'welcome'],
+    ['shared', 'reminder'],
+    ['shared', 'packing_list'],
+  ])('%s/%s body_html contains a logo <img> after migration 0010', async (program, key) => {
+    const row = await (env as any).DB
+      .prepare(`SELECT body_html FROM email_templates WHERE program = ? AND key = ?`)
+      .bind(program, key)
+      .first<{ body_html: string }>();
+    expect(row).not.toBeNull();
+    expect(row!.body_html).toContain('<img');
+    expect(row!.body_html).toContain('email-assets/');
+  });
+
   it('seed is idempotent (INSERT OR IGNORE — no duplicates on second apply)', async () => {
     // Run the seed SQL again inline — simulating a re-apply
     await (env as any).DB
