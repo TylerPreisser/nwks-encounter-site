@@ -119,3 +119,35 @@ runtime). For the draft-and-approve safety model, see
 `docs/superpowers/plans/2026-07-23-nwks-encounter-p5-ai-assistant.md` and the
 `SAFETY CONTRACT` comment blocks in `functions/_api/ai/agent.ts` and
 `functions/_api/ai/tools.ts`.
+
+## Testimony email intake
+
+Inbound testimonies are received via a dedicated email address
+(`testimonies@nwksencounter.com`) routed to the **`nwks-encounter-email`** Email Worker
+(`email-worker/`). The worker parses the raw MIME with `postal-mime`, runs the
+intelligent person-matcher, and stores the testimony (plus attachment metadata and body
+links) into the shared D1 database. No email address is lost — parse failures fall back
+to a minimal record.
+
+### Go-live steps
+
+1. **Enable Cloudflare Email Routing** for `nwksencounter.com` in the Cloudflare dashboard
+   (Email → Email Routing → Enable).
+
+2. **Deploy the email worker** (once; re-deploy after any changes):
+
+   ```sh
+   npm run deploy:email
+   ```
+
+3. **Add the custom address** in the Cloudflare dashboard:
+   - Email → Email Routing → Custom Addresses → Add address
+   - Address: `testimonies@nwksencounter.com`
+   - Action: **Send to a Worker**
+   - Worker: `nwks-encounter-email`
+
+4. **Verify** by sending a test email to `testimonies@nwksencounter.com`; check the
+   admin dashboard under Testimonies for the new row.
+
+> RESEND is only needed for *sending replies* (via the backend `/api/admin/testimonies/:id/reply`
+> endpoint), not for receiving. The email worker has no outbound mail dependency.

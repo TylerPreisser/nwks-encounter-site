@@ -1,0 +1,31 @@
+# email-worker/wrangler.toml
+# Standalone Cloudflare Email Worker — receives inbound testimony emails.
+# Deploy via: npm run deploy:email
+# Triggered by Cloudflare Email Routing, NOT by HTTP requests.
+
+name = "nwks-encounter-email"
+main = "worker.ts"
+compatibility_date = "2026-07-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "nwks-encounter"
+database_id = "5bcd5ebb-cb1f-4a10-8fca-00c11fea5d9b"
+migrations_dir = "../db/migrations"
+
+# R2 (for testimony attachment storage) — enable when R2 bucket is active.
+# See the TODO in email-worker/worker.ts for the upload integration point.
+# [[r2_buckets]]
+# binding = "PHOTOS"
+# bucket_name = "nwks-encounter-photos"
+
+[vars]
+# No outbound email vars needed — this worker only receives; replies go through the backend API.
+EMAIL_ENABLED  = "false"
+EMAIL_FROM     = ""
+EMAIL_REPLY_TO = ""
+RESEND_API_KEY = ""
+ANTHROPIC_API_KEY = ""
+TURNSTILE_SECRET  = ""
+CORS_ORIGINS      = ""

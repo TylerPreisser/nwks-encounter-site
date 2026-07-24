@@ -19,6 +19,7 @@
     "test:api:watch": "vitest --config vitest.config.ts",
     "test:admin": "vitest run --config admin/vitest.config.ts",
     "test:e2e": "playwright test",
+    "deploy:email": "npx wrangler deploy --config email-worker/wrangler.toml",
     "db:migrate": "npx wrangler d1 migrations apply nwks-encounter",
     "db:migrate:local": "npx wrangler d1 migrations apply nwks-encounter --local"
   },
@@ -43,5 +44,8 @@
   "bugs": {
     "url": "https://github.com/TylerPreisser/nwks-encounter-site/issues"
   },
-  "homepage": "https://github.com/TylerPreisser/nwks-encounter-site#readme"
+  "homepage": "https://github.com/TylerPreisser/nwks-encounter-site#readme",
+  "dependencies": {
+    "postal-mime": "^2.7.5"
+  }
 }
