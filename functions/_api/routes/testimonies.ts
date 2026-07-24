@@ -1,4 +1,4 @@
-// functions/_api/routes/testimonies.ts — Admin Testimonies & Teachings API
+// functions/_api/routes/testimonies.ts -- Admin Testimonies & Teachings API (Board Model)
 
 import { Hono } from 'hono';
 import type { Env } from '../app';
@@ -12,33 +12,51 @@ export const testimoniesRouter = new Hono<{ Bindings: Env; Variables: AppVariabl
 
 testimoniesRouter.use('*', requireAuth(), requireProgram());
 
+// Valid board statuses
+const BOARD_STATUSES = ['unfulfilled', 'in_progress', 'awaiting_next', 'approved', 'archived'] as const;
+type BoardStatus = typeof BOARD_STATUSES[number];
+
+function isValidStatus(s: string): s is BoardStatus {
+  return (BOARD_STATUSES as readonly string[]).includes(s);
+}
+
+// "Needs attention" = any non-approved, non-archived status
+const NEEDS_ATTENTION_STATUSES = ['unfulfilled', 'in_progress', 'awaiting_next'];
+
 // ---------------------------------------------------------------------------
 // GET /api/admin/testimonies/new-count
-// Must be registered BEFORE /:id to avoid param conflict
+// "Needs attention" badge: items in the active program (+ unassigned)
+// that are not yet approved or archived.
+// Must be registered BEFORE /:id to avoid param conflict.
 // ---------------------------------------------------------------------------
 testimoniesRouter.get('/new-count', async (c) => {
   const program = c.get('program') as Program;
 
-  const programNew = await c.env.DB.prepare(
-    `SELECT COUNT(*) AS n FROM testimonies WHERE program = ? AND status = 'new'`
-  ).bind(program).first<{ n: number }>();
+  const placeholders = NEEDS_ATTENTION_STATUSES.map(() => '?').join(',');
 
-  const unassignedNew = await c.env.DB.prepare(
-    `SELECT COUNT(*) AS n FROM testimonies WHERE program IS NULL AND status = 'new'`
-  ).first<{ n: number }>();
+  const programCount = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM testimonies
+     WHERE program = ? AND status IN (${placeholders})`
+  ).bind(program, ...NEEDS_ATTENTION_STATUSES).first<{ n: number }>();
+
+  const unassignedCount = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM testimonies
+     WHERE program IS NULL AND status IN (${placeholders})`
+  ).bind(...NEEDS_ATTENTION_STATUSES).first<{ n: number }>();
 
   return c.json({
     ok: true,
-    program_new: programNew?.n ?? 0,
-    unassigned_new: unassignedNew?.n ?? 0,
+    program_new: programCount?.n ?? 0,
+    unassigned_new: unassignedCount?.n ?? 0,
   });
 });
 
 // ---------------------------------------------------------------------------
 // GET /api/admin/testimonies
-// ?status=    optional status filter
-// ?type=      optional type filter
+// ?status=    filter by exact status
+// ?type=      filter by type (testimony|teaching)
 // ?assigned=unassigned  show only program-NULL rows
+// ?fulfilled= 'true' => approved only; 'false' => not approved/archived
 // Default: show program=activeProgram OR program IS NULL
 // ---------------------------------------------------------------------------
 testimoniesRouter.get('/', async (c) => {
@@ -46,6 +64,7 @@ testimoniesRouter.get('/', async (c) => {
   const status = c.req.query('status') ?? null;
   const type = c.req.query('type') ?? null;
   const assigned = c.req.query('assigned') ?? null;
+  const fulfilled = c.req.query('fulfilled') ?? null;
 
   const conditions: string[] = [];
   const bindings: (string | null)[] = [];
@@ -57,9 +76,13 @@ testimoniesRouter.get('/', async (c) => {
     bindings.push(program);
   }
 
-  if (status) {
+  if (status && isValidStatus(status)) {
     conditions.push('t.status = ?');
     bindings.push(status);
+  } else if (fulfilled === 'true') {
+    conditions.push("t.status = 'approved'");
+  } else if (fulfilled === 'false') {
+    conditions.push("t.status NOT IN ('approved', 'archived')");
   }
 
   if (type) {
@@ -77,10 +100,99 @@ testimoniesRouter.get('/', async (c) => {
      FROM testimonies t
      LEFT JOIN people p ON p.id = t.person_id
      ${where}
-     ORDER BY t.received_at DESC, t.created_at DESC`
+     ORDER BY
+       CASE t.status
+         WHEN 'approved'     THEN 4
+         WHEN 'archived'     THEN 5
+         WHEN 'in_progress'  THEN 2
+         WHEN 'awaiting_next' THEN 3
+         ELSE 1
+       END,
+       t.received_at DESC, t.created_at DESC`
   ).bind(...bindings).all();
 
   return c.json({ ok: true, testimonies: rows.results });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/admin/testimonies
+// Create a needed item (unfulfilled or in_progress).
+// Body: { type, person_id?, title?, status? }
+// Program is derived from assigned person, or stays null if unassigned.
+// ---------------------------------------------------------------------------
+testimoniesRouter.post('/', async (c) => {
+  const program = c.get('program') as Program;
+
+  let body: {
+    type?: string;
+    person_id?: number | null;
+    title?: string | null;
+    status?: string;
+  } = {};
+  try {
+    body = await c.req.json();
+  } catch {
+    // empty body
+  }
+
+  // Validate type
+  const type = body.type ?? 'testimony';
+  if (!['testimony', 'teaching'].includes(type)) {
+    return c.json({ ok: false, error: 'invalid type' }, 400);
+  }
+
+  // Validate status (default unfulfilled)
+  const status = body.status ?? 'unfulfilled';
+  if (!isValidStatus(status)) {
+    return c.json({ ok: false, error: 'invalid status' }, 400);
+  }
+
+  // Resolve person + program
+  let personId: number | null = null;
+  let itemProgram: string | null = null;
+
+  if (body.person_id != null) {
+    const person = await c.env.DB.prepare(
+      `SELECT id, program FROM people WHERE id = ? AND merged_into_id IS NULL`
+    ).bind(body.person_id).first<{ id: number; program: string }>();
+    if (!person) {
+      return c.json({ ok: false, error: 'person not found' }, 404);
+    }
+    personId = person.id;
+    itemProgram = person.program;
+  } else {
+    // No person assigned — default to current admin's program
+    itemProgram = program;
+  }
+
+  const now = nowIso();
+  const title = body.title?.trim() ?? null;
+
+  const { meta } = await c.env.DB.prepare(
+    `INSERT INTO testimonies
+       (type, person_id, program, title, from_email, from_name,
+        status, assigned_at, created_at)
+     VALUES (?, ?, ?, ?, '', '', ?, ?, ?)`
+  ).bind(
+    type,
+    personId,
+    itemProgram,
+    title,
+    status,
+    personId ? now : null,
+    now
+  ).run();
+
+  const newId = meta.last_row_id as number;
+  const created = await c.env.DB.prepare(
+    `SELECT t.*, p.first_name, p.last_name,
+            0 AS attachment_count, 0 AS comment_count
+     FROM testimonies t
+     LEFT JOIN people p ON p.id = t.person_id
+     WHERE t.id = ?`
+  ).bind(newId).first<Record<string, unknown>>();
+
+  return c.json({ ok: true, testimony: created }, 201);
 });
 
 // ---------------------------------------------------------------------------
@@ -112,7 +224,6 @@ testimoniesRouter.get('/:id', async (c) => {
      WHERE tc.testimony_id = ? ORDER BY tc.created_at`
   ).bind(id).all();
 
-  // Build person summary if matched
   let person: Record<string, unknown> | null = null;
   if (testimony.person_id) {
     person = {
@@ -124,7 +235,6 @@ testimoniesRouter.get('/:id', async (c) => {
     };
   }
 
-  // Strip person fields from testimony object for cleaner response
   const { first_name, last_name, person_email, person_program, ...testimonyCore } = testimony;
 
   return c.json({
@@ -144,7 +254,6 @@ testimoniesRouter.post('/:id/comment', async (c) => {
   const user = c.get('user') as { id: number };
   const id = Number(c.req.param('id'));
 
-  // Check access
   const testimony = await c.env.DB.prepare(
     `SELECT id FROM testimonies WHERE id = ? AND (program = ? OR program IS NULL)`
   ).bind(id, program).first<{ id: number }>();
@@ -175,7 +284,7 @@ testimoniesRouter.post('/:id/comment', async (c) => {
 
 // ---------------------------------------------------------------------------
 // POST /api/admin/testimonies/:id/reply
-// Sends a reply email to from_email; sets status='replied'; writes email_log.
+// Sends a reply email to from_email; sets status='in_progress' (board model).
 // ---------------------------------------------------------------------------
 testimoniesRouter.post('/:id/reply', async (c) => {
   const program = c.get('program') as Program;
@@ -205,8 +314,9 @@ testimoniesRouter.post('/:id/reply', async (c) => {
     program,
   });
 
+  // In board model, replying moves to awaiting_next (waiting for their next draft)
   await c.env.DB.prepare(
-    `UPDATE testimonies SET status = 'replied' WHERE id = ?`
+    `UPDATE testimonies SET status = 'awaiting_next' WHERE id = ?`
   ).bind(id).run();
 
   return c.json({ ok: true });
@@ -214,7 +324,7 @@ testimoniesRouter.post('/:id/reply', async (c) => {
 
 // ---------------------------------------------------------------------------
 // PATCH /api/admin/testimonies/:id
-// Update status, type, or person_id (reassign).
+// Update status, type, title, or person_id (reassign).
 // Program isolation: can act on own-program + unassigned; not other program.
 // ---------------------------------------------------------------------------
 testimoniesRouter.patch('/:id', async (c) => {
@@ -226,7 +336,12 @@ testimoniesRouter.patch('/:id', async (c) => {
   ).bind(id, program).first<{ id: number; program: string | null; person_id: number | null }>();
   if (!testimony) return c.json({ ok: false, error: 'not found' }, 404);
 
-  let body: { status?: string; type?: string; person_id?: number | null } = {};
+  let body: {
+    status?: string;
+    type?: string;
+    title?: string | null;
+    person_id?: number | null;
+  } = {};
   try {
     body = await c.req.json();
   } catch {
@@ -237,8 +352,7 @@ testimoniesRouter.patch('/:id', async (c) => {
   const bindings: (string | number | null)[] = [];
 
   if (body.status !== undefined) {
-    const allowed = ['new', 'read', 'replied', 'archived'];
-    if (!allowed.includes(body.status)) {
+    if (!isValidStatus(body.status)) {
       return c.json({ ok: false, error: 'invalid status' }, 400);
     }
     updates.push('status = ?');
@@ -254,13 +368,17 @@ testimoniesRouter.patch('/:id', async (c) => {
     bindings.push(body.type);
   }
 
+  if ('title' in body) {
+    updates.push('title = ?');
+    bindings.push(body.title?.trim() ?? null);
+  }
+
   if ('person_id' in body) {
     if (body.person_id === null || body.person_id === undefined) {
-      // Unassign
       updates.push('person_id = NULL');
       updates.push('program = NULL');
+      updates.push('assigned_at = NULL');
     } else {
-      // Reassign — look up new person's program
       const person = await c.env.DB.prepare(
         `SELECT id, program FROM people WHERE id = ? AND merged_into_id IS NULL`
       ).bind(body.person_id).first<{ id: number; program: string }>();
@@ -271,6 +389,8 @@ testimoniesRouter.patch('/:id', async (c) => {
       bindings.push(person.id);
       updates.push('program = ?');
       bindings.push(person.program);
+      updates.push('assigned_at = ?');
+      bindings.push(nowIso());
     }
   }
 
@@ -284,8 +404,8 @@ testimoniesRouter.patch('/:id', async (c) => {
   ).bind(...bindings).run();
 
   const updated = await c.env.DB.prepare(
-    `SELECT id, status, type, person_id, program FROM testimonies WHERE id = ?`
-  ).bind(id).first<{ id: number; status: string; type: string; person_id: number | null; program: string | null }>();
+    `SELECT id, status, type, title, person_id, program FROM testimonies WHERE id = ?`
+  ).bind(id).first<{ id: number; status: string; type: string; title: string | null; person_id: number | null; program: string | null }>();
 
   return c.json({ ok: true, testimony: updated });
 });

@@ -254,7 +254,7 @@ describe('email worker handler — integration', () => {
     expect(row!.subject).toBe('Weekend testimony');
     expect(row!.body_text).toContain('God changed my life');
     expect(row!.match_confidence).toBe('email');
-    expect(row!.status).toBe('new');
+    expect(row!.status).toBe('in_progress');
     expect(row!.type).toBe('testimony');
   });
 

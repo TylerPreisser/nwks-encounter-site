@@ -34,7 +34,11 @@ export interface ParsedTestimony {
 export interface StoreResult {
   testimony_id: number;
   matched: boolean;
+  attached_to_existing: boolean;
 }
+
+// Board statuses that indicate the item is still active (not fulfilled/done)
+const OPEN_STATUSES = ['unfulfilled', 'in_progress', 'awaiting_next'];
 
 // ---------------------------------------------------------------------------
 // matchTestimonyToPerson
@@ -130,14 +134,94 @@ export function extractLinks(bodyText: string): string[] {
 }
 
 // ---------------------------------------------------------------------------
+// attachContentToTestimony
+// Internal helper: update a testimony row with new content and insert attachments.
+// ---------------------------------------------------------------------------
+
+async function attachContentToTestimony(
+  env: Env,
+  testimonyId: number,
+  parsed: ParsedTestimony,
+  nextStatus: string
+): Promise<void> {
+  const db = env.DB;
+  const now = nowIso();
+
+  // Update the testimony row with new content and advance status
+  await db
+    .prepare(
+      `UPDATE testimonies
+       SET from_email = ?, from_name = ?, subject = ?,
+           body_text = ?, body_html = ?, match_confidence = 'email',
+           status = ?, received_at = ?
+       WHERE id = ?`
+    )
+    .bind(
+      parsed.from_email,
+      parsed.from_name,
+      parsed.subject ?? null,
+      parsed.body_text ?? null,
+      parsed.body_html ?? null,
+      nextStatus,
+      parsed.received_at ?? now,
+      testimonyId
+    )
+    .run();
+
+  // Insert attachment rows
+  const usedLinkUrls = new Set<string>();
+  const attachments = parsed.attachments ?? [];
+  for (const att of attachments) {
+    if (att.link_url) usedLinkUrls.add(att.link_url);
+    await db
+      .prepare(
+        `INSERT INTO testimony_attachments
+           (testimony_id, filename, content_type, size, r2_key, link_url, created_at)
+         VALUES (?, ?, ?, ?, NULL, ?, ?)`
+      )
+      .bind(
+        testimonyId,
+        att.filename ?? null,
+        att.content_type ?? null,
+        att.size ?? null,
+        att.link_url ?? null,
+        now
+      )
+      .run();
+  }
+
+  // Body link rows
+  const bodyLinks = extractLinks(parsed.body_text ?? '');
+  for (const url of bodyLinks) {
+    if (usedLinkUrls.has(url)) continue;
+    usedLinkUrls.add(url);
+    await db
+      .prepare(
+        `INSERT INTO testimony_attachments
+           (testimony_id, filename, content_type, size, r2_key, link_url, created_at)
+         VALUES (?, ?, NULL, NULL, NULL, ?, ?)`
+      )
+      .bind(testimonyId, url, url, now)
+      .run();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // storeTestimony
 // ---------------------------------------------------------------------------
 
 /**
- * Runs the person matcher, inserts the testimony row, inserts attachment rows
- * (r2_key NULL for all), and inserts extracted body-link rows as attachments.
+ * Board-aware ingestion:
  *
- * Always sets status = 'new'.
+ * 1. Match the sender to a person.
+ * 2. If matched and that person already has an OPEN needed item of the same type
+ *    (status not approved/archived), attach the email content to that item and
+ *    advance its status to in_progress.
+ * 3. Otherwise create a new item (status in_progress if matched, unfulfilled if not).
+ *    Unmatched senders get an unassigned in_progress item for review.
+ *
+ * Always sets status = 'new' is replaced by: 'in_progress' for matched/unmatched
+ * (a new submission is always "in progress" — they've sent something).
  */
 export async function storeTestimony(
   env: Env,
@@ -147,17 +231,46 @@ export async function storeTestimony(
   const now = nowIso();
 
   const match = await matchTestimonyToPerson(env, parsed.from_email, parsed.from_name);
+  const type = parsed.type ?? 'testimony';
 
-  // Insert testimony row
+  // Check for an existing open needed item for this person+type
+  if (match.person_id !== null) {
+    const openItem = await db
+      .prepare(
+        `SELECT id FROM testimonies
+         WHERE person_id = ? AND type = ?
+           AND status IN (${OPEN_STATUSES.map(() => '?').join(',')})
+         ORDER BY created_at ASC
+         LIMIT 1`
+      )
+      .bind(match.person_id, type, ...OPEN_STATUSES)
+      .first<{ id: number }>();
+
+    if (openItem) {
+      // Attach content to the existing needed item
+      await attachContentToTestimony(env, openItem.id, parsed, 'in_progress');
+      return {
+        testimony_id: openItem.id,
+        matched: true,
+        attached_to_existing: true,
+      };
+    }
+  }
+
+  // No existing open item -- create a new one
+  // Matched person -> in_progress (they sent something)
+  // Unmatched sender -> in_progress (needs review, goes to unassigned bucket)
+  const status = 'in_progress';
+
   const { meta } = await db
     .prepare(
       `INSERT INTO testimonies
          (type, person_id, program, from_email, from_name, subject,
           body_text, body_html, match_confidence, status, received_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
-      parsed.type ?? 'testimony',
+      type,
       match.person_id,
       match.program,
       parsed.from_email,
@@ -166,6 +279,7 @@ export async function storeTestimony(
       parsed.body_text ?? null,
       parsed.body_html ?? null,
       match.confidence,
+      status,
       parsed.received_at ?? null,
       now
     )
@@ -212,5 +326,9 @@ export async function storeTestimony(
       .run();
   }
 
-  return { testimony_id: testimonyId, matched: match.confidence !== 'none' };
+  return {
+    testimony_id: testimonyId,
+    matched: match.confidence !== 'none',
+    attached_to_existing: false,
+  };
 }

@@ -1,8 +1,7 @@
-// admin/src/__tests__/Testimonies.test.tsx — RTL tests for Testimonies & Teachings UI
+// admin/src/__tests__/Testimonies.test.tsx -- RTL tests for Testimonies & Teachings Board UI
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { ProgramContext } from '../App';
 import Testimonies from '../pages/Testimonies';
@@ -27,7 +26,8 @@ beforeEach(() => {
 
 // ── Fixtures ───────────────────────────────────────────────────────────────────
 
-const TESTIMONY_NEW: import('../pages/Testimonies').TestimonyRow = {
+// Board uses unfulfilled/in_progress/awaiting_next/approved/archived
+const TESTIMONY_UNFULFILLED: import('../pages/Testimonies').TestimonyRow = {
   id: 1,
   program: 'mens',
   person_id: 10,
@@ -36,7 +36,8 @@ const TESTIMONY_NEW: import('../pages/Testimonies').TestimonyRow = {
   from_name: 'John Doe',
   from_email: 'john@example.com',
   subject: 'My testimony',
-  status: 'new',
+  title: 'Saturday night testimony',
+  status: 'unfulfilled',
   type: 'testimony',
   received_at: '2026-07-20T10:00:00Z',
   created_at: '2026-07-20T10:00:00Z',
@@ -44,7 +45,7 @@ const TESTIMONY_NEW: import('../pages/Testimonies').TestimonyRow = {
   comment_count: 0,
 };
 
-const TESTIMONY_READ: import('../pages/Testimonies').TestimonyRow = {
+const TESTIMONY_IN_PROGRESS: import('../pages/Testimonies').TestimonyRow = {
   id: 2,
   program: 'mens',
   person_id: null,
@@ -53,7 +54,8 @@ const TESTIMONY_READ: import('../pages/Testimonies').TestimonyRow = {
   from_name: 'Jane Smith',
   from_email: 'jane@example.com',
   subject: 'Teaching session',
-  status: 'read',
+  title: null,
+  status: 'in_progress',
   type: 'teaching',
   received_at: '2026-07-19T09:00:00Z',
   created_at: '2026-07-19T09:00:00Z',
@@ -70,7 +72,8 @@ const TESTIMONY_UNASSIGNED: import('../pages/Testimonies').TestimonyRow = {
   from_name: 'Unknown Sender',
   from_email: 'unknown@example.com',
   subject: 'Unmatched email',
-  status: 'new',
+  title: null,
+  status: 'in_progress',
   type: 'testimony',
   received_at: '2026-07-18T08:00:00Z',
   created_at: '2026-07-18T08:00:00Z',
@@ -87,9 +90,10 @@ const DETAIL_RESPONSE = {
     from_name: 'John Doe',
     from_email: 'john@example.com',
     subject: 'My testimony',
+    title: 'Saturday night testimony',
     body_html: '<p>This is my <strong>testimony</strong>.</p>',
     body_text: 'This is my testimony.',
-    status: 'new' as const,
+    status: 'unfulfilled' as const,
     type: 'testimony' as const,
     received_at: '2026-07-20T10:00:00Z',
     created_at: '2026-07-20T10:00:00Z',
@@ -150,7 +154,7 @@ describe('Testimonies page — list', () => {
   });
 
   it('shows loading state initially', () => {
-    // Never resolves → stays loading
+    // Never resolves -> stays loading
     mockApiFetch.mockReturnValue(new Promise(() => {}));
     renderTestimonies();
     expect(screen.getAllByText(/loading/i).length).toBeGreaterThan(0);
@@ -159,7 +163,7 @@ describe('Testimonies page — list', () => {
   it('renders testimonies from a mocked payload', async () => {
     mockApiFetch.mockResolvedValue({
       ok: true,
-      testimonies: [TESTIMONY_NEW, TESTIMONY_READ],
+      testimonies: [TESTIMONY_UNFULFILLED, TESTIMONY_IN_PROGRESS],
     });
     renderTestimonies();
     await waitFor(() => {
@@ -168,14 +172,14 @@ describe('Testimonies page — list', () => {
     });
   });
 
-  it('visually flags NEW testimonies (blue dot)', async () => {
+  it('visually flags UNFULFILLED items (grey dot)', async () => {
     mockApiFetch.mockResolvedValue({
       ok: true,
-      testimonies: [TESTIMONY_NEW],
+      testimonies: [TESTIMONY_UNFULFILLED],
     });
     renderTestimonies();
     await waitFor(() => expect(screen.getByText('John Doe')).toBeInTheDocument());
-    // The new indicator has aria-label="New"
+    // The unfulfilled indicator has aria-label="New"
     expect(screen.getByLabelText('New')).toBeInTheDocument();
   });
 
@@ -193,6 +197,24 @@ describe('Testimonies page — list', () => {
     await waitFor(() =>
       expect(screen.getByText(/network error/i)).toBeInTheDocument()
     );
+  });
+
+  it('shows board sections (Unfulfilled / Fulfilled) when items present', async () => {
+    const approvedItem: import('../pages/Testimonies').TestimonyRow = {
+      ...TESTIMONY_UNFULFILLED,
+      id: 99,
+      status: 'approved',
+      title: 'Done testimony',
+    };
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      testimonies: [TESTIMONY_UNFULFILLED, approvedItem],
+    });
+    renderTestimonies();
+    await waitFor(() => {
+      expect(screen.getByText(/unfulfilled/i)).toBeInTheDocument();
+      expect(screen.getByText(/fulfilled/i)).toBeInTheDocument();
+    });
   });
 });
 
@@ -228,14 +250,25 @@ describe('Testimonies page — filters', () => {
     });
   });
 
-  it('calls API with status=new when new status filter clicked', async () => {
+  it('calls API with status=unfulfilled when unfulfilled status filter clicked', async () => {
     renderTestimonies();
-    await waitFor(() => screen.getByTestId('filter-status-new'));
-    fireEvent.click(screen.getByTestId('filter-status-new'));
+    await waitFor(() => screen.getByTestId('filter-status-unfulfilled'));
+    fireEvent.click(screen.getByTestId('filter-status-unfulfilled'));
     await waitFor(() => {
       const calls = mockApiFetch.mock.calls;
       const lastCall = calls[calls.length - 1][0] as string;
-      expect(lastCall).toMatch(/status=new/);
+      expect(lastCall).toMatch(/status=unfulfilled/);
+    });
+  });
+
+  it('calls API with status=approved when approved filter clicked', async () => {
+    renderTestimonies();
+    await waitFor(() => screen.getByTestId('filter-status-approved'));
+    fireEvent.click(screen.getByTestId('filter-status-approved'));
+    await waitFor(() => {
+      const calls = mockApiFetch.mock.calls;
+      const lastCall = calls[calls.length - 1][0] as string;
+      expect(lastCall).toMatch(/status=approved/);
     });
   });
 
@@ -252,8 +285,8 @@ describe('Testimonies page — filters', () => {
 
   it('renders unassigned testimonies in the unassigned view', async () => {
     mockApiFetch
-      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_NEW, TESTIMONY_READ] }) // initial
-      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_UNASSIGNED] });          // after click
+      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_UNFULFILLED, TESTIMONY_IN_PROGRESS] })
+      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_UNASSIGNED] });
 
     renderTestimonies();
     await waitFor(() => screen.getByTestId('view-unassigned'));
@@ -274,23 +307,23 @@ describe('Testimonies page — detail view', () => {
   afterEach(() => vi.restoreAllMocks());
 
   function setupWithList() {
-    // Sequence: list → GET detail → PATCH mark-read (fires after GET resolves)
+    // Sequence: list -> GET detail -> PATCH unfulfilled->in_progress
     mockApiFetch
-      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_NEW, TESTIMONY_READ] })
+      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_UNFULFILLED, TESTIMONY_IN_PROGRESS] })
       .mockResolvedValueOnce(DETAIL_RESPONSE)  // GET /admin/testimonies/1
-      .mockResolvedValue({ ok: true });         // PATCH mark-read + any subsequent
+      .mockResolvedValue({ ok: true });        // PATCH auto-advance + any subsequent
     renderTestimonies();
   }
 
-  it('opens detail when a testimony row is clicked', async () => {
+  it('opens detail when a board row is clicked', async () => {
     setupWithList();
     await waitFor(() => screen.getByTestId('testimony-row-1'));
     fireEvent.click(screen.getByTestId('testimony-row-1'));
-    // The detail header shows the subject prominently
+    // The detail header shows the title prominently
     await waitFor(() =>
-      expect(screen.getByText(/my testimony/i)).toBeInTheDocument()
+      expect(screen.getByText(/saturday night testimony/i)).toBeInTheDocument()
     );
-    // The detail body text should appear (from DETAIL_RESPONSE.body_html)
+    // The detail body text should appear
     await waitFor(() =>
       expect(screen.getByText(/this is my/i)).toBeInTheDocument()
     );
@@ -335,11 +368,11 @@ describe('Testimonies page — detail view', () => {
     expect(screen.getByText(/admin user/i)).toBeInTheDocument();
   });
 
-  it('marks a new testimony as read when opened', async () => {
+  it('advances unfulfilled item to in_progress when opened', async () => {
     setupWithList();
     await waitFor(() => screen.getByTestId('testimony-row-1'));
     fireEvent.click(screen.getByTestId('testimony-row-1'));
-    // After detail loads, PATCH status=read should be called
+    // After detail loads, PATCH status=in_progress should be called
     await waitFor(() => {
       const patchCall = mockApiFetch.mock.calls.find(
         c =>
@@ -349,7 +382,7 @@ describe('Testimonies page — detail view', () => {
       );
       expect(patchCall).toBeDefined();
       const body = JSON.parse((patchCall![1] as RequestInit).body as string);
-      expect(body.status).toBe('read');
+      expect(body.status).toBe('in_progress');
     });
   });
 });
@@ -359,25 +392,17 @@ describe('Testimonies page — detail view', () => {
 describe('Testimonies page — add comment', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockApiFetch
-      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_READ] })
-      .mockResolvedValueOnce({ ok: true }) // PATCH mark-read (won't fire for 'read' but guard)
-      .mockResolvedValue({
-        ...DETAIL_RESPONSE,
-        testimony: { ...DETAIL_RESPONSE.testimony, status: 'read' },
-      });
   });
 
   afterEach(() => vi.restoreAllMocks());
 
   it('posts a comment and shows it in the thread', async () => {
-    // Setup: list → detail (no PATCH since status is 'read')
     mockApiFetch.mockReset();
     mockApiFetch
-      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_READ] })
+      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_IN_PROGRESS] })
       .mockResolvedValueOnce({
         ...DETAIL_RESPONSE,
-        testimony: { ...DETAIL_RESPONSE.testimony, id: 2, status: 'read' as const },
+        testimony: { ...DETAIL_RESPONSE.testimony, id: 2, status: 'in_progress' as const },
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -419,10 +444,10 @@ describe('Testimonies page — reply', () => {
 
   it('shows reply composer when "Compose reply" is clicked and POSTs on send', async () => {
     mockApiFetch
-      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_READ] })
+      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_IN_PROGRESS] })
       .mockResolvedValueOnce({
         ...DETAIL_RESPONSE,
-        testimony: { ...DETAIL_RESPONSE.testimony, id: 2, status: 'read' as const },
+        testimony: { ...DETAIL_RESPONSE.testimony, id: 2, status: 'in_progress' as const },
       })
       .mockResolvedValueOnce({ ok: true }); // reply POST
 
@@ -434,25 +459,17 @@ describe('Testimonies page — reply', () => {
     fireEvent.click(screen.getByText(/compose reply/i));
     await waitFor(() => screen.getByLabelText(/reply subject/i));
 
-    // Fill subject
     const subjectInput = screen.getByLabelText(/reply subject/i);
     fireEvent.change(subjectInput, { target: { value: 'Re: Teaching session' } });
 
-    // Simulate text in the reply editor — the contenteditable div has aria-label "Reply body"
     const editor = screen.getByRole('textbox', { name: /reply body/i });
     fireEvent.input(editor, { target: { innerHTML: '<p>Thank you!</p>' } });
 
-    // Directly mock what the RichTextEditor emits by calling the onChange through state
-    // We need to set replyText; easiest: directly call the send-reply button after mocking the POST
-    // Actually, let's just fire change on the hidden textarea equivalent by patching the mock
-    // The editor emits onChange when input fires — but in jsdom innerHTML isn't actually set.
-    // Set the text on the node directly:
     Object.defineProperty(editor, 'innerHTML', { value: '<p>Thank you!</p>', writable: true });
     fireEvent.input(editor);
 
     await waitFor(() => {
       const sendBtn = screen.getByRole('button', { name: /send reply/i });
-      // Enable button by simulating non-empty text
       expect(sendBtn).toBeInTheDocument();
     });
   });
@@ -465,14 +482,13 @@ describe('Testimonies page — reassign / retag / status PATCH', () => {
 
   it('PATCHes type when the type dropdown changes', async () => {
     vi.clearAllMocks();
-    // Sequence: list → GET detail → PATCH mark-read → PATCH type
     mockApiFetch
-      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_NEW] }) // list
-      .mockResolvedValueOnce(DETAIL_RESPONSE)                             // GET detail
-      .mockResolvedValueOnce({ ok: true })                                // PATCH mark-read
+      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_UNFULFILLED] })
+      .mockResolvedValueOnce(DETAIL_RESPONSE)
+      .mockResolvedValueOnce({ ok: true }) // PATCH auto-advance to in_progress
       .mockResolvedValueOnce({
         ok: true,
-        testimony: { id: 1, status: 'read', type: 'teaching', person_id: 10, program: 'mens' },
+        testimony: { id: 1, status: 'in_progress', type: 'teaching', title: null, person_id: 10, program: 'mens' },
       });
 
     renderTestimonies();
@@ -498,12 +514,12 @@ describe('Testimonies page — reassign / retag / status PATCH', () => {
   it('PATCHes status when the status dropdown changes', async () => {
     vi.clearAllMocks();
     mockApiFetch
-      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_NEW] }) // list
-      .mockResolvedValueOnce(DETAIL_RESPONSE)                             // GET detail
-      .mockResolvedValueOnce({ ok: true })                                // PATCH mark-read
+      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_UNFULFILLED] })
+      .mockResolvedValueOnce(DETAIL_RESPONSE)
+      .mockResolvedValueOnce({ ok: true }) // PATCH auto-advance
       .mockResolvedValueOnce({
         ok: true,
-        testimony: { id: 1, status: 'archived', type: 'testimony', person_id: 10, program: 'mens' },
+        testimony: { id: 1, status: 'approved', type: 'testimony', title: null, person_id: 10, program: 'mens' },
       });
 
     renderTestimonies();
@@ -512,7 +528,7 @@ describe('Testimonies page — reassign / retag / status PATCH', () => {
     await waitFor(() => screen.getByLabelText(/change status/i));
 
     const statusSelect = screen.getByLabelText(/change status/i);
-    fireEvent.change(statusSelect, { target: { value: 'archived' } });
+    fireEvent.change(statusSelect, { target: { value: 'approved' } });
 
     await waitFor(() => {
       const patchCall = mockApiFetch.mock.calls.find(
@@ -520,7 +536,7 @@ describe('Testimonies page — reassign / retag / status PATCH', () => {
           typeof c[0] === 'string' &&
           c[0] === '/admin/testimonies/1' &&
           (c[1] as RequestInit)?.method === 'PATCH' &&
-          JSON.parse((c[1] as RequestInit).body as string)?.status === 'archived'
+          JSON.parse((c[1] as RequestInit).body as string)?.status === 'approved'
       );
       expect(patchCall).toBeDefined();
     });
@@ -534,9 +550,9 @@ describe('Testimonies page — reassign / retag / status PATCH', () => {
       testimony: { ...DETAIL_RESPONSE.testimony, person_id: null },
     };
     mockApiFetch
-      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_NEW] }) // list
-      .mockResolvedValueOnce(noPersonDetail)                              // GET detail
-      .mockResolvedValue({ ok: true });                                   // PATCH mark-read
+      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_UNFULFILLED] })
+      .mockResolvedValueOnce(noPersonDetail)
+      .mockResolvedValue({ ok: true });
 
     renderTestimonies();
     await waitFor(() => screen.getByTestId('testimony-row-1'));

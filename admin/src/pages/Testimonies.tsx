@@ -1,4 +1,4 @@
-// admin/src/pages/Testimonies.tsx — Testimonies & Teachings admin page
+// admin/src/pages/Testimonies.tsx -- Testimonies & Teachings Board (roster/tracker)
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { apiFetch } from '@/api';
@@ -7,6 +7,8 @@ import { THEMES } from '@/theme';
 import { RichTextEditor, htmlToText } from '@/components/email/RichTextEditor';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+
+export type BoardStatus = 'unfulfilled' | 'in_progress' | 'awaiting_next' | 'approved' | 'archived';
 
 export interface TestimonyRow {
   id: number;
@@ -17,7 +19,8 @@ export interface TestimonyRow {
   from_name: string | null;
   from_email: string;
   subject: string | null;
-  status: 'new' | 'read' | 'replied' | 'archived';
+  title: string | null;
+  status: BoardStatus;
   type: 'testimony' | 'teaching';
   received_at: string | null;
   created_at: string;
@@ -57,101 +60,53 @@ export interface TestimonyDetail {
   from_name: string | null;
   from_email: string;
   subject: string | null;
+  title: string | null;
   body_html: string | null;
   body_text: string | null;
-  status: 'new' | 'read' | 'replied' | 'archived';
+  status: BoardStatus;
   type: 'testimony' | 'teaching';
   received_at: string | null;
   created_at: string;
 }
 
 type FilterType = 'all' | 'testimony' | 'teaching';
-type FilterStatus = 'all' | 'new' | 'read' | 'replied' | 'archived';
+type FilterStatus = 'all' | BoardStatus;
 type ViewMode = 'program' | 'unassigned';
 
-// ── Status badge ──────────────────────────────────────────────────────────────
+// ── Status helpers ─────────────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: string }) {
-  const classes: Record<string, string> = {
-    new:      'bg-blue-100 text-blue-800',
-    read:     'bg-gray-100 text-gray-600',
-    replied:  'bg-green-100 text-green-700',
-    archived: 'bg-yellow-50 text-yellow-700',
-  };
+const STATUS_LABELS: Record<BoardStatus, string> = {
+  unfulfilled:  'Unfulfilled',
+  in_progress:  'In Progress',
+  awaiting_next: 'Awaiting Next',
+  approved:     'Approved',
+  archived:     'Archived',
+};
+
+const STATUS_COLORS: Record<BoardStatus, string> = {
+  unfulfilled:  'bg-gray-100 text-gray-600',
+  in_progress:  'bg-blue-100 text-blue-800',
+  awaiting_next: 'bg-amber-100 text-amber-800',
+  approved:     'bg-green-100 text-green-700',
+  archived:     'bg-yellow-50 text-yellow-700',
+};
+
+const FULFILLED_STATUSES: BoardStatus[] = ['approved'];
+const NEEDS_ATTENTION: BoardStatus[] = ['unfulfilled', 'in_progress', 'awaiting_next'];
+
+function isFulfilled(status: BoardStatus) {
+  return FULFILLED_STATUSES.includes(status);
+}
+
+function StatusBadge({ status }: { status: BoardStatus }) {
   return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${classes[status] ?? 'bg-gray-100 text-gray-600'}`}>
-      {status}
+    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-600'}`}>
+      {STATUS_LABELS[status] ?? status}
     </span>
   );
 }
 
-// ── Testimony list ─────────────────────────────────────────────────────────────
-
-interface ListProps {
-  testimonies: TestimonyRow[];
-  selectedId: number | null;
-  onSelect: (t: TestimonyRow) => void;
-}
-
-function TestimonyList({ testimonies, selectedId, onSelect }: ListProps) {
-  if (testimonies.length === 0) {
-    return (
-      <div className="flex-1 flex items-center justify-center text-sm text-gray-400 p-8">
-        No testimonies found.
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
-      {testimonies.map((t) => {
-        const isNew = t.status === 'new';
-        const selected = t.id === selectedId;
-        const senderName = t.from_name || t.from_email;
-        const personLabel = t.first_name
-          ? `${t.first_name} ${t.last_name ?? ''}`.trim()
-          : null;
-
-        return (
-          <button
-            key={t.id}
-            type="button"
-            data-testid={`testimony-row-${t.id}`}
-            onClick={() => onSelect(t)}
-            className={`w-full text-left px-4 py-3 transition-colors focus:outline-none focus:ring-2 focus:ring-inset ${
-              selected
-                ? 'bg-blue-50 border-l-4 border-blue-500'
-                : isNew
-                ? 'bg-blue-50/40 hover:bg-blue-50/70'
-                : 'hover:bg-gray-50'
-            }`}
-          >
-            <div className="flex items-center gap-2 mb-0.5">
-              {isNew && (
-                <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" aria-label="New" />
-              )}
-              <span className={`text-sm truncate ${isNew ? 'font-semibold text-gray-900' : 'font-medium text-gray-800'}`}>
-                {senderName}
-              </span>
-              <StatusBadge status={t.status} />
-              <span className="ml-auto text-xs text-gray-400 flex-shrink-0">
-                {t.type === 'teaching' ? '🎓 Teaching' : '🕊️ Testimony'}
-              </span>
-            </div>
-            {t.subject && (
-              <p className="text-xs text-gray-600 truncate pl-4">{t.subject}</p>
-            )}
-            {personLabel && (
-              <p className="text-xs text-gray-400 pl-4">→ {personLabel}</p>
-            )}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-// ── People search/select for reassign ─────────────────────────────────────────
+// ── People search/select ───────────────────────────────────────────────────────
 
 interface PersonSearchResult {
   id: number;
@@ -161,12 +116,12 @@ interface PersonSearchResult {
   program: string;
 }
 
-interface ReassignPanelProps {
+interface PersonSearchProps {
   currentPersonId: number | null;
   onSelect: (personId: number | null) => void;
 }
 
-function ReassignPanel({ currentPersonId, onSelect }: ReassignPanelProps) {
+function PersonSearch({ currentPersonId, onSelect }: PersonSearchProps) {
   const [q, setQ] = useState('');
   const [results, setResults] = useState<PersonSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -231,11 +186,196 @@ function ReassignPanel({ currentPersonId, onSelect }: ReassignPanelProps) {
   );
 }
 
+// ── Add Needed Item dialog ─────────────────────────────────────────────────────
+
+interface AddItemProps {
+  program: string;
+  onCreated: () => void;
+  onCancel: () => void;
+}
+
+function AddItemForm({ program, onCreated, onCancel }: AddItemProps) {
+  const theme = THEMES[program as 'mens' | 'women'] ?? THEMES.mens;
+  const [type, setType] = useState<'testimony' | 'teaching'>('testimony');
+  const [title, setTitle] = useState('');
+  const [personId, setPersonId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleCreate() {
+    setSaving(true);
+    setError(null);
+    try {
+      await apiFetch('/admin/testimonies', {
+        method: 'POST',
+        body: JSON.stringify({
+          type,
+          title: title.trim() || null,
+          person_id: personId,
+        }),
+      });
+      onCreated();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to create');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6 space-y-4">
+        <h2 className="text-base font-semibold text-gray-900">Add Needed Item</h2>
+
+        {/* Type */}
+        <div>
+          <label className="text-xs font-medium text-gray-500 block mb-1">Type</label>
+          <div className="flex gap-2">
+            {(['testimony', 'teaching'] as const).map(t => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setType(t)}
+                className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
+                  type === t ? 'border-transparent text-white' : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                }`}
+                style={type === t ? { background: theme.primary } : {}}
+              >
+                {t === 'testimony' ? 'Testimony' : 'Teaching'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Title */}
+        <div>
+          <label htmlFor="add-title" className="text-xs font-medium text-gray-500 block mb-1">
+            Label / Title <span className="text-gray-400">(optional)</span>
+          </label>
+          <input
+            id="add-title"
+            type="text"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="e.g. Saturday night testimony"
+            className="w-full text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+
+        {/* Assign person */}
+        <div>
+          <label className="text-xs font-medium text-gray-500 block mb-1">
+            Assign Person <span className="text-gray-400">(optional)</span>
+          </label>
+          <PersonSearch currentPersonId={personId} onSelect={setPersonId} />
+          {personId && (
+            <p className="text-xs text-green-600 mt-1">Person selected (ID {personId})</p>
+          )}
+        </div>
+
+        {error && <p className="text-xs text-red-600">{error}</p>}
+
+        <div className="flex gap-2 pt-1">
+          <button
+            type="button"
+            onClick={handleCreate}
+            disabled={saving}
+            style={{ background: theme.primary }}
+            className="flex-1 py-2 text-sm text-white rounded-md disabled:opacity-50 hover:opacity-90 transition-opacity font-medium"
+          >
+            {saving ? 'Creating…' : 'Create'}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-2 text-sm text-gray-600 rounded-md hover:bg-gray-100"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Board row ──────────────────────────────────────────────────────────────────
+
+interface BoardRowProps {
+  item: TestimonyRow;
+  selected: boolean;
+  onSelect: () => void;
+  onStatusChange: (id: number, status: BoardStatus) => void;
+}
+
+function BoardRow({ item, selected, onSelect, onStatusChange }: BoardRowProps) {
+  const personName = item.first_name
+    ? `${item.first_name} ${item.last_name ?? ''}`.trim()
+    : item.from_name || '—';
+  const label = item.title || (item.type === 'teaching' ? 'Teaching' : 'Testimony');
+  const isUnfulfilled = item.status === 'unfulfilled';
+
+  return (
+    <div
+      data-testid={`testimony-row-${item.id}`}
+      className={`flex items-center gap-3 px-4 py-3 border-b border-gray-100 cursor-pointer transition-colors ${
+        selected ? 'bg-blue-50 border-l-4 border-l-blue-500' : 'hover:bg-gray-50'
+      }`}
+      onClick={onSelect}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') onSelect(); }}
+    >
+      {/* New indicator */}
+      {isUnfulfilled && (
+        <span
+          className="w-2 h-2 rounded-full bg-gray-400 flex-shrink-0"
+          aria-label="New"
+        />
+      )}
+
+      {/* Type icon */}
+      <span className="text-sm flex-shrink-0 text-gray-400" aria-hidden>
+        {item.type === 'teaching' ? '🎓' : '🕊️'}
+      </span>
+
+      {/* Main content */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className={`text-sm truncate font-medium ${isUnfulfilled ? 'text-gray-900' : 'text-gray-700'}`}>
+            {label}
+          </span>
+          <StatusBadge status={item.status} />
+        </div>
+        <p className="text-xs text-gray-500 truncate mt-0.5">{personName}</p>
+      </div>
+
+      {/* Inline status control */}
+      <div
+        className="flex-shrink-0"
+        onClick={e => e.stopPropagation()}
+        onKeyDown={e => e.stopPropagation()}
+      >
+        <select
+          value={item.status}
+          onChange={e => onStatusChange(item.id, e.target.value as BoardStatus)}
+          className="text-xs border border-gray-200 rounded-md px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+          aria-label={`Status for ${label}`}
+          onClick={e => e.stopPropagation()}
+        >
+          {(['unfulfilled', 'in_progress', 'awaiting_next', 'approved', 'archived'] as BoardStatus[]).map(s => (
+            <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+
 // ── Detail view ──────────────────────────────────────────────────────────────
 
 interface DetailProps {
   testimonyId: number;
-  initialStatus: string;
+  initialStatus: BoardStatus;
   program: string;
   onUpdate: () => void;
 }
@@ -248,6 +388,12 @@ function TestimonyDetail({ testimonyId, initialStatus, program, onUpdate }: Deta
   const [person, setPerson] = useState<PersonSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   // Use a ref for onUpdate to avoid it being a dep of load (prevents infinite loops)
   const onUpdateRef = useRef(onUpdate);
@@ -265,7 +411,7 @@ function TestimonyDetail({ testimonyId, initialStatus, program, onUpdate }: Deta
   const [submittingReply, setSubmittingReply] = useState(false);
   const [replySuccess, setReplySuccess] = useState(false);
 
-  // Reassign/retag
+  // Reassign
   const [showReassign, setShowReassign] = useState(false);
   const [patching, setPatching] = useState(false);
 
@@ -280,27 +426,30 @@ function TestimonyDetail({ testimonyId, initialStatus, program, onUpdate }: Deta
         comments: Comment[];
         person: PersonSummary | null;
       }>(`/admin/testimonies/${testimonyId}`);
+      if (!mountedRef.current) return;
       setTestimony(res.testimony);
       setAttachments(res.attachments ?? []);
       setComments(res.comments ?? []);
       setPerson(res.person);
 
-      // Mark as read automatically when a 'new' testimony is opened
-      if (initialStatus === 'new') {
+      // Auto-advance from unfulfilled to in_progress when first opened
+      if (initialStatus === 'unfulfilled') {
         apiFetch(`/admin/testimonies/${testimonyId}`, {
           method: 'PATCH',
-          body: JSON.stringify({ status: 'read' }),
+          body: JSON.stringify({ status: 'in_progress' }),
         })
           .then(() => {
-            setTestimony(prev => prev ? { ...prev, status: 'read' } : prev);
+            if (!mountedRef.current) return;
+            setTestimony(prev => prev ? { ...prev, status: 'in_progress' } : prev);
             onUpdateRef.current();
           })
           .catch(() => {});
       }
     } catch (e) {
+      if (!mountedRef.current) return;
       setError(e instanceof Error ? e.message : 'Failed to load');
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [testimonyId, initialStatus]);
 
@@ -316,10 +465,12 @@ function TestimonyDetail({ testimonyId, initialStatus, program, onUpdate }: Deta
         `/admin/testimonies/${testimonyId}/comment`,
         { method: 'POST', body: JSON.stringify({ body: commentBody.trim() }) }
       );
-      setComments(prev => [...prev, res.comment]);
-      setCommentBody('');
+      if (mountedRef.current) {
+        setComments(prev => [...prev, res.comment]);
+        setCommentBody('');
+      }
     } finally {
-      setSubmittingComment(false);
+      if (mountedRef.current) setSubmittingComment(false);
     }
   }
 
@@ -331,33 +482,39 @@ function TestimonyDetail({ testimonyId, initialStatus, program, onUpdate }: Deta
         method: 'POST',
         body: JSON.stringify({ subject: replySubject, body_html: replyHtml, body_text: replyText }),
       });
-      setShowReply(false);
-      setReplySuccess(true);
-      setTestimony(prev => prev ? { ...prev, status: 'replied' } : prev);
-      onUpdateRef.current();
+      if (mountedRef.current) {
+        setShowReply(false);
+        setReplySuccess(true);
+        setTestimony(prev => prev ? { ...prev, status: 'awaiting_next' } : prev);
+        onUpdateRef.current();
+      }
     } finally {
-      setSubmittingReply(false);
+      if (mountedRef.current) setSubmittingReply(false);
     }
   }
 
   async function patch(fields: Record<string, string | number | null>) {
     setPatching(true);
     try {
-      const res = await apiFetch<{ ok: boolean; testimony: { status: string; type: string; person_id: number | null; program: string | null } }>(
+      const res = await apiFetch<{ ok: boolean; testimony: { status: BoardStatus; type: string; title: string | null; person_id: number | null; program: string | null } }>(
         `/admin/testimonies/${testimonyId}`,
         { method: 'PATCH', body: JSON.stringify(fields) }
       );
-      setTestimony(prev => prev ? { ...prev, ...res.testimony } : prev);
-      onUpdateRef.current();
+      if (mountedRef.current) {
+        const update = (res as Record<string, unknown>)?.testimony as Partial<TestimonyDetail> | undefined;
+        if (update) {
+          setTestimony(prev => prev ? { ...prev, ...update } : prev);
+        }
+        onUpdateRef.current();
+      }
     } finally {
-      setPatching(false);
+      if (mountedRef.current) setPatching(false);
     }
   }
 
-  async function handleReassign(personId: number | null) {
-    await patch({ person_id: personId });
+  async function handleReassign(pid: number | null) {
+    await patch({ person_id: pid });
     setShowReassign(false);
-    // Reload to get updated person summary
     load();
   }
 
@@ -365,36 +522,32 @@ function TestimonyDetail({ testimonyId, initialStatus, program, onUpdate }: Deta
   if (error) return <div className="flex-1 flex items-center justify-center text-sm text-red-500">{error}</div>;
   if (!testimony) return null;
 
+  const isPdf = (att: Attachment) =>
+    att.content_type === 'application/pdf' || att.filename?.toLowerCase().endsWith('.pdf');
+
   return (
     <div className="flex-1 overflow-y-auto p-5 space-y-5">
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">{testimony.subject || '(No subject)'}</h2>
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold text-gray-900 truncate">
+            {testimony.title || testimony.subject || '(No title)'}
+          </h2>
           <p className="text-sm text-gray-500 mt-0.5">
-            {testimony.from_name
-              ? <><strong>{testimony.from_name}</strong> &lt;{testimony.from_email}&gt;</>
-              : testimony.from_email}
-          </p>
-          {testimony.received_at && (
-            <p className="text-xs text-gray-400 mt-0.5">
-              Received {new Date(testimony.received_at).toLocaleString()}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <StatusBadge status={testimony.status} />
-          <span className="text-xs text-gray-400">
             {testimony.type === 'teaching' ? '🎓 Teaching' : '🕊️ Testimony'}
-          </span>
+            {testimony.received_at && (
+              <> &middot; Received {new Date(testimony.received_at).toLocaleDateString()}</>
+            )}
+          </p>
         </div>
+        <StatusBadge status={testimony.status} />
       </div>
 
-      {/* Person match */}
+      {/* Assigned person */}
       {person ? (
         <div className="rounded-lg border border-gray-200 p-3 bg-gray-50 flex items-center justify-between gap-2">
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">Matched person</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">Assigned person</p>
             <Link
               to={`/admin/people/${person.id}`}
               className="text-sm font-medium text-blue-600 hover:underline"
@@ -413,7 +566,7 @@ function TestimonyDetail({ testimonyId, initialStatus, program, onUpdate }: Deta
         </div>
       ) : (
         <div className="rounded-lg border border-dashed border-gray-300 p-3 bg-gray-50 flex items-center justify-between gap-2">
-          <p className="text-xs text-gray-500 italic">No person matched</p>
+          <p className="text-xs text-gray-500 italic">No person assigned</p>
           <button
             type="button"
             onClick={() => setShowReassign(v => !v)}
@@ -427,14 +580,14 @@ function TestimonyDetail({ testimonyId, initialStatus, program, onUpdate }: Deta
       {showReassign && (
         <div className="rounded-lg border border-blue-200 p-3 bg-blue-50">
           <p className="text-xs font-semibold text-blue-700 mb-2">Reassign person</p>
-          <ReassignPanel
+          <PersonSearch
             currentPersonId={testimony.person_id}
             onSelect={handleReassign}
           />
         </div>
       )}
 
-      {/* Controls: type + status */}
+      {/* Status + Type controls */}
       <div className="flex flex-wrap gap-2">
         <div className="flex items-center gap-1.5">
           <label htmlFor={`type-${testimony.id}`} className="text-xs text-gray-500 font-medium">Type:</label>
@@ -446,8 +599,8 @@ function TestimonyDetail({ testimonyId, initialStatus, program, onUpdate }: Deta
             aria-label="Retag type"
             className="text-xs border border-gray-200 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
           >
-            <option value="testimony">🕊️ Testimony</option>
-            <option value="teaching">🎓 Teaching</option>
+            <option value="testimony">Testimony</option>
+            <option value="teaching">Teaching</option>
           </select>
         </div>
         <div className="flex items-center gap-1.5">
@@ -460,55 +613,77 @@ function TestimonyDetail({ testimonyId, initialStatus, program, onUpdate }: Deta
             aria-label="Change status"
             className="text-xs border border-gray-200 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
           >
-            <option value="new">New</option>
-            <option value="read">Read</option>
-            <option value="replied">Replied</option>
-            <option value="archived">Archived</option>
+            {(['unfulfilled', 'in_progress', 'awaiting_next', 'approved', 'archived'] as BoardStatus[]).map(s => (
+              <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+            ))}
           </select>
         </div>
       </div>
 
-      {/* Body */}
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Message</p>
-        {testimony.body_html ? (
-          <div
-            className="prose prose-sm max-w-none text-gray-800"
-            /* eslint-disable-next-line react/no-danger */
-            dangerouslySetInnerHTML={{ __html: testimony.body_html }}
-          />
-        ) : (
-          <pre className="whitespace-pre-wrap text-sm text-gray-700 font-sans">
-            {testimony.body_text || '(Empty)'}
-          </pre>
-        )}
-      </div>
+      {/* Submitted content */}
+      {(testimony.body_html || testimony.body_text) && (
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Submitted Content</p>
+          {testimony.body_html ? (
+            <div
+              className="prose prose-sm max-w-none text-gray-800"
+              /* eslint-disable-next-line react/no-danger */
+              dangerouslySetInnerHTML={{ __html: testimony.body_html }}
+            />
+          ) : (
+            <pre className="whitespace-pre-wrap text-sm text-gray-700 font-sans">
+              {testimony.body_text}
+            </pre>
+          )}
+        </div>
+      )}
 
-      {/* Attachments */}
+      {/* Attachments / Links / PDF viewer */}
       {attachments.length > 0 && (
         <div className="rounded-lg border border-gray-200 bg-white p-4">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
-            Attachments ({attachments.length})
+            Attachments & Links ({attachments.length})
           </p>
-          <ul className="space-y-1.5">
+          <ul className="space-y-3">
             {attachments.map(att => (
-              <li key={att.id} className="flex items-center gap-2 text-sm">
-                <span className="text-gray-500">📎</span>
-                {att.link_url ? (
-                  <a
-                    href={att.link_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline"
-                    aria-label={`Open ${att.filename ?? 'attachment'}`}
-                  >
-                    {att.filename ?? att.link_url}
-                  </a>
-                ) : (
-                  <span className="text-gray-700">{att.filename ?? 'Attachment'}</span>
+              <li key={att.id}>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-gray-500" aria-hidden>
+                    {isPdf(att) ? '📄' : att.link_url ? '🔗' : '📎'}
+                  </span>
+                  {att.link_url ? (
+                    <a
+                      href={att.link_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline"
+                      aria-label={`Open ${att.filename ?? 'attachment'}`}
+                    >
+                      {att.filename ?? att.link_url}
+                    </a>
+                  ) : (
+                    <span className="text-gray-700">{att.filename ?? 'Attachment'}</span>
+                  )}
+                  {att.content_type && !att.link_url && (
+                    <span className="text-xs text-gray-400">{att.content_type}</span>
+                  )}
+                </div>
+                {/* PDF viewer: if r2_key will be present in the future, render iframe here */}
+                {isPdf(att) && att.r2_key && (
+                  <div className="mt-2 rounded border border-gray-200 overflow-hidden">
+                    <embed
+                      src={`/api/admin/attachments/${att.r2_key}`}
+                      type="application/pdf"
+                      width="100%"
+                      height="480"
+                      title={att.filename ?? 'PDF document'}
+                    />
+                  </div>
                 )}
-                {att.content_type && (
-                  <span className="text-xs text-gray-400">{att.content_type}</span>
+                {isPdf(att) && !att.r2_key && !att.link_url && (
+                  <p className="text-xs text-gray-400 mt-1 ml-6">
+                    {att.filename} — file viewer enabled once storage is connected.
+                  </p>
                 )}
               </li>
             ))}
@@ -522,13 +697,12 @@ function TestimonyDetail({ testimonyId, initialStatus, program, onUpdate }: Deta
           Notes / Comments ({comments.length})
         </p>
         {comments.length === 0 && (
-          <p className="text-xs text-gray-400 italic">No comments yet.</p>
+          <p className="text-xs text-gray-400 italic">No notes yet.</p>
         )}
         {comments.map(c => (
           <div key={c.id} className="bg-gray-50 rounded-md px-3 py-2">
             <p className="text-xs text-gray-500 mb-0.5">
-              {c.admin_name ?? 'Admin'} &middot;{' '}
-              {new Date(c.created_at).toLocaleString()}
+              {c.admin_name ?? 'Admin'} &middot; {new Date(c.created_at).toLocaleString()}
             </p>
             <p className="text-sm text-gray-800 whitespace-pre-wrap">{c.body}</p>
           </div>
@@ -556,7 +730,7 @@ function TestimonyDetail({ testimonyId, initialStatus, program, onUpdate }: Deta
         </div>
       </div>
 
-      {/* Reply */}
+      {/* Reply by email */}
       <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Reply by email</p>
@@ -576,7 +750,7 @@ function TestimonyDetail({ testimonyId, initialStatus, program, onUpdate }: Deta
             </button>
           )}
           {replySuccess && (
-            <span className="text-xs text-green-600 font-medium">Reply sent ✓</span>
+            <span className="text-xs text-green-600 font-medium">Reply sent — awaiting next draft</span>
           )}
         </div>
 
@@ -629,7 +803,7 @@ function TestimonyDetail({ testimonyId, initialStatus, program, onUpdate }: Deta
   );
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
+// ── Main Board page ────────────────────────────────────────────────────────────
 
 export default function Testimonies() {
   const { program } = useProgram();
@@ -638,12 +812,19 @@ export default function Testimonies() {
   const [viewMode, setViewMode] = useState<ViewMode>('program');
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
-  const [testimonies, setTestimonies] = useState<TestimonyRow[]>([]);
+  const [items, setItems] = useState<TestimonyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [selectedStatus, setSelectedStatus] = useState<string>('read');
+  const [selectedStatus, setSelectedStatus] = useState<BoardStatus>('unfulfilled');
   const [listRefresh, setListRefresh] = useState(0);
+  const [showAddForm, setShowAddForm] = useState(false);
+
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const fetchList = useCallback(async () => {
     setLoading(true);
@@ -659,13 +840,15 @@ export default function Testimonies() {
       const res = await apiFetch<{ ok: boolean; testimonies: TestimonyRow[] }>(
         `/admin/testimonies?${params}`
       );
-      setTestimonies(res.testimonies ?? []);
+      if (!mountedRef.current) return;
+      setItems(res.testimonies ?? []);
     } catch (e) {
+      if (!mountedRef.current) return;
       setError(e instanceof Error ? e.message : 'Failed to load');
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
-  }, [program, viewMode, filterType, filterStatus, listRefresh]);
+  }, [program, viewMode, filterType, filterStatus, listRefresh]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchList();
@@ -685,8 +868,26 @@ export default function Testimonies() {
     setListRefresh(n => n + 1);
   }, []);
 
-  const filterBtnBase = 'px-3 py-1 text-xs rounded-md border transition-colors';
+  async function handleInlineStatusChange(id: number, status: BoardStatus) {
+    // Optimistic update
+    setItems(prev => prev.map(t => t.id === id ? { ...t, status } : t));
+    try {
+      await apiFetch(`/admin/testimonies/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+    } catch {
+      // Revert on failure
+      setListRefresh(n => n + 1);
+    }
+  }
 
+  // Split fulfilled vs unfulfilled
+  const unfulfilled = items.filter(t => NEEDS_ATTENTION.includes(t.status));
+  const fulfilled = items.filter(t => isFulfilled(t.status));
+  const archived = items.filter(t => t.status === 'archived');
+
+  const filterBtnBase = 'px-3 py-1 text-xs rounded-md border transition-colors';
   function filterBtnClass(active: boolean) {
     return `${filterBtnBase} ${
       active
@@ -695,16 +896,83 @@ export default function Testimonies() {
     }`;
   }
 
+  function renderSection(title: string, sectionItems: TestimonyRow[], count: number) {
+    return (
+      <div>
+        <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{title}</span>
+          <span className="text-xs text-gray-400">{count}</span>
+        </div>
+        {sectionItems.length === 0 ? (
+          <div className="px-4 py-3 text-xs text-gray-400 italic">None</div>
+        ) : (
+          sectionItems.map(t => (
+            <BoardRow
+              key={t.id}
+              item={t}
+              selected={t.id === selectedId}
+              onSelect={() => handleSelect(t)}
+              onStatusChange={handleInlineStatusChange}
+            />
+          ))
+        )}
+      </div>
+    );
+  }
+
+  const totalItems = items.length;
+  const unfulfilledCount = unfulfilled.length;
+  const fulfilledCount = fulfilled.length;
+
   return (
     <div className="flex h-[calc(100vh-3rem)] overflow-hidden rounded-xl shadow-sm border border-gray-200 bg-white">
-      {/* ── Left column: filters + list ─────────────────────────── */}
+      {/* Add needed item dialog */}
+      {showAddForm && (
+        <AddItemForm
+          program={program}
+          onCreated={() => {
+            setShowAddForm(false);
+            setListRefresh(n => n + 1);
+          }}
+          onCancel={() => setShowAddForm(false)}
+        />
+      )}
+
+      {/* ── Left column: filters + board list ─────────────────────── */}
       <div className="w-80 flex-shrink-0 border-r border-gray-100 flex flex-col">
         {/* Header */}
         <div className="p-4 border-b border-gray-100" style={{ background: theme.bg }}>
-          <h1 className="text-base font-semibold text-gray-900">Testimonies & Teachings</h1>
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-base font-semibold text-gray-900">Testimonies & Teachings</h1>
+            <button
+              type="button"
+              data-testid="add-needed-item"
+              onClick={() => setShowAddForm(true)}
+              style={{ background: theme.primary }}
+              className="px-2.5 py-1 text-xs text-white rounded-md hover:opacity-90 transition-opacity font-medium"
+              title="Add needed testimony or teaching"
+            >
+              + Add
+            </button>
+          </div>
+
+          {/* Summary counts */}
+          {!loading && !error && (
+            <div className="flex gap-3 mb-2">
+              <span className="text-xs text-gray-500">
+                <strong className="text-gray-800">{unfulfilledCount}</strong> unfulfilled
+              </span>
+              <span className="text-xs text-gray-500">
+                <strong className="text-gray-800">{fulfilledCount}</strong> fulfilled
+              </span>
+              <span className="text-xs text-gray-500">
+                <strong className="text-gray-800">{totalItems}</strong> total
+              </span>
+            </div>
+          )}
 
           {/* View mode */}
-          <div className="flex gap-1 mt-2">
+          <div className="flex gap-1 mt-1">
             <button
               type="button"
               data-testid="view-program"
@@ -736,14 +1004,14 @@ export default function Testimonies() {
                 className={filterBtnClass(filterType === ft)}
                 style={filterType === ft ? { background: theme.primary } : {}}
               >
-                {ft === 'all' ? 'All types' : ft === 'testimony' ? '🕊️' : '🎓'}
+                {ft === 'all' ? 'All types' : ft === 'testimony' ? 'Testimonies' : 'Teachings'}
               </button>
             ))}
           </div>
 
           {/* Status filter */}
           <div className="flex gap-1 mt-2 flex-wrap">
-            {(['all', 'new', 'read', 'replied', 'archived'] as FilterStatus[]).map(fs => (
+            {(['all', 'unfulfilled', 'in_progress', 'awaiting_next', 'approved', 'archived'] as FilterStatus[]).map(fs => (
               <button
                 key={fs}
                 type="button"
@@ -752,13 +1020,13 @@ export default function Testimonies() {
                 className={filterBtnClass(filterStatus === fs)}
                 style={filterStatus === fs ? { background: theme.primary } : {}}
               >
-                {fs === 'all' ? 'All statuses' : fs}
+                {fs === 'all' ? 'All' : STATUS_LABELS[fs as BoardStatus]}
               </button>
             ))}
           </div>
         </div>
 
-        {/* List body */}
+        {/* Board list body */}
         {loading ? (
           <div className="flex-1 flex items-center justify-center text-sm text-gray-400">
             Loading…
@@ -767,12 +1035,30 @@ export default function Testimonies() {
           <div className="flex-1 flex items-center justify-center text-sm text-red-400 p-4">
             {error}
           </div>
+        ) : items.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center text-sm text-gray-400 p-8">
+            No testimonies found.
+          </div>
+        ) : filterStatus !== 'all' ? (
+          // When status-filtered, show flat list without sections
+          <div className="flex-1 overflow-y-auto">
+            {items.map(t => (
+              <BoardRow
+                key={t.id}
+                item={t}
+                selected={t.id === selectedId}
+                onSelect={() => handleSelect(t)}
+                onStatusChange={handleInlineStatusChange}
+              />
+            ))}
+          </div>
         ) : (
-          <TestimonyList
-            testimonies={testimonies}
-            selectedId={selectedId}
-            onSelect={handleSelect}
-          />
+          // Default: grouped sections
+          <div className="flex-1 overflow-y-auto">
+            {renderSection('Unfulfilled', unfulfilled, unfulfilled.length)}
+            {renderSection('Fulfilled', fulfilled, fulfilled.length)}
+            {archived.length > 0 && renderSection('Archived', archived, archived.length)}
+          </div>
         )}
       </div>
 
@@ -787,7 +1073,7 @@ export default function Testimonies() {
         />
       ) : (
         <div className="flex-1 flex items-center justify-center text-sm text-gray-400">
-          Select a testimony to view details
+          Select an item to view details
         </div>
       )}
     </div>
