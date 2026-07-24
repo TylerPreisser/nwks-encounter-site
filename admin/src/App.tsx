@@ -102,7 +102,8 @@ export default function App() {
             />
             <Route path="/admin/events" element={<Events />} />
             <Route path="/admin/email" element={<EmailPage />} />
-            <Route path="/admin/assistant" element={<Assistant />} />
+            {/* Assistant route disabled — component preserved for re-activation */}
+            <Route path="/admin/assistant" element={<Navigate to="/admin/" replace />} />
             <Route path="/admin/gallery" element={<Gallery />} />
             <Route path="/admin/*" element={<Navigate to="/admin/" replace />} />
           </Route>

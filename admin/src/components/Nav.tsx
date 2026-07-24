@@ -11,7 +11,6 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/admin/registrations', label: 'Registrations', icon: '📋' },
   { to: '/admin/events',        label: 'Events',        icon: '📅' },
   { to: '/admin/email',         label: 'Email',         icon: '✉️' },
-  { to: '/admin/assistant',     label: 'Assistant',     icon: '🤖' },
   { to: '/admin/gallery',       label: 'Gallery',       icon: '🖼️' },
 ];
 

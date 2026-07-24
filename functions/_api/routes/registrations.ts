@@ -9,8 +9,8 @@ export const registrationsRouter = new Hono<{ Bindings: Env }>();
 
 registrationsRouter.use('*', requireAuth(), requireProgram());
 
-// CSV columns exported (in order)
-const CSV_COLUMNS = [
+// Named columns exported (in order)
+const NAMED_CSV_COLUMNS = [
   'id', 'role', 'first_name', 'last_name', 'email', 'phone', 'city', 'state', 'church',
   'launch_location', 'shirt_size', 'times_attended_self_report', 'invited_by',
   'prayer_contact_name', 'prayer_contact_phone', 'dietary_health', 'questions', 'status', 'created_at',
@@ -34,6 +34,27 @@ function csvEscape(val: unknown): string {
     return '"' + s.replace(/"/g, '""') + '"';
   }
   return s;
+}
+
+/**
+ * Parse the `extra` JSON column into a flat key/value map.
+ * Returns an empty object if the value is missing, null, or invalid JSON.
+ */
+function parseExtra(extra: unknown): Record<string, string> {
+  if (!extra || typeof extra !== 'string') return {};
+  try {
+    const obj = JSON.parse(extra);
+    if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) return {};
+    const result: Record<string, string> = {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (v !== null && v !== undefined) {
+        result[k] = String(v);
+      }
+    }
+    return result;
+  } catch {
+    return {};
+  }
 }
 
 /**
@@ -100,6 +121,8 @@ registrationsRouter.get('/', async (c) => {
 
 // ---------------------------------------------------------------------------
 // GET /api/admin/registrations/export.csv
+// Exports all named columns plus every key found in the `extra` JSON bag,
+// flattened into individual columns prefixed with `extra_`.
 // ---------------------------------------------------------------------------
 registrationsRouter.get('/export.csv', async (c) => {
   const program = c.get('program') as Program;
@@ -107,16 +130,36 @@ registrationsRouter.get('/export.csv', async (c) => {
 
   const { where, binds } = buildWhere(program, event_id, role);
 
+  // Fetch named columns + extra
   const rows = await c.env.DB.prepare(
-    `SELECT ${CSV_COLUMNS.join(',')} FROM registrations r WHERE ${where} ORDER BY r.created_at ASC`,
+    `SELECT ${[...NAMED_CSV_COLUMNS, 'extra'].join(',')} FROM registrations r WHERE ${where} ORDER BY r.created_at ASC`,
   )
     .bind(...binds)
     .all<Record<string, unknown>>();
 
-  const header = CSV_COLUMNS.join(',');
-  const dataLines = rows.results.map((row) =>
-    CSV_COLUMNS.map((col) => csvEscape(row[col])).join(','),
-  );
+  // Collect the union of all extra keys across all rows (deterministic order)
+  const extraKeySet = new Set<string>();
+  for (const row of rows.results) {
+    const extra = parseExtra(row['extra']);
+    for (const k of Object.keys(extra)) {
+      extraKeySet.add(k);
+    }
+  }
+  const extraKeys = Array.from(extraKeySet).sort();
+
+  // Build header: named columns + extra_* columns
+  const header = [
+    ...NAMED_CSV_COLUMNS,
+    ...extraKeys.map((k) => `extra_${k}`),
+  ].join(',');
+
+  const dataLines = rows.results.map((row) => {
+    const extra = parseExtra(row['extra']);
+    const namedPart = NAMED_CSV_COLUMNS.map((col) => csvEscape(row[col])).join(',');
+    const extraPart = extraKeys.map((k) => csvEscape(extra[k] ?? '')).join(',');
+    return extraKeys.length > 0 ? `${namedPart},${extraPart}` : namedPart;
+  });
+
   const csv = [header, ...dataLines].join('\r\n');
 
   return new Response(csv, {

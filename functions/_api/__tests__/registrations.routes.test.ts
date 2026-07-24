@@ -462,4 +462,63 @@ describe('GET /api/admin/registrations/export.csv', () => {
     expect(lines.length).toBe(1);
     expect(lines[0]).toContain('first_name');
   });
+
+  it('includes extra fields as extra_* columns in the CSV header and data', async () => {
+    await seedAdmin();
+    const eventId = await seedEvent({ program: 'mens' });
+    const db = (env as unknown as { DB: D1Database }).DB;
+    const now = nowIso();
+    const personId = await seedPerson({ program: 'mens', firstName: 'ExtraTest' });
+    // Insert registration with extra JSON
+    await db.prepare(
+      `INSERT INTO registrations
+         (program, event_id, person_id, role, first_name, last_name, extra, created_at)
+       VALUES (?, ?, ?, 'attendee', 'ExtraTest', 'Last', ?, ?)`
+    ).bind('mens', eventId, personId, JSON.stringify({ zip: '67748', sandwich_preference: 'Turkey' }), now).run();
+
+    const cookie = await getAuthCookie();
+    const res = await app.fetch(
+      new Request(
+        `http://localhost/api/admin/registrations/export.csv?program=mens&event_id=${eventId}`,
+        { headers: { Cookie: cookie } },
+      ),
+      testEnv,
+    );
+    const text = await res.text();
+    const lines = text.trim().split('\n');
+    expect(lines.length).toBe(2); // header + 1 data row
+    // Header should contain extra_* columns
+    expect(lines[0]).toContain('extra_zip');
+    expect(lines[0]).toContain('extra_sandwich_preference');
+    // Data row should contain the values
+    expect(lines[1]).toContain('67748');
+    expect(lines[1]).toContain('Turkey');
+  });
+
+  it('includes extra_* columns with empty values when extra is empty', async () => {
+    await seedAdmin();
+    const eventId = await seedEvent({ program: 'mens' });
+    const db = (env as unknown as { DB: D1Database }).DB;
+    const now = nowIso();
+    const personId = await seedPerson({ program: 'mens', firstName: 'EmptyExtra' });
+    await db.prepare(
+      `INSERT INTO registrations
+         (program, event_id, person_id, role, first_name, last_name, extra, created_at)
+       VALUES (?, ?, ?, 'attendee', 'EmptyExtra', 'Last', '{}', ?)`
+    ).bind('mens', eventId, personId, now).run();
+
+    const cookie = await getAuthCookie();
+    const res = await app.fetch(
+      new Request(
+        `http://localhost/api/admin/registrations/export.csv?program=mens&event_id=${eventId}`,
+        { headers: { Cookie: cookie } },
+      ),
+      testEnv,
+    );
+    const text = await res.text();
+    const lines = text.trim().split('\n');
+    // When no extra keys exist across all rows, no extra_* columns should appear
+    expect(lines[0]).not.toContain('extra_');
+    expect(lines[0]).toContain('first_name');
+  });
 });

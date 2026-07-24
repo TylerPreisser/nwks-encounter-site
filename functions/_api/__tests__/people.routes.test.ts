@@ -178,6 +178,38 @@ describe('GET /api/admin/people/:id', () => {
     expect(json.history).toHaveLength(2);
   });
 
+  it('returns extra field in registration history rows', async () => {
+    await seedAdmin();
+    const eventId = await seedEvent({ program: 'mens' });
+    const personId = await seedPerson({ program: 'mens' });
+    const db = (env as unknown as { DB: D1Database }).DB;
+    const now = nowIso();
+    // Insert registration with extra JSON
+    await db.prepare(
+      `INSERT INTO registrations
+         (program, event_id, person_id, role, first_name, last_name, extra, created_at)
+       VALUES (?, ?, ?, 'attendee', 'First', 'Last', ?, ?)`
+    ).bind('mens', eventId, personId, JSON.stringify({ zip: '67748', sandwich_preference: 'BLT' }), now).run();
+
+    const cookie = await getAuthCookie();
+    const res = await app.fetch(
+      new Request(`http://localhost/api/admin/people/${personId}?program=mens`, {
+        headers: { Cookie: cookie },
+      }),
+      testEnv,
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json() as {
+      ok: boolean;
+      history: Array<{ extra?: string }>;
+    };
+    expect(json.history).toHaveLength(1);
+    expect(json.history[0].extra).toBeDefined();
+    const extraParsed = JSON.parse(json.history[0].extra ?? '{}');
+    expect(extraParsed.zip).toBe('67748');
+    expect(extraParsed.sandwich_preference).toBe('BLT');
+  });
+
   it('returns possible_duplicates array (may be empty)', async () => {
     await seedAdmin();
     const personId = await seedPerson({ program: 'mens' });

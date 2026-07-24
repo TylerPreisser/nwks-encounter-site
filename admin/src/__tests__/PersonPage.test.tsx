@@ -128,6 +128,51 @@ describe('PersonPage', () => {
     expect(screen.getByText(/confirm merge/i)).toBeInTheDocument();
   });
 
+  it('shows all-fields expand button for registrations with named field data', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ...personPayload(),
+        history: [
+          {
+            id: 10, event_id: 1, role: 'attendee', year: 2024,
+            title: "Men's 2024", created_at: '2024-08-01T00:00:00Z',
+            shirt_size: 'L', dietary_health: 'None', questions: 'n/a',
+            extra: '{}',
+          },
+        ],
+      }),
+    });
+    render(<PersonPage />, { wrapper: wrapper() });
+    await waitFor(() => expect(screen.getByText("Men's 2024")).toBeInTheDocument());
+    expect(screen.getByTestId('reg-expand-10')).toBeInTheDocument();
+  });
+
+  it('expands to show named and extra fields on click', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ...personPayload(),
+        history: [
+          {
+            id: 11, event_id: 1, role: 'attendee', year: 2025,
+            title: "Men's 2025", created_at: '2025-08-01T00:00:00Z',
+            shirt_size: 'M', dietary_health: 'Gluten free',
+            extra: JSON.stringify({ zip: '67748', sandwich_preference: 'Ham' }),
+          },
+        ],
+      }),
+    });
+    render(<PersonPage />, { wrapper: wrapper() });
+    await waitFor(() => expect(screen.getByTestId('reg-expand-11')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('reg-expand-11'));
+    await waitFor(() => expect(screen.getByTestId('reg-fields-11')).toBeInTheDocument());
+    expect(screen.getByText('M')).toBeInTheDocument();
+    expect(screen.getByText('Gluten free')).toBeInTheDocument();
+    expect(screen.getByText('67748')).toBeInTheDocument();
+    expect(screen.getByText('Ham')).toBeInTheDocument();
+  });
+
   it('calls merge endpoint with correct into_id and navigates', async () => {
     // First call: load person with duplicate
     mockFetch.mockResolvedValueOnce({
