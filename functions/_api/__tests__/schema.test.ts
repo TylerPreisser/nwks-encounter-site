@@ -17,6 +17,7 @@ describe('schema smoke tests', () => {
     'email_templates', 'email_campaigns', 'email_log',
     'admin_users', 'photos',
     'ai_threads', 'ai_messages', 'ai_pending_actions',
+    'testimonies', 'testimony_attachments', 'testimony_comments',
   ];
 
   it.each(EXPECTED_TABLES)('table "%s" exists', async (table) => {

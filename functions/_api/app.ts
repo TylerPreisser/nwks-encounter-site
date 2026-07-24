@@ -14,6 +14,7 @@ import { templatesRouter } from './routes/templates';
 import { campaignsRouter } from './routes/campaigns';
 import { aiRouter } from './routes/ai';
 import { photosAdminRouter, photosPublicRouter } from './routes/photos';
+import { testimoniesRouter } from './routes/testimonies';
 
 export interface Env {
   DB: D1Database;
@@ -78,3 +79,6 @@ app.route('/api/admin/ai', aiRouter);
 
 // P6: admin photo CRUD (upload/list/patch/delete)
 app.route('/api/admin/photos', photosAdminRouter);
+
+// Testimonies & Teachings (email-in, person-matched, admin review)
+app.route('/api/admin/testimonies', testimoniesRouter);
