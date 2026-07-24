@@ -64,6 +64,41 @@ const WOMENS_STATS = {
   },
 };
 
+// Stub event list returned by the UpcomingEncounterTile (GET /admin/events)
+const MENS_EVENTS_RESPONSE = {
+  ok: true,
+  events: [{
+    id: 10,
+    program: 'mens',
+    year: 2025,
+    title: "Men's Encounter 2025",
+    start_date: '2025-09-05',
+    end_date: '2025-09-07',
+    launch_locations: '["Colby","Hays"]',
+    attendee_registration_open: 1,
+    server_registration_open: 1,
+    is_current: 1,
+  }],
+};
+
+const WOMENS_EVENTS_RESPONSE = {
+  ok: true,
+  events: [{
+    id: 11,
+    program: 'women',
+    year: 2025,
+    title: "Women's Encounter 2025",
+    start_date: '2025-10-10',
+    end_date: '2025-10-12',
+    launch_locations: '["Topeka"]',
+    attendee_registration_open: 1,
+    server_registration_open: 1,
+    is_current: 1,
+  }],
+};
+
+const EMPTY_EVENTS_RESPONSE = { ok: true, events: [] };
+
 // ── Helper: render DashboardPage with a given program ────────────────────────
 
 function renderDashboard(program: 'mens' | 'women' = 'mens', setProgram = vi.fn()) {
@@ -74,6 +109,29 @@ function renderDashboard(program: 'mens' | 'women' = 'mens', setProgram = vi.fn(
       </MemoryRouter>
     </ProgramContext.Provider>,
   );
+}
+
+/**
+ * Mock apiFetch to dispatch to dashboard vs events based on URL path.
+ * DashboardPage calls '/admin/dashboard'; UpcomingEncounterTile calls '/admin/events'.
+ */
+function mockBothApis(
+  dashboardResolve: unknown,
+  eventsResolve: unknown = MENS_EVENTS_RESPONSE,
+) {
+  mockApiFetch.mockImplementation((path: string) => {
+    if (path === '/admin/dashboard') {
+      return dashboardResolve instanceof Promise
+        ? dashboardResolve
+        : Promise.resolve(dashboardResolve);
+    }
+    if (path === '/admin/events') {
+      return eventsResolve instanceof Promise
+        ? eventsResolve
+        : Promise.resolve(eventsResolve);
+    }
+    return Promise.reject(new Error(`Unmocked path: ${path}`));
+  });
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -88,14 +146,14 @@ describe('DashboardPage', () => {
   });
 
   it('shows a loading state while the API call is in flight', () => {
-    // Never resolves — stays in flight
-    mockApiFetch.mockReturnValue(new Promise(() => {}));
+    // Both APIs never resolve — stays in flight
+    mockBothApis(new Promise(() => {}), new Promise(() => {}));
     renderDashboard();
     expect(screen.getByText(/loading/i)).toBeInTheDocument();
   });
 
   it('renders stat numbers from the payload', async () => {
-    mockApiFetch.mockResolvedValueOnce({ ok: true, stats: MENS_STATS });
+    mockBothApis({ ok: true, stats: MENS_STATS });
     renderDashboard();
 
     await waitFor(() => expect(screen.getByText('42')).toBeInTheDocument());
@@ -105,7 +163,7 @@ describe('DashboardPage', () => {
   });
 
   it('renders the stat card labels', async () => {
-    mockApiFetch.mockResolvedValueOnce({ ok: true, stats: MENS_STATS });
+    mockBothApis({ ok: true, stats: MENS_STATS });
     renderDashboard();
 
     await waitFor(() => expect(screen.getByText(/attendees/i)).toBeInTheDocument());
@@ -115,16 +173,16 @@ describe('DashboardPage', () => {
   });
 
   it('renders the event title from the payload', async () => {
-    mockApiFetch.mockResolvedValueOnce({ ok: true, stats: MENS_STATS });
+    mockBothApis({ ok: true, stats: MENS_STATS });
     renderDashboard();
 
     await waitFor(() =>
-      expect(screen.getByText(/Men's Encounter 2025/i)).toBeInTheDocument(),
+      expect(screen.getAllByText(/Men's Encounter 2025/i).length).toBeGreaterThan(0),
     );
   });
 
   it('shows launch-location breakdown', async () => {
-    mockApiFetch.mockResolvedValueOnce({ ok: true, stats: MENS_STATS });
+    mockBothApis({ ok: true, stats: MENS_STATS });
     renderDashboard();
 
     await waitFor(() => expect(screen.getByText('North Campus')).toBeInTheDocument());
@@ -132,7 +190,7 @@ describe('DashboardPage', () => {
   });
 
   it('shows shirt-size breakdown as pills', async () => {
-    mockApiFetch.mockResolvedValueOnce({ ok: true, stats: MENS_STATS });
+    mockBothApis({ ok: true, stats: MENS_STATS });
     renderDashboard();
 
     await waitFor(() => expect(screen.getByText('M: 15')).toBeInTheDocument());
@@ -141,7 +199,7 @@ describe('DashboardPage', () => {
   });
 
   it('shows recent registrations', async () => {
-    mockApiFetch.mockResolvedValueOnce({ ok: true, stats: MENS_STATS });
+    mockBothApis({ ok: true, stats: MENS_STATS });
     renderDashboard();
 
     await waitFor(() => expect(screen.getByText(/Alice Smith/i)).toBeInTheDocument());
@@ -149,7 +207,10 @@ describe('DashboardPage', () => {
   });
 
   it('shows an error message when the API call fails', async () => {
-    mockApiFetch.mockRejectedValueOnce(new Error('Network error'));
+    mockApiFetch.mockImplementation((path: string) => {
+      if (path === '/admin/dashboard') return Promise.reject(new Error('Network error'));
+      return Promise.resolve(MENS_EVENTS_RESPONSE);
+    });
     renderDashboard();
 
     await waitFor(() =>
@@ -158,18 +219,30 @@ describe('DashboardPage', () => {
   });
 
   it('refetches when the program changes, and renders the new data', async () => {
-    mockApiFetch.mockResolvedValueOnce({ ok: true, stats: MENS_STATS });
+    // Use path-based routing to avoid ordering issues between dashboard and tile effects
+    let program: 'mens' | 'women' = 'mens';
+    mockApiFetch.mockImplementation((path: string) => {
+      if (path === '/admin/dashboard') {
+        return Promise.resolve(
+          program === 'mens' ? { ok: true, stats: MENS_STATS } : { ok: true, stats: WOMENS_STATS },
+        );
+      }
+      if (path === '/admin/events') {
+        return Promise.resolve(
+          program === 'mens' ? MENS_EVENTS_RESPONSE : WOMENS_EVENTS_RESPONSE,
+        );
+      }
+      return Promise.reject(new Error(`Unmocked: ${path}`));
+    });
 
     const setProgram = vi.fn();
     const { rerender } = renderDashboard('mens', setProgram);
 
     // Wait for initial mens data
     await waitFor(() => expect(screen.getByText('42')).toBeInTheDocument());
-    expect(mockApiFetch).toHaveBeenCalledTimes(1);
 
     // Switch to womens
-    mockApiFetch.mockResolvedValueOnce({ ok: true, stats: WOMENS_STATS });
-
+    program = 'women';
     rerender(
       <ProgramContext.Provider value={{ program: 'women', setProgram }}>
         <MemoryRouter>
@@ -178,21 +251,20 @@ describe('DashboardPage', () => {
       </ProgramContext.Provider>,
     );
 
-    // Should refetch
-    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(2));
     // Should now show womens data
     await waitFor(() => expect(screen.getByText('55')).toBeInTheDocument());
-    expect(screen.getByText(/Women's Encounter 2025/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Women's Encounter 2025/i).length).toBeGreaterThan(0);
   });
 
   it('shows loading state again while switching programs', async () => {
-    mockApiFetch.mockResolvedValueOnce({ ok: true, stats: MENS_STATS });
+    mockApiFetch
+      .mockResolvedValueOnce({ ok: true, stats: MENS_STATS })  // dashboard (mens)
+      .mockResolvedValueOnce(MENS_EVENTS_RESPONSE)              // events tile (mens)
+      .mockReturnValueOnce(new Promise(() => {}))               // dashboard (women, never resolves)
+      .mockReturnValueOnce(new Promise(() => {}));              // events tile (women, never resolves)
 
     const { rerender } = renderDashboard('mens');
     await waitFor(() => expect(screen.getByText('42')).toBeInTheDocument());
-
-    // Next call never resolves — so it stays "loading"
-    mockApiFetch.mockReturnValueOnce(new Promise(() => {}));
 
     await act(async () => {
       rerender(
@@ -209,7 +281,7 @@ describe('DashboardPage', () => {
 
   it('shows Dashboard as heading when there is no upcoming event', async () => {
     const noEvent = { ...MENS_STATS, upcoming_event: null };
-    mockApiFetch.mockResolvedValueOnce({ ok: true, stats: noEvent });
+    mockBothApis({ ok: true, stats: noEvent }, EMPTY_EVENTS_RESPONSE);
     renderDashboard();
 
     await waitFor(() =>
@@ -219,7 +291,7 @@ describe('DashboardPage', () => {
 
   it('hides location section when by_launch_location is empty', async () => {
     const noLoc = { ...MENS_STATS, by_launch_location: [] };
-    mockApiFetch.mockResolvedValueOnce({ ok: true, stats: noLoc });
+    mockBothApis({ ok: true, stats: noLoc });
     renderDashboard();
 
     await waitFor(() => expect(screen.getByText('42')).toBeInTheDocument());
@@ -228,7 +300,7 @@ describe('DashboardPage', () => {
 
   it('hides shirt-size section when by_shirt_size is empty', async () => {
     const noShirt = { ...MENS_STATS, by_shirt_size: [] };
-    mockApiFetch.mockResolvedValueOnce({ ok: true, stats: noShirt });
+    mockBothApis({ ok: true, stats: noShirt });
     renderDashboard();
 
     await waitFor(() => expect(screen.getByText('42')).toBeInTheDocument());

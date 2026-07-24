@@ -1,30 +1,46 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { apiFetch } from '@/api';
+import {
+  IconDashboard,
+  IconClipboard,
+  IconCalendar,
+  IconMail,
+  IconImage,
+  IconHeart,
+} from './NavIcons';
+
+type IconComponent = React.ComponentType<{ className?: string }>;
 
 interface NavItem {
   to: string;
   label: string;
-  icon: string;
+  Icon: IconComponent;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: '/',              label: 'Dashboard',               icon: '📊' },
-  { to: '/registrations', label: 'Registrations',           icon: '📋' },
-  { to: '/events',        label: 'Events',                  icon: '📅' },
-  { to: '/email',         label: 'Email',                   icon: '✉️' },
-  { to: '/gallery',       label: 'Gallery',                 icon: '🖼️' },
-  { to: '/testimonies',   label: 'Testimonies & Teachings', icon: '🕊️' },
+  { to: '/',              label: 'Dashboard',               Icon: IconDashboard },
+  { to: '/registrations', label: 'Registrations',           Icon: IconClipboard },
+  { to: '/events',        label: 'Upcoming Encounter',      Icon: IconCalendar  },
+  { to: '/email',         label: 'Email',                   Icon: IconMail      },
+  { to: '/gallery',       label: 'Gallery',                 Icon: IconImage     },
+  { to: '/testimonies',   label: 'Testimonies & Teachings', Icon: IconHeart     },
 ];
+
+interface ExtraNavItem {
+  to: string;
+  label: string;
+  icon?: string;
+  Icon?: IconComponent;
+}
 
 interface NavProps {
   /** Additional links injected by later phases. */
-  extraItems?: NavItem[];
+  extraItems?: ExtraNavItem[];
 }
 
 export default function Nav({ extraItems = [] }: NavProps) {
   const location = useLocation();
-  const items = [...NAV_ITEMS, ...extraItems];
   const [newCount, setNewCount] = useState<number>(0);
 
   useEffect(() => {
@@ -52,7 +68,7 @@ export default function Nav({ extraItems = [] }: NavProps) {
 
   return (
     <nav aria-label="Main navigation" className="flex-1 py-4 space-y-0.5 px-2">
-      {items.map(({ to, label, icon }) => {
+      {NAV_ITEMS.map(({ to, label, Icon }) => {
         const active =
           to === '/'
             ? location.pathname === '/' || location.pathname === ''
@@ -69,7 +85,7 @@ export default function Nav({ extraItems = [] }: NavProps) {
               color: '#fff',
             }}
           >
-            <span aria-hidden="true">{icon}</span>
+            <Icon className="flex-shrink-0 opacity-80" />
             <span className="flex-1">{label}</span>
             {isTestimonies && newCount > 0 && (
               <span
@@ -80,6 +96,28 @@ export default function Nav({ extraItems = [] }: NavProps) {
                 {newCount}
               </span>
             )}
+          </Link>
+        );
+      })}
+      {extraItems.map(({ to, label, icon, Icon: ExtraIcon }) => {
+        const active = location.pathname.startsWith(to);
+        return (
+          <Link
+            key={to}
+            to={to}
+            aria-current={active ? 'page' : undefined}
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150"
+            style={{
+              background: active ? 'rgba(255,255,255,0.18)' : 'transparent',
+              color: '#fff',
+            }}
+          >
+            {ExtraIcon
+              ? <ExtraIcon className="flex-shrink-0 opacity-80" />
+              : icon
+                ? <span aria-hidden="true">{icon}</span>
+                : null}
+            <span className="flex-1">{label}</span>
           </Link>
         );
       })}

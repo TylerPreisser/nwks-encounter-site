@@ -102,8 +102,7 @@ export default function ProgramToggle() {
               e.currentTarget.style.outline = 'none';
             }}
           >
-            <span aria-hidden="true">{theme.emoji}</span>
-            {label}
+              {label}
           </button>
         );
       })}

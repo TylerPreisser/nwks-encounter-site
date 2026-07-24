@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { apiFetch } from '@/api';
 import { useProgram } from '@/App';
 import StatCard from '@/components/StatCard';
+import UpcomingEncounterTile from '@/components/UpcomingEncounterTile';
 
 interface Stats {
   attendee_count: number;
@@ -57,6 +58,9 @@ export default function DashboardPage() {
           </span>
         )}
       </h1>
+
+      {/* ── Upcoming Encounter quick-edit tile ────────────────── */}
+      <UpcomingEncounterTile />
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

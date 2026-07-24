@@ -9,10 +9,10 @@ import Nav from './Nav';
  * AppShell — authenticated layout wrapper.
  *
  * - Renders a themed sidebar (primary color = program-specific).
- * - Top-left: ProgramToggle — switching program re-themes the entire shell
- *   via CSS variables (set by applyTheme in AuthGuard) and updates the
- *   ProgramContext so all apiFetch calls carry the correct ?program= param.
- * - Sidebar Nav: Dashboard, Registrations (more links added by later phases).
+ * - Top: program logo (men's or women's) + "NWKS Encounter" label.
+ * - ProgramToggle: switching program re-themes the entire shell via CSS
+ *   variables and switches the logo.
+ * - Sidebar Nav: Dashboard, Registrations, Upcoming Encounter, etc.
  * - Main: <Outlet /> for page content.
  */
 export default function AppShell() {
@@ -36,9 +36,17 @@ export default function AppShell() {
         className="w-56 flex-shrink-0 flex flex-col shadow-lg"
         style={{ background: theme.primary }}
       >
-        {/* Program toggle at top-left */}
-        <div className="p-4 border-b border-white/10">
-          <p className="text-white/50 text-[10px] font-semibold uppercase tracking-widest mb-2">
+        {/* Logo + program toggle */}
+        <div className="p-4 border-b border-white/10 flex flex-col items-center gap-3">
+          {/* Program logo */}
+          <img
+            src={theme.logoSrc}
+            alt={theme.logoAlt}
+            data-testid="program-logo"
+            data-program-logo={program}
+            className="w-16 h-16 rounded-full object-cover shadow-md border-2 border-white/20"
+          />
+          <p className="text-white/70 text-[10px] font-semibold uppercase tracking-widest">
             NWKS Encounter
           </p>
           <ProgramToggle />

@@ -8,26 +8,37 @@ export interface ThemeTokens {
   accent: string;
   label: string;
   emoji: string;
+  /** src-import path for the program logo (used by AppShell) */
+  logoSrc: string;
+  /** alt text for the logo */
+  logoAlt: string;
 }
+
+import mensLogoSrc   from './assets/mens-logo.jpg';
+import womensLogoSrc from './assets/womens-logo.jpg';
 
 export const THEMES: Record<Program, ThemeTokens> = {
   mens: {
-    primary:   '#6B7645',
-    secondary: '#B8972A',
-    bg:        '#F5F3EC',
+    primary:   '#3D4127',   // deep olive
+    secondary: '#B8972A',   // gold
+    bg:        '#F2EFE6',   // warm parchment
     surface:   '#FFFFFF',
-    accent:    '#8A9A50',
+    accent:    '#6B7645',   // medium olive
     label:     "Men's Encounter",
     emoji:     '⛺',
+    logoSrc:   mensLogoSrc,
+    logoAlt:   "Men's Encounter logo",
   },
   women: {
-    primary:   '#A0536A',
-    secondary: '#D4748C',
-    bg:        '#FDF5F7',
+    primary:   '#6B2740',   // deep plum-rose
+    secondary: '#A0536A',   // rose
+    bg:        '#FDF5F7',   // soft blush
     surface:   '#FFFFFF',
-    accent:    '#C4849A',
+    accent:    '#C4849A',   // dusty rose
     label:     "Women's Encounter",
     emoji:     '🌸',
+    logoSrc:   womensLogoSrc,
+    logoAlt:   "Women's Encounter logo",
   },
 };
 
