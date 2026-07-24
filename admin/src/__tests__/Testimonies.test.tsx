@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { ProgramContext } from '../App';
-import Testimonies, { statusToColumn } from '../pages/Testimonies';
+import Testimonies, { statusToColumn, statusToWaiting, TESTIMONY_TOPICS } from '../pages/Testimonies';
 import Nav from '../components/Nav';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────────
@@ -30,6 +30,7 @@ const TESTIMONY_NOT_RECEIVED: import('../pages/Testimonies').TestimonyRow = {
   title: 'Saturday night testimony',
   status: 'not_received',
   type: 'testimony',
+  topic: null,
   received_at: null,
   created_at: '2026-07-20T10:00:00Z',
   attachment_count: 0,
@@ -48,6 +49,7 @@ const TESTIMONY_DRAFT1_AWAITING: import('../pages/Testimonies').TestimonyRow = {
   title: 'Opening teaching',
   status: 'draft_1_awaiting',
   type: 'teaching',
+  topic: null,
   received_at: null,
   created_at: '2026-07-19T09:00:00Z',
   attachment_count: 0,
@@ -66,6 +68,7 @@ const TESTIMONY_DRAFT1_REVIEW: import('../pages/Testimonies').TestimonyRow = {
   title: null,
   status: 'draft_1_review',
   type: 'testimony',
+  topic: null,
   received_at: '2026-07-21T09:00:00Z',
   created_at: '2026-07-21T09:00:00Z',
   attachment_count: 1,
@@ -84,6 +87,7 @@ const TESTIMONY_DRAFT2_AWAITING: import('../pages/Testimonies').TestimonyRow = {
   title: null,
   status: 'draft_2_awaiting',
   type: 'testimony',
+  topic: null,
   received_at: null,
   created_at: '2026-07-21T10:00:00Z',
   attachment_count: 0,
@@ -102,6 +106,7 @@ const TESTIMONY_DRAFT2_REVIEW: import('../pages/Testimonies').TestimonyRow = {
   title: null,
   status: 'draft_2_review',
   type: 'testimony',
+  topic: null,
   received_at: '2026-07-22T09:00:00Z',
   created_at: '2026-07-22T09:00:00Z',
   attachment_count: 1,
@@ -120,6 +125,7 @@ const TESTIMONY_DRAFT3_AWAITING: import('../pages/Testimonies').TestimonyRow = {
   title: null,
   status: 'draft_3_awaiting',
   type: 'testimony',
+  topic: null,
   received_at: null,
   created_at: '2026-07-22T11:00:00Z',
   attachment_count: 0,
@@ -138,6 +144,7 @@ const TESTIMONY_DRAFT3_REVIEW: import('../pages/Testimonies').TestimonyRow = {
   title: null,
   status: 'draft_3_review',
   type: 'testimony',
+  topic: null,
   received_at: '2026-07-23T09:00:00Z',
   created_at: '2026-07-23T09:00:00Z',
   attachment_count: 1,
@@ -156,6 +163,7 @@ const TESTIMONY_APPROVED: import('../pages/Testimonies').TestimonyRow = {
   title: 'Done testimony',
   status: 'approved',
   type: 'testimony',
+  topic: 'Healing',
   received_at: '2026-07-18T10:00:00Z',
   created_at: '2026-07-18T10:00:00Z',
   attachment_count: 2,
@@ -174,6 +182,7 @@ const TESTIMONY_UNASSIGNED: import('../pages/Testimonies').TestimonyRow = {
   title: null,
   status: 'draft_1_review',
   type: 'testimony',
+  topic: null,
   received_at: '2026-07-18T08:00:00Z',
   created_at: '2026-07-18T08:00:00Z',
   attachment_count: 0,
@@ -973,6 +982,198 @@ describe('Testimonies Kanban — filters', () => {
       </MemoryRouter>
     );
     await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(2));
+  });
+});
+
+// ── statusToWaiting helper ────────────────────────────────────────────────────
+
+describe('statusToWaiting helper', () => {
+  it('maps not_received -> server', () => {
+    expect(statusToWaiting('not_received')).toBe('server');
+  });
+  it('maps draft_1_awaiting -> server', () => {
+    expect(statusToWaiting('draft_1_awaiting')).toBe('server');
+  });
+  it('maps draft_2_awaiting -> server', () => {
+    expect(statusToWaiting('draft_2_awaiting')).toBe('server');
+  });
+  it('maps draft_3_awaiting -> server', () => {
+    expect(statusToWaiting('draft_3_awaiting')).toBe('server');
+  });
+  it('maps draft_1_review -> us', () => {
+    expect(statusToWaiting('draft_1_review')).toBe('us');
+  });
+  it('maps draft_2_review -> us', () => {
+    expect(statusToWaiting('draft_2_review')).toBe('us');
+  });
+  it('maps draft_3_review -> us', () => {
+    expect(statusToWaiting('draft_3_review')).toBe('us');
+  });
+  it('maps approved -> approved', () => {
+    expect(statusToWaiting('approved')).toBe('approved');
+  });
+});
+
+// ── Waiting-on color + label on cards ─────────────────────────────────────────
+
+describe('Testimonies Kanban — waiting-on color + label', () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  it('card with not_received status has data-waiting="server"', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_NOT_RECEIVED] });
+    renderTestimonies();
+    await waitFor(() => {
+      const card = screen.getByTestId('testimony-row-1');
+      expect(card).toHaveAttribute('data-waiting', 'server');
+    });
+  });
+
+  it('card with draft_1_awaiting has data-waiting="server" and "Waiting on server" label', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_DRAFT1_AWAITING] });
+    renderTestimonies();
+    await waitFor(() => {
+      const card = screen.getByTestId('testimony-row-2');
+      expect(card).toHaveAttribute('data-waiting', 'server');
+      expect(screen.getByTestId('waiting-label-2')).toHaveTextContent('Waiting on server');
+    });
+  });
+
+  it('card with draft_2_awaiting has data-waiting="server"', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_DRAFT2_AWAITING] });
+    renderTestimonies();
+    await waitFor(() => {
+      const card = screen.getByTestId('testimony-row-4');
+      expect(card).toHaveAttribute('data-waiting', 'server');
+    });
+  });
+
+  it('card with draft_3_awaiting has data-waiting="server"', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_DRAFT3_AWAITING] });
+    renderTestimonies();
+    await waitFor(() => {
+      const card = screen.getByTestId('testimony-row-8');
+      expect(card).toHaveAttribute('data-waiting', 'server');
+    });
+  });
+
+  it('card with draft_1_review has data-waiting="us" and "Waiting on us" label', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_DRAFT1_REVIEW] });
+    renderTestimonies();
+    await waitFor(() => {
+      const card = screen.getByTestId('testimony-row-3');
+      expect(card).toHaveAttribute('data-waiting', 'us');
+      expect(screen.getByTestId('waiting-label-3')).toHaveTextContent('Waiting on us');
+    });
+  });
+
+  it('card with draft_2_review has data-waiting="us"', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_DRAFT2_REVIEW] });
+    renderTestimonies();
+    await waitFor(() => {
+      const card = screen.getByTestId('testimony-row-5');
+      expect(card).toHaveAttribute('data-waiting', 'us');
+    });
+  });
+
+  it('card with draft_3_review has data-waiting="us"', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_DRAFT3_REVIEW] });
+    renderTestimonies();
+    await waitFor(() => {
+      const card = screen.getByTestId('testimony-row-9');
+      expect(card).toHaveAttribute('data-waiting', 'us');
+    });
+  });
+
+  it('card with approved status has data-waiting="approved" and "Approved" label', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_APPROVED] });
+    renderTestimonies();
+    await waitFor(() => {
+      const card = screen.getByTestId('testimony-row-6');
+      expect(card).toHaveAttribute('data-waiting', 'approved');
+      expect(screen.getByTestId('waiting-label-6')).toHaveTextContent('Approved');
+    });
+  });
+});
+
+// ── Topic picklist + badge ─────────────────────────────────────────────────────
+
+describe('Testimonies Kanban — topic', () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  it('TESTIMONY_TOPICS exports at least 11 entries', () => {
+    expect(TESTIMONY_TOPICS.length).toBeGreaterThanOrEqual(11);
+    expect(TESTIMONY_TOPICS).toContain('Purity');
+    expect(TESTIMONY_TOPICS).toContain('Freedom');
+    expect(TESTIMONY_TOPICS).toContain('Spiritual Warfare');
+  });
+
+  it('Add modal has a Topic select with picklist options', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [] });
+    renderTestimonies();
+    await waitFor(() => screen.getByTestId('add-needed-item'));
+    fireEvent.click(screen.getByTestId('add-needed-item'));
+    const topicSelect = screen.getByRole('combobox', { name: /topic/i });
+    expect(topicSelect).toBeInTheDocument();
+    // Should include Purity, Freedom, Spiritual Warfare options
+    const options = Array.from(topicSelect.querySelectorAll('option')).map(o => o.textContent);
+    expect(options).toContain('Purity');
+    expect(options).toContain('Freedom');
+    expect(options).toContain('Spiritual Warfare');
+  });
+
+  it('POSTs with topic when selected in Add modal', async () => {
+    mockApiFetch
+      .mockResolvedValueOnce({ ok: true, testimonies: [] })
+      .mockResolvedValueOnce({ ok: true, testimony: { id: 99, status: 'not_received', type: 'testimony', topic: 'Purity', person_id: null, program: 'mens' } })
+      .mockResolvedValueOnce({ ok: true, testimonies: [] });
+
+    renderTestimonies();
+    await waitFor(() => screen.getByTestId('add-needed-item'));
+    fireEvent.click(screen.getByTestId('add-needed-item'));
+
+    const topicSelect = screen.getByRole('combobox', { name: /topic/i });
+    fireEvent.change(topicSelect, { target: { value: 'Purity' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /^create$/i }));
+
+    await waitFor(() => {
+      const postCall = mockApiFetch.mock.calls.find(
+        c => typeof c[0] === 'string' && c[0] === '/admin/testimonies' && (c[1] as RequestInit)?.method === 'POST'
+      );
+      expect(postCall).toBeDefined();
+      const body = JSON.parse((postCall![1] as RequestInit).body as string);
+      expect(body.topic).toBe('Purity');
+    });
+  });
+
+  it('shows topic badge on card when topic is set', async () => {
+    const itemWithTopic: import('../pages/Testimonies').TestimonyRow = {
+      ...TESTIMONY_NOT_RECEIVED,
+      id: 50,
+      topic: 'Freedom',
+    };
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [itemWithTopic] });
+    renderTestimonies();
+    await waitFor(() => {
+      expect(screen.getByTestId('topic-badge-50')).toHaveTextContent('Freedom');
+    });
+  });
+
+  it('does NOT show topic badge when topic is null', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_NOT_RECEIVED] }); // topic: null
+    renderTestimonies();
+    await waitFor(() => screen.getByTestId('testimony-row-1'));
+    expect(screen.queryByTestId('topic-badge-1')).not.toBeInTheDocument();
+  });
+
+  it('shows Healing topic badge on approved card fixture', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_APPROVED] }); // topic: 'Healing'
+    renderTestimonies();
+    await waitFor(() => {
+      expect(screen.getByTestId('topic-badge-6')).toHaveTextContent('Healing');
+    });
   });
 });
 

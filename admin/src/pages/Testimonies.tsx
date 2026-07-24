@@ -33,6 +33,7 @@ export interface TestimonyRow {
   title: string | null;
   status: BoardStatus;
   type: 'testimony' | 'teaching';
+  topic: string | null;
   received_at: string | null;
   created_at: string;
   attachment_count: number;
@@ -48,6 +49,71 @@ interface PersonSearchResult {
 }
 
 type FilterType = 'all' | 'testimony' | 'teaching';
+
+// ── Topic picklist ─────────────────────────────────────────────────────────────
+
+export const TESTIMONY_TOPICS = [
+  'Purity',
+  'Freedom',
+  'Identity',
+  "The Father's Love",
+  'Forgiveness',
+  'Healing',
+  'Marriage & Family',
+  'Spiritual Warfare',
+  'Addiction & Recovery',
+  'Salvation',
+  'Calling',
+] as const;
+
+export type TestimonyTopic = typeof TESTIMONY_TOPICS[number];
+
+// ── Waiting-on derivation ──────────────────────────────────────────────────────
+
+export type WaitingOn = 'server' | 'us' | 'approved';
+
+export function statusToWaiting(status: BoardStatus): WaitingOn {
+  if (status === 'approved') return 'approved';
+  if (
+    status === 'draft_1_review' ||
+    status === 'draft_2_review' ||
+    status === 'draft_3_review'
+  ) {
+    return 'us';
+  }
+  // not_received, draft_1_awaiting, draft_2_awaiting, draft_3_awaiting, archived
+  return 'server';
+}
+
+const WAITING_STYLES: Record<WaitingOn, {
+  border: string;
+  bg: string;
+  labelText: string;
+  labelColor: string;
+  dotColor: string;
+}> = {
+  server: {
+    border:     'border-l-4 border-l-amber-400',
+    bg:         'bg-amber-50/60',
+    labelText:  'Waiting on server',
+    labelColor: 'text-amber-700',
+    dotColor:   'bg-amber-400',
+  },
+  us: {
+    border:     'border-l-4 border-l-blue-500',
+    bg:         'bg-blue-50/60',
+    labelText:  'Waiting on us',
+    labelColor: 'text-blue-700',
+    dotColor:   'bg-blue-500',
+  },
+  approved: {
+    border:     'border-l-4 border-l-green-500',
+    bg:         'bg-green-50/60',
+    labelText:  'Approved',
+    labelColor: 'text-green-700',
+    dotColor:   'bg-green-500',
+  },
+};
 
 // ── Column mapping ─────────────────────────────────────────────────────────────
 
@@ -236,6 +302,7 @@ interface AddItemModalProps {
 function AddItemModal({ program, onCreated, onCancel }: AddItemModalProps) {
   const theme = THEMES[program as 'mens' | 'women'] ?? THEMES.mens;
   const [type, setType] = useState<'testimony' | 'teaching'>('testimony');
+  const [topic, setTopic] = useState<string>('');
   const [personId, setPersonId] = useState<number | null>(null);
   const [personName, setPersonName] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -250,6 +317,7 @@ function AddItemModal({ program, onCreated, onCancel }: AddItemModalProps) {
         body: JSON.stringify({
           type,
           person_id: personId,
+          topic: topic || null,
         }),
       });
       onCreated();
@@ -289,6 +357,25 @@ function AddItemModal({ program, onCreated, onCancel }: AddItemModalProps) {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Topic picklist */}
+        <div>
+          <label className="text-xs font-medium text-gray-500 block mb-1.5" htmlFor="add-topic-select">
+            Topic
+          </label>
+          <select
+            id="add-topic-select"
+            aria-label="Topic"
+            value={topic}
+            onChange={e => setTopic(e.target.value)}
+            className="w-full text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+          >
+            <option value="">— select topic —</option>
+            {TESTIMONY_TOPICS.map(t => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
         </div>
 
         {/* Person picklist */}
@@ -352,13 +439,25 @@ function KanbanCard({ item, columnKey, onStatusChange, onDragStart }: KanbanCard
 
   const subStateOptions = COLUMN_SUB_STATES[columnKey];
 
+  const waiting = statusToWaiting(item.status);
+  const ws = WAITING_STYLES[waiting];
+
   return (
     <div
       data-testid={`testimony-row-${item.id}`}
+      data-waiting={waiting}
       draggable
       onDragStart={() => onDragStart(item.id)}
-      className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm space-y-2 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
+      className={`rounded-lg border border-gray-200 p-3 shadow-sm space-y-2 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow ${ws.border} ${ws.bg}`}
     >
+      {/* Waiting-on label */}
+      <div className="flex items-center gap-1.5">
+        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${ws.dotColor}`} />
+        <span className={`text-xs font-medium ${ws.labelColor}`} data-testid={`waiting-label-${item.id}`}>
+          {ws.labelText}
+        </span>
+      </div>
+
       {/* Person name */}
       <div>
         {item.person_id && personName ? (
@@ -379,8 +478,8 @@ function KanbanCard({ item, columnKey, onStatusChange, onDragStart }: KanbanCard
         )}
       </div>
 
-      {/* Type badge + View link */}
-      <div className="flex items-center justify-between gap-2">
+      {/* Type badge + Topic badge + View link */}
+      <div className="flex items-center flex-wrap gap-1.5">
         <span className={`text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${
           item.type === 'teaching'
             ? 'bg-purple-100 text-purple-700'
@@ -389,13 +488,22 @@ function KanbanCard({ item, columnKey, onStatusChange, onDragStart }: KanbanCard
           {item.type === 'teaching' ? 'Teaching' : 'Testimony'}
         </span>
 
+        {item.topic && (
+          <span
+            className="text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0 bg-gray-100 text-gray-600"
+            data-testid={`topic-badge-${item.id}`}
+          >
+            {item.topic}
+          </span>
+        )}
+
         {hasSubmission && (
           <a
             href={viewUrl}
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`View submission for ${personName ?? 'item'}`}
-            className="text-xs text-blue-600 hover:underline flex-shrink-0"
+            className="text-xs text-blue-600 hover:underline flex-shrink-0 ml-auto"
           >
             View ↗
           </a>

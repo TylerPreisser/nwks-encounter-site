@@ -144,6 +144,7 @@ testimoniesRouter.post('/', async (c) => {
     person_id?: number | null;
     title?: string | null;
     status?: string;
+    topic?: string | null;
   } = {};
   try {
     body = await c.req.json();
@@ -183,17 +184,19 @@ testimoniesRouter.post('/', async (c) => {
 
   const now = nowIso();
   const title = body.title?.trim() ?? null;
+  const topic = body.topic?.trim() || null;
 
   const { meta } = await c.env.DB.prepare(
     `INSERT INTO testimonies
-       (type, person_id, program, title, from_email, from_name,
+       (type, person_id, program, title, topic, from_email, from_name,
         status, assigned_at, created_at)
-     VALUES (?, ?, ?, ?, '', '', ?, ?, ?)`
+     VALUES (?, ?, ?, ?, ?, '', '', ?, ?, ?)`
   ).bind(
     type,
     personId,
     itemProgram,
     title,
+    topic,
     status,
     personId ? now : null,
     now
@@ -468,6 +471,7 @@ testimoniesRouter.patch('/:id', async (c) => {
     status?: string;
     type?: string;
     title?: string | null;
+    topic?: string | null;
     person_id?: number | null;
   } = {};
   try {
@@ -499,6 +503,11 @@ testimoniesRouter.patch('/:id', async (c) => {
   if ('title' in body) {
     updates.push('title = ?');
     bindings.push(body.title?.trim() ?? null);
+  }
+
+  if ('topic' in body) {
+    updates.push('topic = ?');
+    bindings.push(body.topic?.trim() || null);
   }
 
   if ('person_id' in body) {

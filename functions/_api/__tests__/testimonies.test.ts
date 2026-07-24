@@ -497,6 +497,68 @@ describe('storeTestimony', () => {
   });
 });
 
+describe('testimonies topic column', () => {
+  beforeEach(async () => {
+    await applyMigrations(env as unknown as { DB: D1Database });
+    await seedAdmin();
+  });
+
+  it('has topic column in testimonies table after migration', async () => {
+    const info = await testEnv.DB.prepare(
+      `PRAGMA table_info(testimonies)`
+    ).all<{ name: string }>();
+    const cols = info.results.map(r => r.name);
+    expect(cols).toContain('topic');
+  });
+
+  it('POST /api/admin/testimonies accepts and stores topic', async () => {
+    const cookie = await getAuthCookie();
+    const res = await app.fetch(
+      makeReq('POST', '/api/admin/testimonies', cookie, 'mens', {
+        type: 'testimony',
+        topic: 'Purity',
+      }),
+      testEnv
+    );
+    expect(res.status).toBe(201);
+    const json = await res.json<{ ok: boolean; testimony: { id: number } }>();
+    expect(json.ok).toBe(true);
+    const row = await testEnv.DB.prepare(`SELECT topic FROM testimonies WHERE id = ?`)
+      .bind(json.testimony.id).first<{ topic: string | null }>();
+    expect(row?.topic).toBe('Purity');
+  });
+
+  it('PATCH /api/admin/testimonies/:id accepts and stores topic', async () => {
+    const tid = await seedTestimony({ program: 'mens', status: 'not_received' });
+    const cookie = await getAuthCookie();
+    const res = await app.fetch(
+      makeReq('PATCH', `/api/admin/testimonies/${tid}`, cookie, 'mens', { topic: 'Freedom' }),
+      testEnv
+    );
+    expect(res.status).toBe(200);
+    const row = await testEnv.DB.prepare(`SELECT topic FROM testimonies WHERE id = ?`)
+      .bind(tid).first<{ topic: string | null }>();
+    expect(row?.topic).toBe('Freedom');
+  });
+
+  it('GET /api/admin/testimonies includes topic in list response', async () => {
+    const tid = await seedTestimony({ program: 'mens', status: 'not_received' });
+    await testEnv.DB.prepare(`UPDATE testimonies SET topic = 'Healing' WHERE id = ?`).bind(tid).run();
+    const cookie = await getAuthCookie();
+    const res = await app.fetch(makeReq('GET', '/api/admin/testimonies', cookie, 'mens'), testEnv);
+    const json = await res.json<{ testimonies: Array<{ id: number; topic: string | null }> }>();
+    const found = json.testimonies.find((t) => t.id === tid);
+    expect(found?.topic).toBe('Healing');
+  });
+
+  it('topic is null by default (no topic supplied)', async () => {
+    const tid = await seedTestimony({ program: 'mens', status: 'not_received' });
+    const row = await testEnv.DB.prepare(`SELECT topic FROM testimonies WHERE id = ?`)
+      .bind(tid).first<{ topic: string | null }>();
+    expect(row?.topic).toBeNull();
+  });
+});
+
 describe('GET /api/admin/testimonies', () => {
   beforeEach(async () => {
     await applyMigrations(env as unknown as { DB: D1Database });
