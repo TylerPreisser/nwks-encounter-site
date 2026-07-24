@@ -257,4 +257,59 @@ describe('Events page', () => {
     );
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
+
+  // ── needs_next_event banner ───────────────────────────────────────────────
+
+  it('shows needs-next-event banner when API returns needs_next_event=true (mens)', async () => {
+    mockFetchMap({
+      '/api/admin/events': {
+        status: 200,
+        body: { ok: true, events: [SAMPLE_EVENT], needs_next_event: true },
+      },
+    });
+    render(<Events />, { wrapper: wrapper('mens') });
+    await waitFor(() =>
+      expect(screen.getByRole('alert', { name: /needs-next-event/i })).toBeInTheDocument()
+    );
+    expect(screen.getByText(/men's encounter has ended/i)).toBeInTheDocument();
+    expect(screen.getByText(/create the next event/i)).toBeInTheDocument();
+  });
+
+  it('shows needs-next-event banner with Women\'s wording when program is womens', async () => {
+    mockFetchMap({
+      '/api/admin/events': {
+        status: 200,
+        body: { ok: true, events: [{ ...SAMPLE_EVENT, program: 'women' }], needs_next_event: true },
+      },
+    });
+    render(<Events />, { wrapper: wrapper('womens') });
+    await waitFor(() =>
+      expect(screen.getByRole('alert', { name: /needs-next-event/i })).toBeInTheDocument()
+    );
+    expect(screen.getByText(/women's encounter has ended/i)).toBeInTheDocument();
+  });
+
+  it('does NOT show needs-next-event banner when needs_next_event=false', async () => {
+    mockFetchMap({
+      '/api/admin/events': {
+        status: 200,
+        body: { ok: true, events: [SAMPLE_EVENT], needs_next_event: false },
+      },
+    });
+    render(<Events />, { wrapper: wrapper('mens') });
+    await waitFor(() => screen.getByText('2026'));
+    expect(screen.queryByRole('alert', { name: /needs-next-event/i })).not.toBeInTheDocument();
+  });
+
+  it('does NOT show needs-next-event banner when field is absent from API response', async () => {
+    mockFetchMap({
+      '/api/admin/events': {
+        status: 200,
+        body: { ok: true, events: [SAMPLE_EVENT] },
+      },
+    });
+    render(<Events />, { wrapper: wrapper('mens') });
+    await waitFor(() => screen.getByText('2026'));
+    expect(screen.queryByRole('alert', { name: /needs-next-event/i })).not.toBeInTheDocument();
+  });
 });

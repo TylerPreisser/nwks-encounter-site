@@ -57,6 +57,7 @@ export default function Events() {
   const { program } = useProgram();
 
   const [events, setEvents] = useState<NwksEvent[]>([]);
+  const [needsNextEvent, setNeedsNextEvent] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,10 +72,11 @@ export default function Events() {
     setLoading(true);
     setError(null);
     try {
-      const data = await apiFetch<{ ok: boolean; events: NwksEvent[]; error?: string }>(
+      const data = await apiFetch<{ ok: boolean; events: NwksEvent[]; needs_next_event?: boolean; error?: string }>(
         '/admin/events',
       );
       setEvents(data.events);
+      setNeedsNextEvent(data.needs_next_event ?? false);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -190,6 +192,21 @@ export default function Events() {
       {error && (
         <div role="alert" className="p-3 bg-red-50 border border-red-200 text-red-700 rounded">
           {error}
+        </div>
+      )}
+
+      {/* Needs-next-event nudge */}
+      {needsNextEvent && (
+        <div role="alert" aria-label="needs-next-event" className="p-4 bg-amber-50 border border-amber-300 text-amber-800 rounded-lg flex items-start gap-3">
+          <span className="text-xl" aria-hidden="true">⚠️</span>
+          <div>
+            <p className="font-semibold">
+              The current {program === 'mens' ? "Men's" : "Women's"} Encounter has ended.
+            </p>
+            <p className="text-sm mt-1">
+              Create the next event so the website automatically updates to the new dates.
+            </p>
+          </div>
         </div>
       )}
 

@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import type { Env } from '../app';
 import { requireAuth, requireProgram } from '../auth';
 import { nowIso } from '../db';
+import { needsNextEvent } from '../events-advance';
+import type { Program } from '../events-advance';
 
 export const eventsRouter = new Hono<{ Bindings: Env }>();
 
@@ -10,11 +12,16 @@ eventsRouter.use('*', requireAuth(), requireProgram());
 
 // GET /api/admin/events?program=
 eventsRouter.get('/', async (c) => {
-  const program = c.get('program');
+  const program = c.get('program') as Program;
   const { results } = await c.env.DB.prepare(
     `SELECT * FROM events WHERE program = ? ORDER BY year DESC`
   ).bind(program).all();
-  return c.json({ ok: true, events: results });
+
+  // Compute today as YYYY-MM-DD (UTC)
+  const todayYmd = new Date().toISOString().slice(0, 10);
+  const needs_next = await needsNextEvent(c.env.DB, program, todayYmd);
+
+  return c.json({ ok: true, events: results, needs_next_event: needs_next });
 });
 
 // POST /api/admin/events  — create a new event for the program+year

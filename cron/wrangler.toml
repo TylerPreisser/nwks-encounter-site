@@ -12,12 +12,12 @@ crons = ["*/15 * * * *"]
 [[d1_databases]]
 binding = "DB"
 database_name = "nwks-encounter"
-database_id = "REPLACE_ME"
+database_id = "5bcd5ebb-cb1f-4a10-8fca-00c11fea5d9b"
 migrations_dir = "../db/migrations"
 
 [[kv_namespaces]]
 binding = "SESSIONS"
-id = "REPLACE_ME"
+id = "f35ff27e301240d6bfa59ca344520f3e"
 
 [vars]
 EMAIL_ENABLED  = "false"
