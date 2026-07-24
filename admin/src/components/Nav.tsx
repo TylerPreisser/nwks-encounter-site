@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { apiFetch } from '@/api';
 
 interface NavItem {
   to: string;
@@ -7,11 +9,12 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: '/admin/',              label: 'Dashboard',     icon: '📊' },
-  { to: '/admin/registrations', label: 'Registrations', icon: '📋' },
-  { to: '/admin/events',        label: 'Events',        icon: '📅' },
-  { to: '/admin/email',         label: 'Email',         icon: '✉️' },
-  { to: '/admin/gallery',       label: 'Gallery',       icon: '🖼️' },
+  { to: '/admin/',              label: 'Dashboard',               icon: '📊' },
+  { to: '/admin/registrations', label: 'Registrations',           icon: '📋' },
+  { to: '/admin/events',        label: 'Events',                  icon: '📅' },
+  { to: '/admin/email',         label: 'Email',                   icon: '✉️' },
+  { to: '/admin/gallery',       label: 'Gallery',                 icon: '🖼️' },
+  { to: '/admin/testimonies',   label: 'Testimonies & Teachings', icon: '🕊️' },
 ];
 
 interface NavProps {
@@ -22,6 +25,30 @@ interface NavProps {
 export default function Nav({ extraItems = [] }: NavProps) {
   const location = useLocation();
   const items = [...NAV_ITEMS, ...extraItems];
+  const [newCount, setNewCount] = useState<number>(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    function fetchCount() {
+      apiFetch<{ ok: boolean; program_new: number; unassigned_new: number }>(
+        '/admin/testimonies/new-count'
+      )
+        .then(res => {
+          if (!cancelled) {
+            setNewCount((res.program_new ?? 0) + (res.unassigned_new ?? 0));
+          }
+        })
+        .catch(() => {});
+    }
+
+    fetchCount();
+    const interval = setInterval(fetchCount, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
 
   return (
     <nav aria-label="Main navigation" className="flex-1 py-4 space-y-0.5 px-2">
@@ -30,6 +57,7 @@ export default function Nav({ extraItems = [] }: NavProps) {
           to === '/admin/'
             ? location.pathname === '/admin/' || location.pathname === '/admin'
             : location.pathname.startsWith(to);
+        const isTestimonies = to === '/admin/testimonies';
         return (
           <Link
             key={to}
@@ -42,7 +70,16 @@ export default function Nav({ extraItems = [] }: NavProps) {
             }}
           >
             <span aria-hidden="true">{icon}</span>
-            {label}
+            <span className="flex-1">{label}</span>
+            {isTestimonies && newCount > 0 && (
+              <span
+                data-testid="testimonies-badge"
+                aria-label={`${newCount} new`}
+                className="inline-flex items-center justify-center min-w-[1.1rem] h-[1.1rem] px-1 rounded-full text-[10px] font-bold bg-red-500 text-white"
+              >
+                {newCount}
+              </span>
+            )}
           </Link>
         );
       })}

@@ -17,6 +17,7 @@ import Events from './pages/Events';
 import { EmailPage } from './pages/Email';
 import Assistant from './pages/Assistant';
 import Gallery from './pages/Gallery';
+import Testimonies from './pages/Testimonies';
 import AppShell from './components/AppShell';
 
 /* ── Auth types ─────────────────────────────────────────────────── */
@@ -105,6 +106,7 @@ export default function App() {
             {/* Assistant route disabled — component preserved for re-activation */}
             <Route path="/admin/assistant" element={<Navigate to="/admin/" replace />} />
             <Route path="/admin/gallery" element={<Gallery />} />
+            <Route path="/admin/testimonies" element={<Testimonies />} />
             <Route path="/admin/*" element={<Navigate to="/admin/" replace />} />
           </Route>
         </Route>
