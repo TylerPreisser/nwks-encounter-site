@@ -10,7 +10,7 @@
  *   5. vite build admin → dist/admin/     (skipped gracefully if admin/ absent)
  */
 
-import { existsSync, rmSync, mkdirSync, cpSync, copyFileSync } from 'node:fs';
+import { existsSync, rmSync, mkdirSync, cpSync, copyFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
@@ -25,14 +25,19 @@ if (existsSync(dist)) {
 }
 mkdirSync(dist, { recursive: true });
 
-// 2. Copy index.html
-const indexSrc = join(root, 'index.html');
-if (existsSync(indexSrc)) {
-  copyFileSync(indexSrc, join(dist, 'index.html'));
-  console.log('[build] Copied index.html → dist/index.html');
-} else {
-  console.warn('[build] WARNING: index.html not found at root — skipping.');
-}
+// 2. Backend root — NOT the public website. This project (nwks-encounter-backend)
+// serves ONLY the API (/api/*) and the admin panel (/admin/*). Its root must
+// never serve the old gateway concept, so we write a tiny redirect to /admin/
+// instead of copying the root index.html (which is a recovery artifact, not the
+// live worlds site — the live site is a SEPARATE project built via build/bundle.mjs).
+writeFileSync(
+  join(dist, 'index.html'),
+  '<!doctype html><meta charset="utf-8">' +
+    '<meta http-equiv="refresh" content="0; url=/admin/">' +
+    '<title>NWKS Encounter Admin</title>' +
+    '<a href="/admin/">Go to the NWKS Encounter admin panel</a>'
+);
+console.log('[build] Wrote backend redirect index.html → /admin/');
 
 // 3. Copy assets/
 const assetsSrc = join(root, 'assets');
