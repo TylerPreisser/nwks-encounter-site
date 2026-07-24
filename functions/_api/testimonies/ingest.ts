@@ -39,28 +39,34 @@ export interface StoreResult {
 
 // Board statuses that indicate the item is still active (not fulfilled/done)
 const OPEN_STATUSES = [
-  'not_received', 'awaiting_draft_1', 'draft_1_review',
-  'awaiting_draft_2', 'draft_2_review',
+  'not_received',
+  'draft_1_awaiting', 'draft_1_review',
+  'draft_2_awaiting', 'draft_2_review',
+  'draft_3_awaiting', 'draft_3_review',
 ];
 
 /**
  * AUTO-ADVANCE RULE for ingest:
  *
  * When a submission email arrives and matches a person's open item:
- *   - not_received or awaiting_draft_1  -> draft_1_review  (first submission received)
- *   - awaiting_draft_2                  -> draft_2_review  (second draft received)
- *   - draft_1_review or draft_2_review  -> stay (re-send; keep the most-advanced review state)
+ *   - not_received or draft_1_awaiting  -> draft_1_review  (first submission received)
+ *   - draft_2_awaiting                  -> draft_2_review  (second draft received)
+ *   - draft_3_awaiting                  -> draft_3_review  (third draft received)
+ *   - draft_1_review / draft_2_review / draft_3_review -> stay (re-send; keep the most-advanced review state)
  *   - approved / archived               -> never touched (not in OPEN_STATUSES)
  *
  * Never move backwards. Never advance past approved.
  * Unmatched sender -> new item at draft_1_review (something arrived, needs review).
  */
 function nextStatusForIngest(currentStatus: string): string {
-  if (currentStatus === 'not_received' || currentStatus === 'awaiting_draft_1') {
+  if (currentStatus === 'not_received' || currentStatus === 'draft_1_awaiting') {
     return 'draft_1_review';
   }
-  if (currentStatus === 'awaiting_draft_2') {
+  if (currentStatus === 'draft_2_awaiting') {
     return 'draft_2_review';
+  }
+  if (currentStatus === 'draft_3_awaiting') {
+    return 'draft_3_review';
   }
   // Already in a review state — re-send; keep current status (do not move backwards).
   return currentStatus;

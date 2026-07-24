@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { ProgramContext } from '../App';
-import Testimonies from '../pages/Testimonies';
+import Testimonies, { statusToColumn } from '../pages/Testimonies';
 import Nav from '../components/Nav';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────────
@@ -16,7 +16,7 @@ vi.mock('../api', () => ({
 import { apiFetch } from '../api';
 const mockApiFetch = vi.mocked(apiFetch);
 
-// ── Fixtures — new draft-workflow statuses ─────────────────────────────────────
+// ── Fixtures — new 3-draft sub-state statuses ─────────────────────────────────
 
 const TESTIMONY_NOT_RECEIVED: import('../pages/Testimonies').TestimonyRow = {
   id: 1,
@@ -36,7 +36,7 @@ const TESTIMONY_NOT_RECEIVED: import('../pages/Testimonies').TestimonyRow = {
   comment_count: 0,
 };
 
-const TESTIMONY_AWAITING_DRAFT_1: import('../pages/Testimonies').TestimonyRow = {
+const TESTIMONY_DRAFT1_AWAITING: import('../pages/Testimonies').TestimonyRow = {
   id: 2,
   program: 'mens',
   person_id: 11,
@@ -46,7 +46,7 @@ const TESTIMONY_AWAITING_DRAFT_1: import('../pages/Testimonies').TestimonyRow = 
   from_email: 'alice@example.com',
   subject: null,
   title: 'Opening teaching',
-  status: 'awaiting_draft_1',
+  status: 'draft_1_awaiting',
   type: 'teaching',
   received_at: null,
   created_at: '2026-07-19T09:00:00Z',
@@ -72,7 +72,7 @@ const TESTIMONY_DRAFT1_REVIEW: import('../pages/Testimonies').TestimonyRow = {
   comment_count: 0,
 };
 
-const TESTIMONY_AWAITING_DRAFT_2: import('../pages/Testimonies').TestimonyRow = {
+const TESTIMONY_DRAFT2_AWAITING: import('../pages/Testimonies').TestimonyRow = {
   id: 4,
   program: 'mens',
   person_id: 13,
@@ -82,7 +82,7 @@ const TESTIMONY_AWAITING_DRAFT_2: import('../pages/Testimonies').TestimonyRow = 
   from_email: 'carol@example.com',
   subject: null,
   title: null,
-  status: 'awaiting_draft_2',
+  status: 'draft_2_awaiting',
   type: 'testimony',
   received_at: null,
   created_at: '2026-07-21T10:00:00Z',
@@ -106,6 +106,42 @@ const TESTIMONY_DRAFT2_REVIEW: import('../pages/Testimonies').TestimonyRow = {
   created_at: '2026-07-22T09:00:00Z',
   attachment_count: 1,
   comment_count: 1,
+};
+
+const TESTIMONY_DRAFT3_AWAITING: import('../pages/Testimonies').TestimonyRow = {
+  id: 8,
+  program: 'mens',
+  person_id: 16,
+  first_name: 'Eve',
+  last_name: 'Stone',
+  from_name: 'Eve Stone',
+  from_email: 'eve@example.com',
+  subject: null,
+  title: null,
+  status: 'draft_3_awaiting',
+  type: 'testimony',
+  received_at: null,
+  created_at: '2026-07-22T11:00:00Z',
+  attachment_count: 0,
+  comment_count: 0,
+};
+
+const TESTIMONY_DRAFT3_REVIEW: import('../pages/Testimonies').TestimonyRow = {
+  id: 9,
+  program: 'mens',
+  person_id: 17,
+  first_name: 'Frank',
+  last_name: 'Ocean',
+  from_name: 'Frank Ocean',
+  from_email: 'frank@example.com',
+  subject: 'Third draft',
+  title: null,
+  status: 'draft_3_review',
+  type: 'testimony',
+  received_at: '2026-07-23T09:00:00Z',
+  created_at: '2026-07-23T09:00:00Z',
+  attachment_count: 1,
+  comment_count: 0,
 };
 
 const TESTIMONY_APPROVED: import('../pages/Testimonies').TestimonyRow = {
@@ -160,6 +196,29 @@ function renderTestimonies(program: 'mens' | 'women' = 'mens') {
   return render(<Testimonies />, { wrapper: wrapper(program) });
 }
 
+// ── statusToColumn helper ──────────────────────────────────────────────────────
+
+describe('statusToColumn helper', () => {
+  it('maps not_received to not_received', () => {
+    expect(statusToColumn('not_received')).toBe('not_received');
+  });
+  it('maps draft_1_awaiting and draft_1_review to draft_1', () => {
+    expect(statusToColumn('draft_1_awaiting')).toBe('draft_1');
+    expect(statusToColumn('draft_1_review')).toBe('draft_1');
+  });
+  it('maps draft_2_awaiting and draft_2_review to draft_2', () => {
+    expect(statusToColumn('draft_2_awaiting')).toBe('draft_2');
+    expect(statusToColumn('draft_2_review')).toBe('draft_2');
+  });
+  it('maps draft_3_awaiting and draft_3_review to draft_3', () => {
+    expect(statusToColumn('draft_3_awaiting')).toBe('draft_3');
+    expect(statusToColumn('draft_3_review')).toBe('draft_3');
+  });
+  it('maps approved to approved', () => {
+    expect(statusToColumn('approved')).toBe('approved');
+  });
+});
+
 // ── Kanban board layout ────────────────────────────────────────────────────────
 
 describe('Testimonies Kanban — columns', () => {
@@ -172,49 +231,97 @@ describe('Testimonies Kanban — columns', () => {
     expect(screen.getAllByText(/loading/i).length).toBeGreaterThan(0);
   });
 
-  it('renders six kanban columns in order from a mocked payload', async () => {
+  it('renders FIVE kanban columns: Not Received, Draft 1, Draft 2, Draft 3, Approved', async () => {
     mockApiFetch.mockResolvedValue({
       ok: true,
       testimonies: [
         TESTIMONY_NOT_RECEIVED,
-        TESTIMONY_AWAITING_DRAFT_1,
+        TESTIMONY_DRAFT1_AWAITING,
         TESTIMONY_DRAFT1_REVIEW,
-        TESTIMONY_AWAITING_DRAFT_2,
+        TESTIMONY_DRAFT2_AWAITING,
         TESTIMONY_DRAFT2_REVIEW,
+        TESTIMONY_DRAFT3_AWAITING,
+        TESTIMONY_DRAFT3_REVIEW,
         TESTIMONY_APPROVED,
       ],
     });
     renderTestimonies();
     await waitFor(() => {
-      expect(screen.getByText('Not Received')).toBeInTheDocument();
-      expect(screen.getByText('Awaiting Draft 1')).toBeInTheDocument();
-      expect(screen.getByText('Draft 1 In Review')).toBeInTheDocument();
-      expect(screen.getByText('Awaiting Draft 2')).toBeInTheDocument();
-      expect(screen.getByText('Draft 2 In Review')).toBeInTheDocument();
-      expect(screen.getByText('Approved')).toBeInTheDocument();
+      expect(screen.getByTestId('kanban-column-not_received')).toBeInTheDocument();
+      expect(screen.getByTestId('kanban-column-draft_1')).toBeInTheDocument();
+      expect(screen.getByTestId('kanban-column-draft_2')).toBeInTheDocument();
+      expect(screen.getByTestId('kanban-column-draft_3')).toBeInTheDocument();
+      expect(screen.getByTestId('kanban-column-approved')).toBeInTheDocument();
+    });
+    // Verify column labels appear (using testid to avoid ambiguity with sr-only filter buttons)
+    await waitFor(() => {
+      const notRecCol = screen.getByTestId('kanban-column-not_received');
+      expect(notRecCol.textContent).toContain('Not Received');
+      const d1Col = screen.getByTestId('kanban-column-draft_1');
+      expect(d1Col.textContent).toContain('Draft 1');
+      const d2Col = screen.getByTestId('kanban-column-draft_2');
+      expect(d2Col.textContent).toContain('Draft 2');
+      const d3Col = screen.getByTestId('kanban-column-draft_3');
+      expect(d3Col.textContent).toContain('Draft 3');
+      const approvedCol = screen.getByTestId('kanban-column-approved');
+      expect(approvedCol.textContent).toContain('Approved');
     });
   });
 
-  it('places cards in the correct columns', async () => {
+  it('groups both draft_1_awaiting and draft_1_review cards into the Draft 1 column', async () => {
     mockApiFetch.mockResolvedValue({
       ok: true,
-      testimonies: [
-        TESTIMONY_NOT_RECEIVED,
-        TESTIMONY_DRAFT1_REVIEW,
-        TESTIMONY_APPROVED,
-        TESTIMONY_AWAITING_DRAFT_1,
-        TESTIMONY_AWAITING_DRAFT_2,
-        TESTIMONY_DRAFT2_REVIEW,
-      ],
+      testimonies: [TESTIMONY_DRAFT1_AWAITING, TESTIMONY_DRAFT1_REVIEW],
     });
     renderTestimonies();
     await waitFor(() => {
-      expect(screen.getByTestId('testimony-row-1')).toBeInTheDocument(); // not_received
-      expect(screen.getByTestId('testimony-row-2')).toBeInTheDocument(); // awaiting_draft_1
-      expect(screen.getByTestId('testimony-row-3')).toBeInTheDocument(); // draft_1_review
-      expect(screen.getByTestId('testimony-row-4')).toBeInTheDocument(); // awaiting_draft_2
-      expect(screen.getByTestId('testimony-row-5')).toBeInTheDocument(); // draft_2_review
-      expect(screen.getByTestId('testimony-row-6')).toBeInTheDocument(); // approved
+      const draft1Col = screen.getByTestId('kanban-column-draft_1');
+      expect(draft1Col).toContainElement(screen.getByTestId('testimony-row-2'));
+      expect(draft1Col).toContainElement(screen.getByTestId('testimony-row-3'));
+    });
+  });
+
+  it('groups both draft_2_awaiting and draft_2_review cards into the Draft 2 column', async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      testimonies: [TESTIMONY_DRAFT2_AWAITING, TESTIMONY_DRAFT2_REVIEW],
+    });
+    renderTestimonies();
+    await waitFor(() => {
+      const draft2Col = screen.getByTestId('kanban-column-draft_2');
+      expect(draft2Col).toContainElement(screen.getByTestId('testimony-row-4'));
+      expect(draft2Col).toContainElement(screen.getByTestId('testimony-row-5'));
+    });
+  });
+
+  it('groups both draft_3_awaiting and draft_3_review cards into the Draft 3 column', async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      testimonies: [TESTIMONY_DRAFT3_AWAITING, TESTIMONY_DRAFT3_REVIEW],
+    });
+    renderTestimonies();
+    await waitFor(() => {
+      const draft3Col = screen.getByTestId('kanban-column-draft_3');
+      expect(draft3Col).toContainElement(screen.getByTestId('testimony-row-8'));
+      expect(draft3Col).toContainElement(screen.getByTestId('testimony-row-9'));
+    });
+  });
+
+  it('shows NOT_RECEIVED card in not_received column', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_NOT_RECEIVED] });
+    renderTestimonies();
+    await waitFor(() => {
+      const col = screen.getByTestId('kanban-column-not_received');
+      expect(col).toContainElement(screen.getByTestId('testimony-row-1'));
+    });
+  });
+
+  it('shows APPROVED card in approved column', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_APPROVED] });
+    renderTestimonies();
+    await waitFor(() => {
+      const col = screen.getByTestId('kanban-column-approved');
+      expect(col).toContainElement(screen.getByTestId('testimony-row-6'));
     });
   });
 
@@ -241,15 +348,21 @@ describe('Testimonies Kanban — columns', () => {
     });
     renderTestimonies();
     await waitFor(() => {
-      // All 6 column headers render
-      const headers = screen.getAllByText('Not Received');
-      // There can be multiple elements (visible header + sr-only filter btn)
-      // Find the one that is NOT sr-only — it will be inside a kanban column header div
-      const visibleHeader = headers.find(el => !el.closest('.sr-only'));
-      expect(visibleHeader).toBeTruthy();
-      // The count badge is a sibling — check parent has the count
-      const colHeader = visibleHeader!.closest('div');
-      expect(colHeader?.textContent).toContain('2');
+      const col = screen.getByTestId('kanban-column-not_received');
+      // The count badge should be "2" inside the not_received column header
+      expect(col.textContent).toContain('2');
+    });
+  });
+
+  it('Draft 1 column shows count of 2 when it has both draft_1_awaiting and draft_1_review items', async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      testimonies: [TESTIMONY_DRAFT1_AWAITING, TESTIMONY_DRAFT1_REVIEW],
+    });
+    renderTestimonies();
+    await waitFor(() => {
+      const col = screen.getByTestId('kanban-column-draft_1');
+      expect(col.textContent).toContain('2');
     });
   });
 });
@@ -284,7 +397,7 @@ describe('Testimonies Kanban — card content', () => {
   it('shows type badge for each item', async () => {
     mockApiFetch.mockResolvedValue({
       ok: true,
-      testimonies: [TESTIMONY_NOT_RECEIVED, TESTIMONY_AWAITING_DRAFT_1],
+      testimonies: [TESTIMONY_NOT_RECEIVED, TESTIMONY_DRAFT1_AWAITING],
     });
     renderTestimonies();
     await waitFor(() => {
@@ -306,32 +419,33 @@ describe('Testimonies Kanban — card content', () => {
     });
   });
 
-  it('shows "— awaiting —" when item has no submission', async () => {
+  it('does NOT show "View ↗" link when item has no submission', async () => {
     mockApiFetch.mockResolvedValue({
       ok: true,
-      testimonies: [TESTIMONY_AWAITING_DRAFT_2], // attachment_count: 0, subject: null
+      testimonies: [TESTIMONY_DRAFT2_AWAITING], // attachment_count: 0, subject: null
     });
     renderTestimonies();
-    await waitFor(() => {
-      expect(screen.getByText(/— awaiting —/i)).toBeInTheDocument();
-    });
+    await waitFor(() => screen.getByTestId('testimony-row-4'));
+    expect(screen.queryByText(/view ↗/i)).not.toBeInTheDocument();
   });
 
-  it('shows status select on each card with all 7 options (6 + archived)', async () => {
-    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_NOT_RECEIVED] });
-    renderTestimonies();
-    await waitFor(() => {
-      const select = screen.getByRole('combobox', { name: /status for john doe/i });
-      expect(select).toBeInTheDocument();
-      const options = Array.from(select.querySelectorAll('option')).map(o => o.getAttribute('value'));
-      expect(options).toContain('not_received');
-      expect(options).toContain('awaiting_draft_1');
-      expect(options).toContain('draft_1_review');
-      expect(options).toContain('awaiting_draft_2');
-      expect(options).toContain('draft_2_review');
-      expect(options).toContain('approved');
-      expect(options).toContain('archived');
+  it('does NOT render "— awaiting —" text on any card', async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      testimonies: [
+        TESTIMONY_DRAFT1_AWAITING, // no submission
+        TESTIMONY_DRAFT2_AWAITING, // no submission
+        TESTIMONY_DRAFT3_AWAITING, // no submission
+        TESTIMONY_NOT_RECEIVED,    // no submission
+      ],
     });
+    renderTestimonies();
+    await waitFor(() => screen.getByTestId('testimony-row-1'));
+    // Cards should have NO "— awaiting —" placeholder text rendered
+    expect(screen.queryByText(/— awaiting —/i)).not.toBeInTheDocument();
+    // Confirm none of the visible card bodies (non-sr-only) show a dash-awaiting-dash pattern
+    const board = screen.getByTestId('kanban-board');
+    expect(board.textContent).not.toContain('— awaiting —');
   });
 
   it('renders unassigned testimonies (from_name shown)', async () => {
@@ -351,6 +465,151 @@ describe('Testimonies Kanban — card content', () => {
   });
 });
 
+// ── Card sub-state dropdown ────────────────────────────────────────────────────
+
+describe('Testimonies Kanban — card sub-state dropdown', () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  it('Draft 1 column card shows only Awaiting Draft 1 and Draft 1 In Review options', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_DRAFT1_AWAITING] });
+    renderTestimonies();
+    await waitFor(() => screen.getByTestId('testimony-row-2'));
+    const select = screen.getByRole('combobox', { name: /status for alice cooper/i });
+    const options = Array.from(select.querySelectorAll('option')).map(o => o.getAttribute('value'));
+    expect(options).toEqual(['draft_1_awaiting', 'draft_1_review']);
+    // Should NOT have options from other columns
+    expect(options).not.toContain('not_received');
+    expect(options).not.toContain('draft_2_awaiting');
+    expect(options).not.toContain('approved');
+  });
+
+  it('Draft 2 column card shows only Awaiting Draft 2 and Draft 2 In Review options', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_DRAFT2_REVIEW] });
+    renderTestimonies();
+    await waitFor(() => screen.getByTestId('testimony-row-5'));
+    const select = screen.getByRole('combobox', { name: /status for dave grohl/i });
+    const options = Array.from(select.querySelectorAll('option')).map(o => o.getAttribute('value'));
+    expect(options).toEqual(['draft_2_awaiting', 'draft_2_review']);
+  });
+
+  it('Draft 3 column card shows only Awaiting Draft 3 and Draft 3 In Review options', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_DRAFT3_AWAITING] });
+    renderTestimonies();
+    await waitFor(() => screen.getByTestId('testimony-row-8'));
+    const select = screen.getByRole('combobox', { name: /status for eve stone/i });
+    const options = Array.from(select.querySelectorAll('option')).map(o => o.getAttribute('value'));
+    expect(options).toEqual(['draft_3_awaiting', 'draft_3_review']);
+  });
+
+  it('Not Received column card shows only Not Received option', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_NOT_RECEIVED] });
+    renderTestimonies();
+    await waitFor(() => screen.getByTestId('testimony-row-1'));
+    const select = screen.getByRole('combobox', { name: /status for john doe/i });
+    const options = Array.from(select.querySelectorAll('option')).map(o => o.getAttribute('value'));
+    expect(options).toEqual(['not_received']);
+  });
+
+  it('Approved column card shows only Approved option', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_APPROVED] });
+    renderTestimonies();
+    await waitFor(() => screen.getByTestId('testimony-row-6'));
+    const select = screen.getByRole('combobox', { name: /status for mary johnson/i });
+    const options = Array.from(select.querySelectorAll('option')).map(o => o.getAttribute('value'));
+    expect(options).toEqual(['approved']);
+  });
+
+  it('changing sub-state dropdown in Draft 1 column PATCHes within the same column (draft_1_awaiting -> draft_1_review)', async () => {
+    mockApiFetch
+      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_DRAFT1_AWAITING] })
+      .mockResolvedValue({ ok: true, testimony: { id: 2, status: 'draft_1_review', type: 'teaching', title: 'Opening teaching', person_id: 11, program: 'mens' } });
+
+    renderTestimonies();
+    await waitFor(() => screen.getByTestId('testimony-row-2'));
+
+    const select = screen.getByRole('combobox', { name: /status for alice cooper/i });
+    fireEvent.change(select, { target: { value: 'draft_1_review' } });
+
+    await waitFor(() => {
+      const patchCall = mockApiFetch.mock.calls.find(
+        c =>
+          typeof c[0] === 'string' &&
+          c[0] === '/admin/testimonies/2' &&
+          (c[1] as RequestInit)?.method === 'PATCH'
+      );
+      expect(patchCall).toBeDefined();
+      const body = JSON.parse((patchCall![1] as RequestInit).body as string);
+      expect(body.status).toBe('draft_1_review');
+    });
+  });
+
+  it('card stays in Draft 1 column after sub-state change (draft_1_awaiting -> draft_1_review)', async () => {
+    // After changing from draft_1_awaiting to draft_1_review, card should remain in draft_1 column
+    mockApiFetch
+      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_DRAFT1_AWAITING] })
+      .mockResolvedValue({ ok: true, testimony: { id: 2, status: 'draft_1_review', type: 'teaching', title: null, person_id: 11, program: 'mens' } });
+
+    renderTestimonies();
+    await waitFor(() => screen.getByTestId('testimony-row-2'));
+
+    const select = screen.getByRole('combobox', { name: /status for alice cooper/i });
+    fireEvent.change(select, { target: { value: 'draft_1_review' } });
+
+    await waitFor(() => {
+      // Card 2 should still be in the draft_1 column after sub-state change
+      const draft1Col = screen.getByTestId('kanban-column-draft_1');
+      expect(draft1Col).toContainElement(screen.getByTestId('testimony-row-2'));
+    });
+  });
+});
+
+// ── Responsive layout ──────────────────────────────────────────────────────────
+
+describe('Testimonies Kanban — responsive layout', () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  it('renders the kanban board container with data-testid="kanban-board"', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_NOT_RECEIVED] });
+    renderTestimonies();
+    await waitFor(() => {
+      expect(screen.getByTestId('kanban-board')).toBeInTheDocument();
+    });
+  });
+
+  it('kanban-board has the "kanban-board" CSS class for responsive targeting', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_NOT_RECEIVED] });
+    renderTestimonies();
+    await waitFor(() => {
+      const board = screen.getByTestId('kanban-board');
+      expect(board.classList.contains('kanban-board')).toBe(true);
+    });
+  });
+
+  it('each column has the "kanban-column" CSS class for responsive targeting', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_NOT_RECEIVED] });
+    renderTestimonies();
+    await waitFor(() => {
+      const col = screen.getByTestId('kanban-column-not_received');
+      expect(col.classList.contains('kanban-column')).toBe(true);
+    });
+  });
+
+  it('exactly 5 kanban columns rendered', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [] });
+    renderTestimonies();
+    // Board renders even when empty (shows "No testimonies found" before board)
+    // Let's test with at least 1 item
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_NOT_RECEIVED] });
+    renderTestimonies();
+    await waitFor(() => {
+      const cols = screen.getAllByTestId(/^kanban-column-/);
+      expect(cols.length).toBe(5);
+    });
+  });
+});
+
 // ── Drag and drop + select fallback ───────────────────────────────────────────
 
 describe('Testimonies Kanban — drag and select PATCH', () => {
@@ -359,56 +618,113 @@ describe('Testimonies Kanban — drag and select PATCH', () => {
 
   it('status select change PATCHes status (optimistic)', async () => {
     mockApiFetch
-      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_NOT_RECEIVED] })
-      .mockResolvedValue({ ok: true, testimony: { id: 1, status: 'approved', type: 'testimony', title: null, person_id: 10, program: 'mens' } });
+      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_DRAFT1_AWAITING] })
+      .mockResolvedValue({ ok: true, testimony: { id: 2, status: 'draft_1_review', type: 'teaching', title: null, person_id: 11, program: 'mens' } });
 
     renderTestimonies();
-    await waitFor(() => screen.getByTestId('testimony-row-1'));
+    await waitFor(() => screen.getByTestId('testimony-row-2'));
 
-    const select = screen.getByRole('combobox', { name: /status for john doe/i });
-    fireEvent.change(select, { target: { value: 'approved' } });
+    const select = screen.getByRole('combobox', { name: /status for alice cooper/i });
+    fireEvent.change(select, { target: { value: 'draft_1_review' } });
 
     await waitFor(() => {
       const patchCall = mockApiFetch.mock.calls.find(
         c =>
           typeof c[0] === 'string' &&
-          c[0] === '/admin/testimonies/1' &&
+          c[0] === '/admin/testimonies/2' &&
           (c[1] as RequestInit)?.method === 'PATCH'
       );
       expect(patchCall).toBeDefined();
       const body = JSON.parse((patchCall![1] as RequestInit).body as string);
-      expect(body.status).toBe('approved');
+      expect(body.status).toBe('draft_1_review');
     });
   });
 
-  it('drag start + drop (select fallback) PATCHes status to draft_1_review', async () => {
-    // The native HTML5 drag in jsdom is limited; we test via the select fallback
-    // which exercises the same handleStatusChange code path as DnD.
+  it('drag start + drop onto a column sets the entry sub-state', async () => {
+    // A card in Draft 1 dragged to Draft 2 column should set status=draft_2_awaiting
     mockApiFetch
-      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_NOT_RECEIVED] })
-      .mockResolvedValue({ ok: true, testimony: { id: 1, status: 'draft_1_review', type: 'testimony', title: null, person_id: 10, program: 'mens' } });
+      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_DRAFT1_REVIEW] })
+      .mockResolvedValue({ ok: true, testimony: { id: 3, status: 'draft_2_awaiting', type: 'testimony', title: null, person_id: 12, program: 'mens' } });
 
     renderTestimonies();
-    await waitFor(() => screen.getByTestId('testimony-row-1'));
+    await waitFor(() => screen.getByTestId('testimony-row-3'));
 
-    // Simulate drag start (exercises draggingIdRef)
-    const card = screen.getByTestId('testimony-row-1');
+    // Simulate drag start on the card
+    const card = screen.getByTestId('testimony-row-3');
     fireEvent.dragStart(card);
 
-    // Use the select fallback to move to draft_1_review (same code path as DnD)
-    const select = screen.getByRole('combobox', { name: /status for john doe/i });
-    fireEvent.change(select, { target: { value: 'draft_1_review' } });
+    // Simulate drop on Draft 2 column
+    const draft2Col = screen.getByTestId('kanban-column-draft_2');
+    fireEvent.dragOver(draft2Col);
+    fireEvent.drop(draft2Col);
 
     await waitFor(() => {
       const patchCalls = mockApiFetch.mock.calls.filter(
         c =>
           typeof c[0] === 'string' &&
-          c[0] === '/admin/testimonies/1' &&
+          c[0] === '/admin/testimonies/3' &&
           (c[1] as RequestInit)?.method === 'PATCH'
       );
       expect(patchCalls.length).toBeGreaterThan(0);
       const body = JSON.parse((patchCalls[0][1] as RequestInit).body as string);
-      expect(body.status).toBe('draft_1_review');
+      // Dropping in Draft 2 column should set draft_2_awaiting (entry status for draft_2)
+      expect(body.status).toBe('draft_2_awaiting');
+    });
+  });
+
+  it('drag to Not Received column sets status=not_received', async () => {
+    mockApiFetch
+      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_DRAFT1_REVIEW] })
+      .mockResolvedValue({ ok: true, testimony: { id: 3, status: 'not_received', type: 'testimony', title: null, person_id: 12, program: 'mens' } });
+
+    renderTestimonies();
+    await waitFor(() => screen.getByTestId('testimony-row-3'));
+
+    const card = screen.getByTestId('testimony-row-3');
+    fireEvent.dragStart(card);
+
+    const notReceivedCol = screen.getByTestId('kanban-column-not_received');
+    fireEvent.dragOver(notReceivedCol);
+    fireEvent.drop(notReceivedCol);
+
+    await waitFor(() => {
+      const patchCalls = mockApiFetch.mock.calls.filter(
+        c =>
+          typeof c[0] === 'string' &&
+          c[0] === '/admin/testimonies/3' &&
+          (c[1] as RequestInit)?.method === 'PATCH'
+      );
+      expect(patchCalls.length).toBeGreaterThan(0);
+      const body = JSON.parse((patchCalls[0][1] as RequestInit).body as string);
+      expect(body.status).toBe('not_received');
+    });
+  });
+
+  it('drag to Approved column sets status=approved', async () => {
+    mockApiFetch
+      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_DRAFT3_REVIEW] })
+      .mockResolvedValue({ ok: true, testimony: { id: 9, status: 'approved', type: 'testimony', title: null, person_id: 17, program: 'mens' } });
+
+    renderTestimonies();
+    await waitFor(() => screen.getByTestId('testimony-row-9'));
+
+    const card = screen.getByTestId('testimony-row-9');
+    fireEvent.dragStart(card);
+
+    const approvedCol = screen.getByTestId('kanban-column-approved');
+    fireEvent.dragOver(approvedCol);
+    fireEvent.drop(approvedCol);
+
+    await waitFor(() => {
+      const patchCalls = mockApiFetch.mock.calls.filter(
+        c =>
+          typeof c[0] === 'string' &&
+          c[0] === '/admin/testimonies/9' &&
+          (c[1] as RequestInit)?.method === 'PATCH'
+      );
+      expect(patchCalls.length).toBeGreaterThan(0);
+      const body = JSON.parse((patchCalls[0][1] as RequestInit).body as string);
+      expect(body.status).toBe('approved');
     });
   });
 });
@@ -433,10 +749,8 @@ describe('Testimonies Kanban — + Add modal', () => {
     renderTestimonies();
     await waitFor(() => screen.getByTestId('add-needed-item'));
     fireEvent.click(screen.getByTestId('add-needed-item'));
-    // Inside the modal dialog specifically
     const dialog = screen.getByRole('dialog');
     expect(dialog).toBeInTheDocument();
-    // Type buttons are inside the dialog
     const testimonyBtn = Array.from(dialog.querySelectorAll('button')).find(b => b.textContent === 'Testimony');
     const teachingBtn = Array.from(dialog.querySelectorAll('button')).find(b => b.textContent === 'Teaching');
     expect(testimonyBtn).toBeTruthy();
@@ -465,15 +779,12 @@ describe('Testimonies Kanban — + Add modal', () => {
     await waitFor(() => screen.getByTestId('add-needed-item'));
     fireEvent.click(screen.getByTestId('add-needed-item'));
 
-    // Type into person search
     const personInput = screen.getByRole('combobox', { name: /search person/i });
     fireEvent.change(personInput, { target: { value: 'Test' } });
 
-    // Wait for results and click person
     await waitFor(() => screen.getByText('Test Person'));
     fireEvent.mouseDown(screen.getByText('Test Person'));
 
-    // Click Create
     fireEvent.click(screen.getByRole('button', { name: /^create$/i }));
 
     await waitFor(() => {
@@ -585,10 +896,17 @@ describe('Testimonies Kanban — filters', () => {
     });
   });
 
-  it('status filter buttons exist for all 7 statuses', async () => {
+  it('status filter buttons exist for all new 9 statuses', async () => {
     renderTestimonies();
     await waitFor(() => screen.getByText('Testimonies & Teachings'));
-    for (const s of ['not_received', 'awaiting_draft_1', 'draft_1_review', 'awaiting_draft_2', 'draft_2_review', 'approved', 'archived']) {
+    const expectedStatuses = [
+      'not_received',
+      'draft_1_awaiting', 'draft_1_review',
+      'draft_2_awaiting', 'draft_2_review',
+      'draft_3_awaiting', 'draft_3_review',
+      'approved', 'archived',
+    ];
+    for (const s of expectedStatuses) {
       expect(screen.getByTestId(`filter-status-${s}`)).toBeInTheDocument();
     }
   });
@@ -626,14 +944,14 @@ describe('Testimonies Kanban — filters', () => {
     });
   });
 
-  it('calls API with status=awaiting_draft_2 when filter clicked', async () => {
+  it('calls API with status=draft_2_awaiting when filter clicked', async () => {
     renderTestimonies();
-    await waitFor(() => screen.getByTestId('filter-status-awaiting_draft_2'));
-    fireEvent.click(screen.getByTestId('filter-status-awaiting_draft_2'));
+    await waitFor(() => screen.getByTestId('filter-status-draft_2_awaiting'));
+    fireEvent.click(screen.getByTestId('filter-status-draft_2_awaiting'));
     await waitFor(() => {
       const calls = mockApiFetch.mock.calls;
       const lastCall = calls[calls.length - 1][0] as string;
-      expect(lastCall).toMatch(/status=awaiting_draft_2/);
+      expect(lastCall).toMatch(/status=draft_2_awaiting/);
     });
   });
 

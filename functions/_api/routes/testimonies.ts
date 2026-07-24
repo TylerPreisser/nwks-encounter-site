@@ -12,10 +12,13 @@ export const testimoniesRouter = new Hono<{ Bindings: Env; Variables: AppVariabl
 
 testimoniesRouter.use('*', requireAuth(), requireProgram());
 
-// Valid board statuses — draft workflow (display order)
+// Valid board statuses — 3-draft sub-state workflow (display order)
 const BOARD_STATUSES = [
-  'not_received', 'awaiting_draft_1', 'draft_1_review',
-  'awaiting_draft_2', 'draft_2_review', 'approved', 'archived',
+  'not_received',
+  'draft_1_awaiting', 'draft_1_review',
+  'draft_2_awaiting', 'draft_2_review',
+  'draft_3_awaiting', 'draft_3_review',
+  'approved', 'archived',
 ] as const;
 type BoardStatus = typeof BOARD_STATUSES[number];
 
@@ -25,8 +28,10 @@ function isValidStatus(s: string): s is BoardStatus {
 
 // "Needs attention" = any non-approved, non-archived status
 const NEEDS_ATTENTION_STATUSES = [
-  'not_received', 'awaiting_draft_1', 'draft_1_review',
-  'awaiting_draft_2', 'draft_2_review',
+  'not_received',
+  'draft_1_awaiting', 'draft_1_review',
+  'draft_2_awaiting', 'draft_2_review',
+  'draft_3_awaiting', 'draft_3_review',
 ];
 
 // ---------------------------------------------------------------------------
@@ -109,13 +114,15 @@ testimoniesRouter.get('/', async (c) => {
      ORDER BY
        CASE t.status
          WHEN 'not_received'    THEN 1
-         WHEN 'awaiting_draft_1' THEN 2
+         WHEN 'draft_1_awaiting' THEN 2
          WHEN 'draft_1_review'  THEN 3
-         WHEN 'awaiting_draft_2' THEN 4
+         WHEN 'draft_2_awaiting' THEN 4
          WHEN 'draft_2_review'  THEN 5
-         WHEN 'approved'        THEN 6
-         WHEN 'archived'        THEN 7
-         ELSE 8
+         WHEN 'draft_3_awaiting' THEN 6
+         WHEN 'draft_3_review'  THEN 7
+         WHEN 'approved'        THEN 8
+         WHEN 'archived'        THEN 9
+         ELSE 10
        END,
        t.received_at DESC, t.created_at DESC`
   ).bind(...bindings).all();
@@ -427,10 +434,18 @@ testimoniesRouter.post('/:id/reply', async (c) => {
     program,
   });
 
-  // After replying, move to awaiting_draft_2 (they need to send next draft)
+  // After replying, advance the item to next draft's awaiting state
+  // Logic: if currently in draft_1_review -> draft_2_awaiting, draft_2_review -> draft_3_awaiting, else draft_2_awaiting
+  const currentTestimony = await c.env.DB.prepare(
+    `SELECT status FROM testimonies WHERE id = ?`
+  ).bind(id).first<{ status: string }>();
+  const nextAwaitingStatus =
+    currentTestimony?.status === 'draft_1_review' ? 'draft_2_awaiting'
+    : currentTestimony?.status === 'draft_2_review' ? 'draft_3_awaiting'
+    : 'draft_2_awaiting';
   await c.env.DB.prepare(
-    `UPDATE testimonies SET status = 'awaiting_draft_2' WHERE id = ?`
-  ).bind(id).run();
+    `UPDATE testimonies SET status = ? WHERE id = ?`
+  ).bind(nextAwaitingStatus, id).run();
 
   return c.json({ ok: true });
 });

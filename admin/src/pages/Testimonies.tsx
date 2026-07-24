@@ -9,12 +9,17 @@ import { THEMES } from '@/theme';
 
 export type BoardStatus =
   | 'not_received'
-  | 'awaiting_draft_1'
+  | 'draft_1_awaiting'
   | 'draft_1_review'
-  | 'awaiting_draft_2'
+  | 'draft_2_awaiting'
   | 'draft_2_review'
+  | 'draft_3_awaiting'
+  | 'draft_3_review'
   | 'approved'
   | 'archived';
+
+// Column keys — the 5 visible columns
+export type ColumnKey = 'not_received' | 'draft_1' | 'draft_2' | 'draft_3' | 'approved';
 
 export interface TestimonyRow {
   id: number;
@@ -44,37 +49,84 @@ interface PersonSearchResult {
 
 type FilterType = 'all' | 'testimony' | 'teaching';
 
-// ── Status config ─────────────────────────────────────────────────────────────
+// ── Column mapping ─────────────────────────────────────────────────────────────
 
-// Visible Kanban columns in display order
-const KANBAN_COLUMNS: BoardStatus[] = [
-  'not_received',
-  'awaiting_draft_1',
-  'draft_1_review',
-  'awaiting_draft_2',
-  'draft_2_review',
-  'approved',
-];
+// Maps any status to its kanban column key
+export function statusToColumn(status: BoardStatus): ColumnKey {
+  if (status === 'not_received') return 'not_received';
+  if (status === 'draft_1_awaiting' || status === 'draft_1_review') return 'draft_1';
+  if (status === 'draft_2_awaiting' || status === 'draft_2_review') return 'draft_2';
+  if (status === 'draft_3_awaiting' || status === 'draft_3_review') return 'draft_3';
+  if (status === 'approved') return 'approved';
+  return 'not_received'; // archived handled separately
+}
+
+// When dropping a card INTO a column, set this entry-state status
+const COLUMN_ENTRY_STATUS: Record<ColumnKey, BoardStatus> = {
+  not_received: 'not_received',
+  draft_1: 'draft_1_awaiting',
+  draft_2: 'draft_2_awaiting',
+  draft_3: 'draft_3_awaiting',
+  approved: 'approved',
+};
+
+// The 5 visible Kanban columns in display order
+const KANBAN_COLUMNS: ColumnKey[] = ['not_received', 'draft_1', 'draft_2', 'draft_3', 'approved'];
+
+const COLUMN_LABELS: Record<ColumnKey, string> = {
+  not_received: 'Not Received',
+  draft_1:      'Draft 1',
+  draft_2:      'Draft 2',
+  draft_3:      'Draft 3',
+  approved:     'Approved',
+};
+
+// Sub-state options available in the dropdown for each column
+const COLUMN_SUB_STATES: Record<ColumnKey, { value: BoardStatus; label: string }[]> = {
+  not_received: [{ value: 'not_received', label: 'Not Received' }],
+  draft_1: [
+    { value: 'draft_1_awaiting', label: 'Awaiting Draft 1' },
+    { value: 'draft_1_review',   label: 'Draft 1 In Review' },
+  ],
+  draft_2: [
+    { value: 'draft_2_awaiting', label: 'Awaiting Draft 2' },
+    { value: 'draft_2_review',   label: 'Draft 2 In Review' },
+  ],
+  draft_3: [
+    { value: 'draft_3_awaiting', label: 'Awaiting Draft 3' },
+    { value: 'draft_3_review',   label: 'Draft 3 In Review' },
+  ],
+  approved: [{ value: 'approved', label: 'Approved' }],
+};
 
 const STATUS_LABELS: Record<BoardStatus, string> = {
   not_received:    'Not Received',
-  awaiting_draft_1: 'Awaiting Draft 1',
+  draft_1_awaiting: 'Awaiting Draft 1',
   draft_1_review:  'Draft 1 In Review',
-  awaiting_draft_2: 'Awaiting Draft 2',
+  draft_2_awaiting: 'Awaiting Draft 2',
   draft_2_review:  'Draft 2 In Review',
+  draft_3_awaiting: 'Awaiting Draft 3',
+  draft_3_review:  'Draft 3 In Review',
   approved:        'Approved',
   archived:        'Archived',
 };
 
-const COLUMN_STYLES: Record<BoardStatus, { header: string; dot: string; dropHover: string }> = {
-  not_received:    { header: 'bg-gray-100 text-gray-700 border-gray-200',     dot: 'bg-gray-400',   dropHover: 'bg-gray-50' },
-  awaiting_draft_1: { header: 'bg-slate-100 text-slate-700 border-slate-200', dot: 'bg-slate-400', dropHover: 'bg-slate-50' },
-  draft_1_review:  { header: 'bg-blue-50 text-blue-800 border-blue-200',      dot: 'bg-blue-500',   dropHover: 'bg-blue-50/60' },
-  awaiting_draft_2: { header: 'bg-amber-50 text-amber-800 border-amber-200',  dot: 'bg-amber-400', dropHover: 'bg-amber-50/60' },
-  draft_2_review:  { header: 'bg-indigo-50 text-indigo-800 border-indigo-200', dot: 'bg-indigo-500', dropHover: 'bg-indigo-50/60' },
-  approved:        { header: 'bg-green-50 text-green-800 border-green-200',   dot: 'bg-green-500',  dropHover: 'bg-green-50/60' },
-  archived:        { header: 'bg-yellow-50 text-yellow-700 border-yellow-200', dot: 'bg-yellow-400', dropHover: 'bg-yellow-50/60' },
+const COLUMN_STYLES: Record<ColumnKey, { header: string; dot: string; dropHover: string }> = {
+  not_received: { header: 'bg-gray-100 text-gray-700 border-gray-200',       dot: 'bg-gray-400',    dropHover: 'bg-gray-50' },
+  draft_1:      { header: 'bg-blue-50 text-blue-800 border-blue-200',         dot: 'bg-blue-400',    dropHover: 'bg-blue-50/60' },
+  draft_2:      { header: 'bg-indigo-50 text-indigo-800 border-indigo-200',   dot: 'bg-indigo-500',  dropHover: 'bg-indigo-50/60' },
+  draft_3:      { header: 'bg-violet-50 text-violet-800 border-violet-200',   dot: 'bg-violet-500',  dropHover: 'bg-violet-50/60' },
+  approved:     { header: 'bg-green-50 text-green-800 border-green-200',      dot: 'bg-green-500',   dropHover: 'bg-green-50/60' },
 };
+
+// All statuses exposed as hidden filter-buttons (for API compat + tests)
+const ALL_STATUSES: BoardStatus[] = [
+  'not_received',
+  'draft_1_awaiting', 'draft_1_review',
+  'draft_2_awaiting', 'draft_2_review',
+  'draft_3_awaiting', 'draft_3_review',
+  'approved', 'archived',
+];
 
 // ── Person searchable picklist ─────────────────────────────────────────────────
 
@@ -285,17 +337,20 @@ function AddItemModal({ program, onCreated, onCancel }: AddItemModalProps) {
 
 interface KanbanCardProps {
   item: TestimonyRow;
+  columnKey: ColumnKey;
   onStatusChange: (id: number, status: BoardStatus) => void;
   onDragStart: (id: number) => void;
 }
 
-function KanbanCard({ item, onStatusChange, onDragStart }: KanbanCardProps) {
+function KanbanCard({ item, columnKey, onStatusChange, onDragStart }: KanbanCardProps) {
   const personName = item.first_name
     ? `${item.first_name} ${item.last_name ?? ''}`.trim()
     : item.from_name || null;
 
   const hasSubmission = !!(item.attachment_count > 0 || item.subject);
   const viewUrl = `/api/admin/testimonies/${item.id}/view`;
+
+  const subStateOptions = COLUMN_SUB_STATES[columnKey];
 
   return (
     <div
@@ -334,7 +389,7 @@ function KanbanCard({ item, onStatusChange, onDragStart }: KanbanCardProps) {
           {item.type === 'teaching' ? 'Teaching' : 'Testimony'}
         </span>
 
-        {hasSubmission ? (
+        {hasSubmission && (
           <a
             href={viewUrl}
             target="_blank"
@@ -344,12 +399,10 @@ function KanbanCard({ item, onStatusChange, onDragStart }: KanbanCardProps) {
           >
             View ↗
           </a>
-        ) : (
-          <span className="text-xs text-gray-400 italic flex-shrink-0">— awaiting —</span>
         )}
       </div>
 
-      {/* Status select fallback */}
+      {/* Sub-state dropdown — stays within the column, changes sub-state only */}
       <select
         value={item.status}
         onChange={e => onStatusChange(item.id, e.target.value as BoardStatus)}
@@ -357,10 +410,9 @@ function KanbanCard({ item, onStatusChange, onDragStart }: KanbanCardProps) {
         onClick={e => e.stopPropagation()}
         className="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-400"
       >
-        {KANBAN_COLUMNS.map(s => (
-          <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+        {subStateOptions.map(opt => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
         ))}
-        <option value="archived">{STATUS_LABELS.archived}</option>
       </select>
     </div>
   );
@@ -369,29 +421,30 @@ function KanbanCard({ item, onStatusChange, onDragStart }: KanbanCardProps) {
 // ── Kanban Column ──────────────────────────────────────────────────────────────
 
 interface KanbanColumnProps {
-  status: BoardStatus;
+  columnKey: ColumnKey;
   items: TestimonyRow[];
   onStatusChange: (id: number, status: BoardStatus) => void;
   onDragStart: (id: number) => void;
-  onDrop: (targetStatus: BoardStatus) => void;
+  onDrop: (targetColumn: ColumnKey) => void;
 }
 
-function KanbanColumn({ status, items, onStatusChange, onDragStart, onDrop }: KanbanColumnProps) {
+function KanbanColumn({ columnKey, items, onStatusChange, onDragStart, onDrop }: KanbanColumnProps) {
   const [dragOver, setDragOver] = useState(false);
-  const styles = COLUMN_STYLES[status];
+  const styles = COLUMN_STYLES[columnKey];
 
   return (
     <div
-      className="flex flex-col w-52 min-w-[13rem] flex-shrink-0"
+      data-testid={`kanban-column-${columnKey}`}
+      className="kanban-column flex flex-col"
       onDragOver={e => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={() => setDragOver(false)}
-      onDrop={() => { setDragOver(false); onDrop(status); }}
+      onDrop={() => { setDragOver(false); onDrop(columnKey); }}
     >
       {/* Column header */}
       <div className={`flex items-center gap-1.5 px-3 py-2 rounded-t-lg border ${styles.header}`}>
         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${styles.dot}`} />
         <span className="text-xs font-semibold uppercase tracking-wide flex-1 leading-tight">
-          {STATUS_LABELS[status]}
+          {COLUMN_LABELS[columnKey]}
         </span>
         <span className="text-xs font-medium opacity-70 flex-shrink-0">{items.length}</span>
       </div>
@@ -411,6 +464,7 @@ function KanbanColumn({ status, items, onStatusChange, onDragStart, onDrop }: Ka
           <KanbanCard
             key={item.id}
             item={item}
+            columnKey={columnKey}
             onStatusChange={onStatusChange}
             onDragStart={onDragStart}
           />
@@ -486,17 +540,22 @@ export default function Testimonies() {
     draggingIdRef.current = id;
   }
 
-  function handleDrop(targetStatus: BoardStatus) {
+  function handleDrop(targetColumn: ColumnKey) {
     const id = draggingIdRef.current;
     draggingIdRef.current = null;
     if (id == null) return;
     const item = items.find(t => t.id === id);
-    if (!item || item.status === targetStatus) return;
-    handleStatusChange(id, targetStatus);
+    if (!item) return;
+    const currentColumn = statusToColumn(item.status);
+    if (currentColumn === targetColumn) return;
+    // Dropping into a new column sets the entry sub-state for that column
+    const entryStatus = COLUMN_ENTRY_STATUS[targetColumn];
+    handleStatusChange(id, entryStatus);
   }
 
-  const colItems = (status: BoardStatus) => items.filter(t => t.status === status);
-  const archivedItems = colItems('archived');
+  const colItems = (col: ColumnKey) =>
+    items.filter(t => t.status !== 'archived' && statusToColumn(t.status) === col);
+  const archivedItems = items.filter(t => t.status === 'archived');
 
   const filterBtnBase = 'px-3 py-1 text-xs rounded-md border transition-colors';
   function filterBtnClass(active: boolean) {
@@ -506,11 +565,7 @@ export default function Testimonies() {
   }
 
   // Hidden status filter buttons — kept for API compatibility / test assertions
-  // (clicking fires a status-filtered API call, allowing tests to assert on the URL)
-  const hiddenStatusBtns = ([
-    'not_received', 'awaiting_draft_1', 'draft_1_review',
-    'awaiting_draft_2', 'draft_2_review', 'approved', 'archived',
-  ] as BoardStatus[]).map(fs => (
+  const hiddenStatusBtns = ALL_STATUSES.map(fs => (
     <button
       key={fs}
       type="button"
@@ -529,6 +584,8 @@ export default function Testimonies() {
       {STATUS_LABELS[fs]}
     </button>
   ));
+
+  const nonEmpty = items.length > 0 || archivedItems.length > 0;
 
   return (
     <div className="flex flex-col h-[calc(100vh-3rem)] overflow-hidden">
@@ -589,19 +646,47 @@ export default function Testimonies() {
         <div className="flex-1 flex items-center justify-center text-sm text-gray-400">Loading…</div>
       ) : error ? (
         <div className="flex-1 flex items-center justify-center text-sm text-red-400 p-4">{error}</div>
-      ) : items.length === 0 && archivedItems.length === 0 ? (
+      ) : !nonEmpty ? (
         <div className="flex-1 flex items-center justify-center text-sm text-gray-400 p-8">
           No testimonies found.
         </div>
       ) : (
         <div className="flex-1 overflow-auto p-4">
-          {/* 6-column Kanban */}
-          <div className="flex gap-3 h-full" style={{ minWidth: `${KANBAN_COLUMNS.length * 220}px` }}>
-            {KANBAN_COLUMNS.map(status => (
+          {/*
+            Responsive 5-column Kanban:
+            - Wide (>=900px): side-by-side columns (flex-row), horizontal scroll
+            - Narrow (<900px): stacked full-width rows (flex-col)
+          */}
+          <style>{`
+            .kanban-board {
+              display: flex;
+              flex-direction: column;
+              gap: 0.75rem;
+            }
+            .kanban-column {
+              width: 100%;
+              min-width: 0;
+            }
+            @media (min-width: 900px) {
+              .kanban-board {
+                flex-direction: row;
+                align-items: flex-start;
+                min-width: ${KANBAN_COLUMNS.length * 220}px;
+              }
+              .kanban-column {
+                width: 13rem;
+                min-width: 13rem;
+                flex-shrink: 0;
+              }
+            }
+          `}</style>
+
+          <div className="kanban-board" data-testid="kanban-board">
+            {KANBAN_COLUMNS.map(col => (
               <KanbanColumn
-                key={status}
-                status={status}
-                items={colItems(status)}
+                key={col}
+                columnKey={col}
+                items={colItems(col)}
                 onStatusChange={handleStatusChange}
                 onDragStart={handleDragStart}
                 onDrop={handleDrop}
@@ -626,6 +711,7 @@ export default function Testimonies() {
                     <div key={item.id} className="w-52">
                       <KanbanCard
                         item={item}
+                        columnKey="not_received"
                         onStatusChange={handleStatusChange}
                         onDragStart={handleDragStart}
                       />
