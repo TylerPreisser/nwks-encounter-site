@@ -12,8 +12,11 @@ export const testimoniesRouter = new Hono<{ Bindings: Env; Variables: AppVariabl
 
 testimoniesRouter.use('*', requireAuth(), requireProgram());
 
-// Valid board statuses (display order)
-const BOARD_STATUSES = ['unfulfilled', 'waiting', 'draft_1', 'draft_2', 'awaiting', 'approved', 'archived'] as const;
+// Valid board statuses — draft workflow (display order)
+const BOARD_STATUSES = [
+  'not_received', 'awaiting_draft_1', 'draft_1_review',
+  'awaiting_draft_2', 'draft_2_review', 'approved', 'archived',
+] as const;
 type BoardStatus = typeof BOARD_STATUSES[number];
 
 function isValidStatus(s: string): s is BoardStatus {
@@ -21,7 +24,10 @@ function isValidStatus(s: string): s is BoardStatus {
 }
 
 // "Needs attention" = any non-approved, non-archived status
-const NEEDS_ATTENTION_STATUSES = ['unfulfilled', 'waiting', 'draft_1', 'draft_2', 'awaiting'];
+const NEEDS_ATTENTION_STATUSES = [
+  'not_received', 'awaiting_draft_1', 'draft_1_review',
+  'awaiting_draft_2', 'draft_2_review',
+];
 
 // ---------------------------------------------------------------------------
 // GET /api/admin/testimonies/new-count
@@ -102,13 +108,13 @@ testimoniesRouter.get('/', async (c) => {
      ${where}
      ORDER BY
        CASE t.status
-         WHEN 'unfulfilled' THEN 1
-         WHEN 'waiting'     THEN 2
-         WHEN 'draft_1'     THEN 3
-         WHEN 'draft_2'     THEN 4
-         WHEN 'awaiting'    THEN 5
-         WHEN 'approved'    THEN 6
-         WHEN 'archived'    THEN 7
+         WHEN 'not_received'    THEN 1
+         WHEN 'awaiting_draft_1' THEN 2
+         WHEN 'draft_1_review'  THEN 3
+         WHEN 'awaiting_draft_2' THEN 4
+         WHEN 'draft_2_review'  THEN 5
+         WHEN 'approved'        THEN 6
+         WHEN 'archived'        THEN 7
          ELSE 8
        END,
        t.received_at DESC, t.created_at DESC`
@@ -144,8 +150,8 @@ testimoniesRouter.post('/', async (c) => {
     return c.json({ ok: false, error: 'invalid type' }, 400);
   }
 
-  // Validate status (default unfulfilled)
-  const status = body.status ?? 'unfulfilled';
+  // Validate status (default not_received — start of draft workflow)
+  const status = body.status ?? 'not_received';
   if (!isValidStatus(status)) {
     return c.json({ ok: false, error: 'invalid status' }, 400);
   }
@@ -421,9 +427,9 @@ testimoniesRouter.post('/:id/reply', async (c) => {
     program,
   });
 
-  // After replying, move to awaiting (they need to send next draft)
+  // After replying, move to awaiting_draft_2 (they need to send next draft)
   await c.env.DB.prepare(
-    `UPDATE testimonies SET status = 'awaiting' WHERE id = ?`
+    `UPDATE testimonies SET status = 'awaiting_draft_2' WHERE id = ?`
   ).bind(id).run();
 
   return c.json({ ok: true });

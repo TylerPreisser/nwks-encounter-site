@@ -1,4 +1,4 @@
-// admin/src/pages/Testimonies.tsx -- Testimonies & Teachings grouped list
+// admin/src/pages/Testimonies.tsx -- Testimonies & Teachings Kanban Board
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { apiFetch } from '@/api';
@@ -8,11 +8,11 @@ import { THEMES } from '@/theme';
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type BoardStatus =
-  | 'unfulfilled'
-  | 'waiting'
-  | 'draft_1'
-  | 'draft_2'
-  | 'awaiting'
+  | 'not_received'
+  | 'awaiting_draft_1'
+  | 'draft_1_review'
+  | 'awaiting_draft_2'
+  | 'draft_2_review'
   | 'approved'
   | 'archived';
 
@@ -34,83 +34,6 @@ export interface TestimonyRow {
   comment_count: number;
 }
 
-export interface Attachment {
-  id: number;
-  filename: string | null;
-  content_type: string | null;
-  size: number | null;
-  r2_key: string | null;
-  link_url: string | null;
-  created_at: string;
-}
-
-export interface Comment {
-  id: number;
-  body: string;
-  created_at: string;
-  admin_name: string | null;
-}
-
-export interface PersonSummary {
-  id: number;
-  first_name: string | null;
-  last_name: string | null;
-  email: string | null;
-  program: string | null;
-}
-
-export interface TestimonyDetail {
-  id: number;
-  program: string | null;
-  person_id: number | null;
-  from_name: string | null;
-  from_email: string;
-  subject: string | null;
-  title: string | null;
-  body_html: string | null;
-  body_text: string | null;
-  status: BoardStatus;
-  type: 'testimony' | 'teaching';
-  received_at: string | null;
-  created_at: string;
-}
-
-type FilterType = 'all' | 'testimony' | 'teaching';
-
-// ── Status config ─────────────────────────────────────────────────────────────
-
-// Display order for grouped sections
-const STATUS_ORDER: BoardStatus[] = [
-  'unfulfilled',
-  'waiting',
-  'draft_1',
-  'draft_2',
-  'awaiting',
-  'approved',
-];
-
-const STATUS_LABELS: Record<BoardStatus, string> = {
-  unfulfilled: 'Unfulfilled',
-  waiting:     'Waiting',
-  draft_1:     'Draft 1',
-  draft_2:     'Draft 2',
-  awaiting:    'Awaiting',
-  approved:    'Approved',
-  archived:    'Archived',
-};
-
-const STATUS_STYLES: Record<BoardStatus, { header: string; dot: string }> = {
-  unfulfilled: { header: 'bg-gray-50 text-gray-700 border-gray-200',   dot: 'bg-gray-400' },
-  waiting:     { header: 'bg-slate-50 text-slate-700 border-slate-200', dot: 'bg-slate-400' },
-  draft_1:     { header: 'bg-blue-50 text-blue-800 border-blue-200',   dot: 'bg-blue-500' },
-  draft_2:     { header: 'bg-indigo-50 text-indigo-800 border-indigo-200', dot: 'bg-indigo-500' },
-  awaiting:    { header: 'bg-amber-50 text-amber-800 border-amber-200', dot: 'bg-amber-400' },
-  approved:    { header: 'bg-green-50 text-green-800 border-green-200', dot: 'bg-green-500' },
-  archived:    { header: 'bg-yellow-50 text-yellow-700 border-yellow-200', dot: 'bg-yellow-400' },
-};
-
-// ── People search ──────────────────────────────────────────────────────────────
-
 interface PersonSearchResult {
   id: number;
   first_name: string;
@@ -119,15 +42,54 @@ interface PersonSearchResult {
   program: string;
 }
 
-interface PersonSearchProps {
-  currentPersonId: number | null;
-  onSelect: (personId: number | null) => void;
+type FilterType = 'all' | 'testimony' | 'teaching';
+
+// ── Status config ─────────────────────────────────────────────────────────────
+
+// Visible Kanban columns in display order
+const KANBAN_COLUMNS: BoardStatus[] = [
+  'not_received',
+  'awaiting_draft_1',
+  'draft_1_review',
+  'awaiting_draft_2',
+  'draft_2_review',
+  'approved',
+];
+
+const STATUS_LABELS: Record<BoardStatus, string> = {
+  not_received:    'Not Received',
+  awaiting_draft_1: 'Awaiting Draft 1',
+  draft_1_review:  'Draft 1 In Review',
+  awaiting_draft_2: 'Awaiting Draft 2',
+  draft_2_review:  'Draft 2 In Review',
+  approved:        'Approved',
+  archived:        'Archived',
+};
+
+const COLUMN_STYLES: Record<BoardStatus, { header: string; dot: string; dropHover: string }> = {
+  not_received:    { header: 'bg-gray-100 text-gray-700 border-gray-200',     dot: 'bg-gray-400',   dropHover: 'bg-gray-50' },
+  awaiting_draft_1: { header: 'bg-slate-100 text-slate-700 border-slate-200', dot: 'bg-slate-400', dropHover: 'bg-slate-50' },
+  draft_1_review:  { header: 'bg-blue-50 text-blue-800 border-blue-200',      dot: 'bg-blue-500',   dropHover: 'bg-blue-50/60' },
+  awaiting_draft_2: { header: 'bg-amber-50 text-amber-800 border-amber-200',  dot: 'bg-amber-400', dropHover: 'bg-amber-50/60' },
+  draft_2_review:  { header: 'bg-indigo-50 text-indigo-800 border-indigo-200', dot: 'bg-indigo-500', dropHover: 'bg-indigo-50/60' },
+  approved:        { header: 'bg-green-50 text-green-800 border-green-200',   dot: 'bg-green-500',  dropHover: 'bg-green-50/60' },
+  archived:        { header: 'bg-yellow-50 text-yellow-700 border-yellow-200', dot: 'bg-yellow-400', dropHover: 'bg-yellow-50/60' },
+};
+
+// ── Person searchable picklist ─────────────────────────────────────────────────
+
+interface PersonPicklistProps {
+  selectedId: number | null;
+  selectedName: string | null;
+  onSelect: (id: number, name: string) => void;
+  onClear: () => void;
 }
 
-function PersonSearch({ currentPersonId, onSelect }: PersonSearchProps) {
+function PersonPicklist({ selectedId, selectedName, onSelect, onClear }: PersonPicklistProps) {
   const [q, setQ] = useState('');
   const [results, setResults] = useState<PersonSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [open, setOpen] = useState(false);
 
   const search = useCallback(async (query: string) => {
     if (query.trim().length < 2) { setResults([]); return; }
@@ -137,6 +99,7 @@ function PersonSearch({ currentPersonId, onSelect }: PersonSearchProps) {
         `/admin/registrations?q=${encodeURIComponent(query)}&page=1`
       );
       setResults(res.rows?.slice(0, 8) ?? []);
+      setOpen(true);
     } catch {
       setResults([]);
     } finally {
@@ -149,25 +112,55 @@ function PersonSearch({ currentPersonId, onSelect }: PersonSearchProps) {
     return () => clearTimeout(t);
   }, [q, search]);
 
+  if (selectedId && selectedName) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md">
+        <span className="text-sm text-blue-800 font-medium flex-1">{selectedName}</span>
+        <button
+          type="button"
+          onClick={() => { onClear(); setQ(''); setResults([]); setOpen(false); }}
+          className="text-xs text-blue-500 hover:text-red-500 transition-colors"
+          aria-label="Remove person selection"
+        >
+          ✕
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-2">
+    <div className="relative">
       <input
         type="text"
-        placeholder="Search by name or email…"
-        value={q}
-        onChange={e => setQ(e.target.value)}
+        role="combobox"
         aria-label="Search person"
+        aria-expanded={open && results.length > 0}
+        placeholder="Type to search by name or email…"
+        value={q}
+        onChange={e => { setQ(e.target.value); if (!e.target.value) { setResults([]); setOpen(false); } }}
+        onFocus={() => q.length >= 2 && results.length > 0 && setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
         className="w-full text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
       />
-      {searching && <p className="text-xs text-gray-400">Searching…</p>}
-      {results.length > 0 && (
-        <ul className="border border-gray-200 rounded-md divide-y divide-gray-100 max-h-40 overflow-y-auto">
+      {searching && (
+        <span className="absolute right-2 top-2 text-xs text-gray-400">…</span>
+      )}
+      {open && results.length > 0 && (
+        <ul
+          role="listbox"
+          className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto"
+        >
           {results.map(p => (
-            <li key={p.id}>
+            <li key={p.id} role="option" aria-selected={false}>
               <button
                 type="button"
-                onClick={() => onSelect(p.id)}
-                className="w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 text-gray-800"
+                onMouseDown={() => {
+                  onSelect(p.id, `${p.first_name} ${p.last_name}`);
+                  setQ('');
+                  setResults([]);
+                  setOpen(false);
+                }}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 text-gray-800"
               >
                 {p.first_name} {p.last_name}
                 {p.email && <span className="ml-2 text-xs text-gray-400">{p.email}</span>}
@@ -176,32 +169,23 @@ function PersonSearch({ currentPersonId, onSelect }: PersonSearchProps) {
           ))}
         </ul>
       )}
-      {currentPersonId && (
-        <button
-          type="button"
-          onClick={() => onSelect(null)}
-          className="text-xs text-red-600 hover:underline"
-        >
-          Remove person match
-        </button>
-      )}
     </div>
   );
 }
 
-// ── Add Item dialog ────────────────────────────────────────────────────────────
+// ── Add Item Modal ─────────────────────────────────────────────────────────────
 
-interface AddItemProps {
+interface AddItemModalProps {
   program: string;
   onCreated: () => void;
   onCancel: () => void;
 }
 
-function AddItemForm({ program, onCreated, onCancel }: AddItemProps) {
+function AddItemModal({ program, onCreated, onCancel }: AddItemModalProps) {
   const theme = THEMES[program as 'mens' | 'women'] ?? THEMES.mens;
   const [type, setType] = useState<'testimony' | 'teaching'>('testimony');
-  const [title, setTitle] = useState('');
   const [personId, setPersonId] = useState<number | null>(null);
+  const [personName, setPersonName] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -213,36 +197,41 @@ function AddItemForm({ program, onCreated, onCancel }: AddItemProps) {
         method: 'POST',
         body: JSON.stringify({
           type,
-          title: title.trim() || null,
           person_id: personId,
         }),
       });
       onCreated();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to create');
-    } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6 space-y-4">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Add testimony or teaching"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={e => { if (e.target === e.currentTarget) onCancel(); }}
+    >
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6 space-y-5">
         <h2 className="text-base font-semibold text-gray-900">Add Item</h2>
 
-        {/* Type */}
+        {/* Type selector */}
         <div>
-          <label className="text-xs font-medium text-gray-500 block mb-1">Type</label>
+          <label className="text-xs font-medium text-gray-500 block mb-1.5">Type</label>
           <div className="flex gap-2">
             {(['testimony', 'teaching'] as const).map(t => (
               <button
                 key={t}
                 type="button"
                 onClick={() => setType(t)}
-                className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
+                className={`px-3 py-1.5 text-xs rounded-md border transition-colors font-medium ${
                   type === t ? 'border-transparent text-white' : 'border-gray-200 text-gray-600 hover:border-gray-300'
                 }`}
                 style={type === t ? { background: theme.primary } : {}}
+                aria-pressed={type === t}
               >
                 {t === 'testimony' ? 'Testimony' : 'Teaching'}
               </button>
@@ -250,29 +239,19 @@ function AddItemForm({ program, onCreated, onCancel }: AddItemProps) {
           </div>
         </div>
 
-        {/* Title */}
+        {/* Person picklist */}
         <div>
-          <label htmlFor="add-title" className="text-xs font-medium text-gray-500 block mb-1">
-            Label / Title <span className="text-gray-400">(optional)</span>
+          <label className="text-xs font-medium text-gray-500 block mb-1.5">
+            Assign Person
           </label>
-          <input
-            id="add-title"
-            type="text"
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder="e.g. Saturday night testimony"
-            className="w-full text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          <PersonPicklist
+            selectedId={personId}
+            selectedName={personName}
+            onSelect={(id, name) => { setPersonId(id); setPersonName(name); }}
+            onClear={() => { setPersonId(null); setPersonName(null); }}
           />
-        </div>
-
-        {/* Assign person */}
-        <div>
-          <label className="text-xs font-medium text-gray-500 block mb-1">
-            Assign Person <span className="text-gray-400">(optional)</span>
-          </label>
-          <PersonSearch currentPersonId={personId} onSelect={setPersonId} />
           {personId && (
-            <p className="text-xs text-green-600 mt-1">Person selected (ID {personId})</p>
+            <p className="text-xs text-green-600 mt-1">Person assigned (ID {personId})</p>
           )}
         </div>
 
@@ -285,6 +264,7 @@ function AddItemForm({ program, onCreated, onCancel }: AddItemProps) {
             disabled={saving}
             style={{ background: theme.primary }}
             className="flex-1 py-2 text-sm text-white rounded-md disabled:opacity-50 hover:opacity-90 transition-opacity font-medium"
+            aria-label="Create"
           >
             {saving ? 'Creating…' : 'Create'}
           </button>
@@ -301,129 +281,146 @@ function AddItemForm({ program, onCreated, onCancel }: AddItemProps) {
   );
 }
 
-// ── Row component ──────────────────────────────────────────────────────────────
+// ── Kanban Card ────────────────────────────────────────────────────────────────
 
-interface RowProps {
+interface KanbanCardProps {
   item: TestimonyRow;
   onStatusChange: (id: number, status: BoardStatus) => void;
+  onDragStart: (id: number) => void;
 }
 
-function TestimonyListRow({ item, onStatusChange }: RowProps) {
+function KanbanCard({ item, onStatusChange, onDragStart }: KanbanCardProps) {
   const personName = item.first_name
     ? `${item.first_name} ${item.last_name ?? ''}`.trim()
     : item.from_name || null;
 
   const hasSubmission = !!(item.attachment_count > 0 || item.subject);
-
   const viewUrl = `/api/admin/testimonies/${item.id}/view`;
 
   return (
     <div
       data-testid={`testimony-row-${item.id}`}
-      className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors"
+      draggable
+      onDragStart={() => onDragStart(item.id)}
+      className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm space-y-2 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
     >
       {/* Person name */}
-      <div className="flex-1 min-w-0">
+      <div>
         {item.person_id && personName ? (
           <Link
             to={`/people/${item.person_id}`}
-            className="text-sm font-medium text-blue-700 hover:underline truncate block"
+            className="text-sm font-semibold text-blue-700 hover:underline leading-tight block"
+            onClick={e => e.stopPropagation()}
           >
             {personName}
           </Link>
         ) : (
-          <span className="text-sm text-gray-500 italic truncate block">
+          <span className="text-sm font-medium text-gray-500 italic block leading-tight">
             {personName ?? 'Unassigned'}
           </span>
         )}
         {item.title && (
-          <span className="text-xs text-gray-400 truncate block leading-tight">{item.title}</span>
+          <span className="text-xs text-gray-400 leading-tight block mt-0.5 truncate">{item.title}</span>
         )}
       </div>
 
-      {/* Type badge */}
-      <span className={`text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${
-        item.type === 'teaching'
-          ? 'bg-purple-100 text-purple-700'
-          : 'bg-sky-100 text-sky-700'
-      }`}>
-        {item.type === 'teaching' ? 'Teaching' : 'Testimony'}
-      </span>
+      {/* Type badge + View link */}
+      <div className="flex items-center justify-between gap-2">
+        <span className={`text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${
+          item.type === 'teaching'
+            ? 'bg-purple-100 text-purple-700'
+            : 'bg-sky-100 text-sky-700'
+        }`}>
+          {item.type === 'teaching' ? 'Teaching' : 'Testimony'}
+        </span>
 
-      {/* Status dropdown */}
-      <select
-        value={item.status}
-        onChange={e => onStatusChange(item.id, e.target.value as BoardStatus)}
-        aria-label={`Status for ${personName ?? 'item'}`}
-        className="text-xs border border-gray-200 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white text-gray-600 flex-shrink-0"
-      >
-        {STATUS_ORDER.map(s => (
-          <option key={s} value={s}>{STATUS_LABELS[s]}</option>
-        ))}
-        <option value="archived">{STATUS_LABELS.archived}</option>
-      </select>
-
-      {/* View link */}
-      <div className="flex-shrink-0 w-20 text-right">
         {hasSubmission ? (
           <a
             href={viewUrl}
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`View submission for ${personName ?? 'item'}`}
-            className="text-xs text-blue-600 hover:underline inline-flex items-center gap-0.5"
+            className="text-xs text-blue-600 hover:underline flex-shrink-0"
           >
             View ↗
           </a>
         ) : (
-          <span className="text-xs text-gray-400 italic">— awaiting —</span>
+          <span className="text-xs text-gray-400 italic flex-shrink-0">— awaiting —</span>
         )}
       </div>
+
+      {/* Status select fallback */}
+      <select
+        value={item.status}
+        onChange={e => onStatusChange(item.id, e.target.value as BoardStatus)}
+        aria-label={`Status for ${personName ?? 'item'}`}
+        onClick={e => e.stopPropagation()}
+        className="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-400"
+      >
+        {KANBAN_COLUMNS.map(s => (
+          <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+        ))}
+        <option value="archived">{STATUS_LABELS.archived}</option>
+      </select>
     </div>
   );
 }
 
-// ── Section header ─────────────────────────────────────────────────────────────
+// ── Kanban Column ──────────────────────────────────────────────────────────────
 
-interface SectionProps {
+interface KanbanColumnProps {
   status: BoardStatus;
   items: TestimonyRow[];
   onStatusChange: (id: number, status: BoardStatus) => void;
+  onDragStart: (id: number) => void;
+  onDrop: (targetStatus: BoardStatus) => void;
 }
 
-function StatusSection({ status, items, onStatusChange }: SectionProps) {
-  const { header, dot } = STATUS_STYLES[status];
+function KanbanColumn({ status, items, onStatusChange, onDragStart, onDrop }: KanbanColumnProps) {
+  const [dragOver, setDragOver] = useState(false);
+  const styles = COLUMN_STYLES[status];
 
   return (
-    <div className="mb-4">
-      {/* Section header */}
-      <div className={`flex items-center gap-2 px-4 py-1.5 border-b ${header} rounded-t-md`}>
-        <span className={`w-2 h-2 rounded-full ${dot} flex-shrink-0`} />
-        <span className="text-xs font-semibold uppercase tracking-wide flex-1">
+    <div
+      className="flex flex-col w-52 min-w-[13rem] flex-shrink-0"
+      onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={() => { setDragOver(false); onDrop(status); }}
+    >
+      {/* Column header */}
+      <div className={`flex items-center gap-1.5 px-3 py-2 rounded-t-lg border ${styles.header}`}>
+        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${styles.dot}`} />
+        <span className="text-xs font-semibold uppercase tracking-wide flex-1 leading-tight">
           {STATUS_LABELS[status]}
         </span>
-        <span className="text-xs font-medium opacity-70">{items.length}</span>
+        <span className="text-xs font-medium opacity-70 flex-shrink-0">{items.length}</span>
       </div>
 
-      {/* Rows */}
-      <div className="bg-white border border-t-0 border-gray-200 rounded-b-md divide-y divide-gray-100">
-        {items.length === 0 ? (
-          <div className="px-4 py-3 text-xs text-gray-400 italic">None</div>
-        ) : (
-          items.map(item => (
-            <TestimonyListRow
-              key={item.id}
-              item={item}
-              onStatusChange={onStatusChange}
-            />
-          ))
+      {/* Drop zone + cards */}
+      <div
+        className={`flex-1 min-h-[8rem] rounded-b-lg border border-t-0 border-gray-200 p-2 space-y-2 transition-colors ${
+          dragOver ? styles.dropHover : 'bg-gray-50/50'
+        }`}
+      >
+        {items.length === 0 && (
+          <div className="flex items-center justify-center h-16 text-xs text-gray-400 italic">
+            Empty
+          </div>
         )}
+        {items.map(item => (
+          <KanbanCard
+            key={item.id}
+            item={item}
+            onStatusChange={onStatusChange}
+            onDragStart={onDragStart}
+          />
+        ))}
       </div>
     </div>
   );
 }
 
-// ── Main page ──────────────────────────────────────────────────────────────────
+// ── Main Kanban Board ──────────────────────────────────────────────────────────
 
 export default function Testimonies() {
   const { program } = useProgram();
@@ -434,8 +431,11 @@ export default function Testimonies() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [listRefresh, setListRefresh] = useState(0);
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+
+  // Native HTML5 drag state
+  const draggingIdRef = useRef<number | null>(null);
 
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -463,14 +463,10 @@ export default function Testimonies() {
     }
   }, [program, filterType, listRefresh]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    fetchList();
-  }, [fetchList]);
+  useEffect(() => { fetchList(); }, [fetchList]);
 
-  // Reset when program changes
-  useEffect(() => {
-    setItems([]);
-  }, [program]);
+  // Refetch when program changes
+  useEffect(() => { setItems([]); }, [program]);
 
   async function handleStatusChange(id: number, status: BoardStatus) {
     // Optimistic update
@@ -486,25 +482,35 @@ export default function Testimonies() {
     }
   }
 
-  // Group items by status
-  const byStatus = (status: BoardStatus) =>
-    items.filter(t => t.status === status);
+  function handleDragStart(id: number) {
+    draggingIdRef.current = id;
+  }
 
-  const archivedItems = byStatus('archived');
+  function handleDrop(targetStatus: BoardStatus) {
+    const id = draggingIdRef.current;
+    draggingIdRef.current = null;
+    if (id == null) return;
+    const item = items.find(t => t.id === id);
+    if (!item || item.status === targetStatus) return;
+    handleStatusChange(id, targetStatus);
+  }
+
+  const colItems = (status: BoardStatus) => items.filter(t => t.status === status);
+  const archivedItems = colItems('archived');
 
   const filterBtnBase = 'px-3 py-1 text-xs rounded-md border transition-colors';
   function filterBtnClass(active: boolean) {
     return `${filterBtnBase} ${
-      active
-        ? 'border-transparent text-white'
-        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+      active ? 'border-transparent text-white' : 'border-gray-200 text-gray-600 hover:border-gray-300'
     }`;
   }
 
-  // Hidden status filter buttons — keep data-testid for test compatibility
-  // These issue a status-filtered API call (for any test assertions) but don't
-  // change visible page state; the grouped list already shows all statuses.
-  const hiddenStatusBtns = (['unfulfilled', 'waiting', 'draft_1', 'draft_2', 'awaiting', 'approved', 'archived'] as BoardStatus[]).map(fs => (
+  // Hidden status filter buttons — kept for API compatibility / test assertions
+  // (clicking fires a status-filtered API call, allowing tests to assert on the URL)
+  const hiddenStatusBtns = ([
+    'not_received', 'awaiting_draft_1', 'draft_1_review',
+    'awaiting_draft_2', 'draft_2_review', 'approved', 'archived',
+  ] as BoardStatus[]).map(fs => (
     <button
       key={fs}
       type="button"
@@ -525,16 +531,13 @@ export default function Testimonies() {
   ));
 
   return (
-    <div className="flex flex-col min-h-0 h-[calc(100vh-3rem)]">
-      {/* Add item dialog */}
-      {showAddForm && (
-        <AddItemForm
+    <div className="flex flex-col h-[calc(100vh-3rem)] overflow-hidden">
+      {/* Add Item modal */}
+      {showAddModal && (
+        <AddItemModal
           program={program}
-          onCreated={() => {
-            setShowAddForm(false);
-            setListRefresh(n => n + 1);
-          }}
-          onCancel={() => setShowAddForm(false)}
+          onCreated={() => { setShowAddModal(false); setListRefresh(n => n + 1); }}
+          onCancel={() => setShowAddModal(false)}
         />
       )}
 
@@ -549,10 +552,9 @@ export default function Testimonies() {
           <button
             type="button"
             data-testid="add-needed-item"
-            onClick={() => setShowAddForm(true)}
+            onClick={() => setShowAddModal(true)}
             style={{ background: theme.primary }}
             className="px-2.5 py-1 text-xs text-white rounded-md hover:opacity-90 transition-opacity font-medium"
-            title="Add testimony or teaching"
           >
             + Add
           </button>
@@ -578,55 +580,63 @@ export default function Testimonies() {
           ))}
         </div>
 
-        {/* Hidden buttons kept for test compatibility */}
+        {/* Hidden status filter buttons (API compat + tests) */}
         {hiddenStatusBtns}
       </div>
 
-      {/* ── Body ────────────────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto">
-        {loading ? (
-          <div className="flex items-center justify-center h-32 text-sm text-gray-400">Loading…</div>
-        ) : error ? (
-          <div className="flex items-center justify-center h-32 text-sm text-red-400 p-4">{error}</div>
-        ) : items.length === 0 ? (
-          <div className="flex items-center justify-center h-32 text-sm text-gray-400 p-8">
-            No testimonies found.
-          </div>
-        ) : (
-          <div className="p-4 max-w-3xl mx-auto">
-            {/* Main status sections */}
-            {STATUS_ORDER.map(status => (
-              <StatusSection
+      {/* ── Board ───────────────────────────────────────────────────────── */}
+      {loading ? (
+        <div className="flex-1 flex items-center justify-center text-sm text-gray-400">Loading…</div>
+      ) : error ? (
+        <div className="flex-1 flex items-center justify-center text-sm text-red-400 p-4">{error}</div>
+      ) : items.length === 0 && archivedItems.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center text-sm text-gray-400 p-8">
+          No testimonies found.
+        </div>
+      ) : (
+        <div className="flex-1 overflow-auto p-4">
+          {/* 6-column Kanban */}
+          <div className="flex gap-3 h-full" style={{ minWidth: `${KANBAN_COLUMNS.length * 220}px` }}>
+            {KANBAN_COLUMNS.map(status => (
+              <KanbanColumn
                 key={status}
                 status={status}
-                items={byStatus(status)}
+                items={colItems(status)}
                 onStatusChange={handleStatusChange}
+                onDragStart={handleDragStart}
+                onDrop={handleDrop}
               />
             ))}
-
-            {/* Archived — optional toggle */}
-            {archivedItems.length > 0 && (
-              <div className="mt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowArchived(v => !v)}
-                  className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1.5 mb-2"
-                >
-                  <span className={`transition-transform ${showArchived ? 'rotate-90' : ''}`}>▶</span>
-                  {showArchived ? 'Hide' : 'Show'} archived ({archivedItems.length})
-                </button>
-                {showArchived && (
-                  <StatusSection
-                    status="archived"
-                    items={archivedItems}
-                    onStatusChange={handleStatusChange}
-                  />
-                )}
-              </div>
-            )}
           </div>
-        )}
-      </div>
+
+          {/* Archived — optional toggle below board */}
+          {archivedItems.length > 0 && (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => setShowArchived(v => !v)}
+                className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1.5 mb-2"
+              >
+                <span className={`transition-transform ${showArchived ? 'rotate-90' : ''}`}>▶</span>
+                {showArchived ? 'Hide' : 'Show'} archived ({archivedItems.length})
+              </button>
+              {showArchived && (
+                <div className="flex flex-wrap gap-3">
+                  {archivedItems.map(item => (
+                    <div key={item.id} className="w-52">
+                      <KanbanCard
+                        item={item}
+                        onStatusChange={handleStatusChange}
+                        onDragStart={handleDragStart}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 // functions/_api/__tests__/testimonies.test.ts
-// TDD integration tests for Testimonies & Teachings backend (list model, 7-status lifecycle)
+// TDD integration tests for Testimonies & Teachings backend (draft workflow lifecycle)
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { env } from 'cloudflare:test';
@@ -76,8 +76,15 @@ async function seedPerson(opts: {
   return meta.last_row_id as number;
 }
 
-// New 7-status lifecycle
-type BoardStatus = 'unfulfilled' | 'waiting' | 'draft_1' | 'draft_2' | 'awaiting' | 'approved' | 'archived';
+// New 7-status draft workflow
+type BoardStatus =
+  | 'not_received'
+  | 'awaiting_draft_1'
+  | 'draft_1_review'
+  | 'awaiting_draft_2'
+  | 'draft_2_review'
+  | 'approved'
+  | 'archived';
 
 async function seedTestimony(opts: {
   program?: string | null;
@@ -104,7 +111,7 @@ async function seedTestimony(opts: {
       opts.title ?? null,
       opts.from_email ?? 'sender@example.com',
       opts.from_name ?? 'Sender Name',
-      opts.status ?? 'unfulfilled',
+      opts.status ?? 'not_received',
       now,
       now
     )
@@ -158,9 +165,12 @@ describe('testimonies migration', () => {
     expect(cols).toContain('assigned_at');
   });
 
-  it('allows all 7 board status values', async () => {
+  it('allows all 7 draft-workflow status values', async () => {
     const now = nowIso();
-    for (const status of ['unfulfilled', 'waiting', 'draft_1', 'draft_2', 'awaiting', 'approved', 'archived']) {
+    for (const status of [
+      'not_received', 'awaiting_draft_1', 'draft_1_review',
+      'awaiting_draft_2', 'draft_2_review', 'approved', 'archived',
+    ]) {
       const { meta } = await testEnv.DB.prepare(
         `INSERT INTO testimonies (type, from_email, from_name, status, created_at)
          VALUES ('testimony', 'x@x.com', 'X', ?, ?)`
@@ -169,20 +179,35 @@ describe('testimonies migration', () => {
     }
   });
 
-  it('maps old in_progress -> draft_1 via migration 0007', async () => {
-    // applyMigrations already ran 0006 (with in_progress) then 0007 which remaps.
-    // We can verify the CHECK allows draft_1 and old in_progress is NOT allowed.
+  it('rejects old status values no longer in the CHECK', async () => {
+    const now = nowIso();
+    for (const badStatus of ['unfulfilled', 'waiting', 'draft_1', 'draft_2', 'awaiting', 'in_progress']) {
+      let threw = false;
+      try {
+        await testEnv.DB.prepare(
+          `INSERT INTO testimonies (type, from_email, from_name, status, created_at)
+           VALUES ('testimony', 'x@x.com', 'X', ?, ?)`
+        ).bind(badStatus, now).run();
+      } catch {
+        threw = true;
+      }
+      expect(threw, `expected ${badStatus} to be rejected`).toBe(true);
+    }
+  });
+
+  it('migration 0008 maps old unfulfilled->not_received (old status no longer valid)', async () => {
+    // After 0008, unfulfilled is not a valid status; 0007 statuses are all remapped
     const now = nowIso();
     let threw = false;
     try {
       await testEnv.DB.prepare(
         `INSERT INTO testimonies (type, from_email, from_name, status, created_at)
-         VALUES ('testimony', 'x@x.com', 'X', 'in_progress', ?)`
+         VALUES ('testimony', 'x@x.com', 'X', 'unfulfilled', ?)`
       ).bind(now).run();
     } catch {
       threw = true;
     }
-    expect(threw).toBe(true); // in_progress no longer valid
+    expect(threw).toBe(true);
   });
 });
 
@@ -268,7 +293,7 @@ describe('storeTestimony', () => {
     await applyMigrations(env as unknown as { DB: D1Database });
   });
 
-  it('stores a matched testimony with person_id and program, status=draft_1', async () => {
+  it('stores a matched testimony with person_id and program, status=draft_1_review', async () => {
     const personId = await seedPerson({ program: 'mens', email: 'testify@example.com', firstName: 'Test', lastName: 'Person' });
     const result = await storeTestimony(testEnv, {
       from_email: 'testify@example.com',
@@ -284,11 +309,11 @@ describe('storeTestimony', () => {
       .bind(result.testimony_id).first<{ person_id: number; program: string; status: string; match_confidence: string }>();
     expect(row?.person_id).toBe(personId);
     expect(row?.program).toBe('mens');
-    expect(row?.status).toBe('draft_1');
+    expect(row?.status).toBe('draft_1_review');
     expect(row?.match_confidence).toBe('email');
   });
 
-  it('stores an unmatched testimony with null person_id, status=draft_1', async () => {
+  it('stores an unmatched testimony with null person_id, status=draft_1_review', async () => {
     const result = await storeTestimony(testEnv, {
       from_email: 'unknown@ghost.com',
       from_name: 'Ghost Sender',
@@ -302,7 +327,7 @@ describe('storeTestimony', () => {
     expect(row?.person_id).toBeNull();
     expect(row?.program).toBeNull();
     expect(row?.match_confidence).toBe('none');
-    expect(row?.status).toBe('draft_1');
+    expect(row?.status).toBe('draft_1_review');
   });
 
   it('stores explicit attachments with r2_key null', async () => {
@@ -349,13 +374,12 @@ describe('storeTestimony', () => {
     expect(row?.type).toBe('teaching');
   });
 
-  it('attaches content to existing open needed item (unfulfilled) -> draft_1', async () => {
+  it('auto-advance: not_received + email -> draft_1_review', async () => {
     const personId = await seedPerson({ program: 'mens', email: 'needed@example.com', firstName: 'Needed', lastName: 'Person' });
-    // Create an unfulfilled needed item for this person
     const neededId = await seedTestimony({
       person_id: personId,
       program: 'mens',
-      status: 'unfulfilled',
+      status: 'not_received',
       type: 'testimony',
     });
 
@@ -372,16 +396,16 @@ describe('storeTestimony', () => {
 
     const row = await testEnv.DB.prepare(`SELECT status, body_text FROM testimonies WHERE id = ?`)
       .bind(neededId).first<{ status: string; body_text: string }>();
-    expect(row?.status).toBe('draft_1');
+    expect(row?.status).toBe('draft_1_review');
     expect(row?.body_text).toBe('God did great things.');
   });
 
-  it('attaches content to existing waiting item -> draft_1', async () => {
+  it('auto-advance: awaiting_draft_1 + email -> draft_1_review', async () => {
     const personId = await seedPerson({ program: 'mens', email: 'waiting@example.com', firstName: 'Wait', lastName: 'Person' });
     const neededId = await seedTestimony({
       person_id: personId,
       program: 'mens',
-      status: 'waiting',
+      status: 'awaiting_draft_1',
       type: 'testimony',
     });
 
@@ -395,12 +419,55 @@ describe('storeTestimony', () => {
     expect(result.testimony_id).toBe(neededId);
     const row = await testEnv.DB.prepare(`SELECT status FROM testimonies WHERE id = ?`)
       .bind(neededId).first<{ status: string }>();
-    expect(row?.status).toBe('draft_1');
+    expect(row?.status).toBe('draft_1_review');
+  });
+
+  it('auto-advance: awaiting_draft_2 + email -> draft_2_review', async () => {
+    const personId = await seedPerson({ program: 'mens', email: 'awaiting2@example.com', firstName: 'A2', lastName: 'Person' });
+    const neededId = await seedTestimony({
+      person_id: personId,
+      program: 'mens',
+      status: 'awaiting_draft_2',
+      type: 'testimony',
+    });
+
+    const result = await storeTestimony(testEnv, {
+      from_email: 'awaiting2@example.com',
+      from_name: 'A2 Person',
+      body_text: 'My second draft.',
+    });
+
+    expect(result.attached_to_existing).toBe(true);
+    expect(result.testimony_id).toBe(neededId);
+    const row = await testEnv.DB.prepare(`SELECT status FROM testimonies WHERE id = ?`)
+      .bind(neededId).first<{ status: string }>();
+    expect(row?.status).toBe('draft_2_review');
+  });
+
+  it('auto-advance: draft_1_review + email (re-send) -> stays draft_1_review (never backwards)', async () => {
+    const personId = await seedPerson({ program: 'mens', email: 'resend@example.com', firstName: 'Resend', lastName: 'Person' });
+    const neededId = await seedTestimony({
+      person_id: personId,
+      program: 'mens',
+      status: 'draft_1_review',
+      type: 'testimony',
+    });
+
+    const result = await storeTestimony(testEnv, {
+      from_email: 'resend@example.com',
+      from_name: 'Resend Person',
+      body_text: 'Resending my draft.',
+    });
+
+    expect(result.attached_to_existing).toBe(true);
+    const row = await testEnv.DB.prepare(`SELECT status FROM testimonies WHERE id = ?`)
+      .bind(neededId).first<{ status: string }>();
+    // Re-send while already in review keeps it in review (does not go backwards)
+    expect(row?.status).toBe('draft_1_review');
   });
 
   it('creates new item when person has no open needed item (all approved)', async () => {
     const personId = await seedPerson({ program: 'mens', email: 'done@example.com', firstName: 'Done', lastName: 'Person' });
-    // Only approved item
     await seedTestimony({
       person_id: personId,
       program: 'mens',
@@ -418,7 +485,7 @@ describe('storeTestimony', () => {
     expect(result.testimony_id).not.toBe(0);
     const newRow = await testEnv.DB.prepare(`SELECT status FROM testimonies WHERE id = ?`)
       .bind(result.testimony_id).first<{ status: string }>();
-    expect(newRow?.status).toBe('draft_1');
+    expect(newRow?.status).toBe('draft_1_review');
   });
 });
 
@@ -430,64 +497,63 @@ describe('GET /api/admin/testimonies', () => {
 
   it('lists testimonies for the active program', async () => {
     const personId = await seedPerson({ program: 'mens' });
-    await seedTestimony({ program: 'mens', person_id: personId, status: 'draft_1' });
-    await seedTestimony({ program: 'women', status: 'unfulfilled' }); // should not appear alone
+    await seedTestimony({ program: 'mens', person_id: personId, status: 'draft_1_review' });
+    await seedTestimony({ program: 'women', status: 'not_received' }); // should not appear alone
     const cookie = await getAuthCookie();
     const res = await app.fetch(makeReq('GET', '/api/admin/testimonies', cookie, 'mens'), testEnv);
     expect(res.status).toBe(200);
     const json = await res.json<{ ok: boolean; testimonies: unknown[] }>();
     expect(json.ok).toBe(true);
-    // Only mens + unassigned visible to mens admin
     const programs = (json.testimonies as Array<{ program: string | null }>).map((t) => t.program);
     expect(programs.every((p) => p === 'mens' || p === null)).toBe(true);
   });
 
-  it('supports status filter for all 7 board statuses', async () => {
-    await seedTestimony({ program: 'mens', status: 'unfulfilled' });
-    await seedTestimony({ program: 'mens', status: 'draft_1' });
+  it('supports status filter for all 7 draft-workflow statuses', async () => {
+    await seedTestimony({ program: 'mens', status: 'not_received' });
+    await seedTestimony({ program: 'mens', status: 'draft_1_review' });
     await seedTestimony({ program: 'mens', status: 'approved' });
     const cookie = await getAuthCookie();
-    const url = `http://localhost/api/admin/testimonies?program=mens&status=draft_1`;
+    const url = `http://localhost/api/admin/testimonies?program=mens&status=draft_1_review`;
     const res = await app.fetch(new Request(url, {
       headers: { Cookie: cookie },
     }), testEnv);
     const json = await res.json<{ testimonies: Array<{ status: string }> }>();
-    expect(json.testimonies.every((t) => t.status === 'draft_1')).toBe(true);
+    expect(json.testimonies.every((t) => t.status === 'draft_1_review')).toBe(true);
   });
 
-  it('supports status filter for waiting', async () => {
-    await seedTestimony({ program: 'mens', status: 'waiting' });
-    await seedTestimony({ program: 'mens', status: 'draft_1' });
+  it('supports status filter for awaiting_draft_1', async () => {
+    await seedTestimony({ program: 'mens', status: 'awaiting_draft_1' });
+    await seedTestimony({ program: 'mens', status: 'draft_1_review' });
     const cookie = await getAuthCookie();
-    const url = `http://localhost/api/admin/testimonies?program=mens&status=waiting`;
+    const url = `http://localhost/api/admin/testimonies?program=mens&status=awaiting_draft_1`;
     const res = await app.fetch(new Request(url, { headers: { Cookie: cookie } }), testEnv);
     const json = await res.json<{ testimonies: Array<{ status: string }> }>();
-    expect(json.testimonies.every((t) => t.status === 'waiting')).toBe(true);
+    expect(json.testimonies.every((t) => t.status === 'awaiting_draft_1')).toBe(true);
   });
 
-  it('supports status filter for draft_2', async () => {
-    await seedTestimony({ program: 'mens', status: 'draft_2' });
-    await seedTestimony({ program: 'mens', status: 'draft_1' });
+  it('supports status filter for draft_2_review', async () => {
+    await seedTestimony({ program: 'mens', status: 'draft_2_review' });
+    await seedTestimony({ program: 'mens', status: 'draft_1_review' });
     const cookie = await getAuthCookie();
-    const url = `http://localhost/api/admin/testimonies?program=mens&status=draft_2`;
+    const url = `http://localhost/api/admin/testimonies?program=mens&status=draft_2_review`;
     const res = await app.fetch(new Request(url, { headers: { Cookie: cookie } }), testEnv);
     const json = await res.json<{ testimonies: Array<{ status: string }> }>();
-    expect(json.testimonies.every((t) => t.status === 'draft_2')).toBe(true);
+    expect(json.testimonies.every((t) => t.status === 'draft_2_review')).toBe(true);
   });
 
-  it('supports status filter for awaiting', async () => {
-    await seedTestimony({ program: 'mens', status: 'awaiting' });
-    await seedTestimony({ program: 'mens', status: 'draft_1' });
+  it('supports status filter for awaiting_draft_2', async () => {
+    await seedTestimony({ program: 'mens', status: 'awaiting_draft_2' });
+    await seedTestimony({ program: 'mens', status: 'draft_1_review' });
     const cookie = await getAuthCookie();
-    const url = `http://localhost/api/admin/testimonies?program=mens&status=awaiting`;
+    const url = `http://localhost/api/admin/testimonies?program=mens&status=awaiting_draft_2`;
     const res = await app.fetch(new Request(url, { headers: { Cookie: cookie } }), testEnv);
     const json = await res.json<{ testimonies: Array<{ status: string }> }>();
-    expect(json.testimonies.every((t) => t.status === 'awaiting')).toBe(true);
+    expect(json.testimonies.every((t) => t.status === 'awaiting_draft_2')).toBe(true);
   });
 
   it('supports fulfilled=true filter (approved only)', async () => {
-    await seedTestimony({ program: 'mens', status: 'unfulfilled' });
-    await seedTestimony({ program: 'mens', status: 'draft_1' });
+    await seedTestimony({ program: 'mens', status: 'not_received' });
+    await seedTestimony({ program: 'mens', status: 'draft_1_review' });
     await seedTestimony({ program: 'mens', status: 'approved' });
     const cookie = await getAuthCookie();
     const url = `http://localhost/api/admin/testimonies?program=mens&fulfilled=true`;
@@ -497,8 +563,8 @@ describe('GET /api/admin/testimonies', () => {
   });
 
   it('supports fulfilled=false filter (not approved/archived)', async () => {
-    await seedTestimony({ program: 'mens', status: 'unfulfilled' });
-    await seedTestimony({ program: 'mens', status: 'draft_1' });
+    await seedTestimony({ program: 'mens', status: 'not_received' });
+    await seedTestimony({ program: 'mens', status: 'draft_1_review' });
     await seedTestimony({ program: 'mens', status: 'approved' });
     await seedTestimony({ program: 'mens', status: 'archived' });
     const cookie = await getAuthCookie();
@@ -511,8 +577,8 @@ describe('GET /api/admin/testimonies', () => {
   });
 
   it('supports assigned=unassigned filter', async () => {
-    await seedTestimony({ program: null, status: 'draft_1' }); // unassigned
-    await seedTestimony({ program: 'mens', status: 'draft_1' }); // assigned
+    await seedTestimony({ program: null, status: 'draft_1_review' }); // unassigned
+    await seedTestimony({ program: 'mens', status: 'draft_1_review' }); // assigned
     const cookie = await getAuthCookie();
     const url = `http://localhost/api/admin/testimonies?program=mens&assigned=unassigned`;
     const res = await app.fetch(new Request(url, { headers: { Cookie: cookie } }), testEnv);
@@ -521,7 +587,7 @@ describe('GET /api/admin/testimonies', () => {
   });
 
   it('includes attachment count and comment count', async () => {
-    const tid = await seedTestimony({ program: 'mens', status: 'draft_1' });
+    const tid = await seedTestimony({ program: 'mens', status: 'draft_1_review' });
     const now = nowIso();
     await testEnv.DB.prepare(
       `INSERT INTO testimony_attachments (testimony_id, filename, created_at) VALUES (?, 'file.pdf', ?)`
@@ -535,7 +601,7 @@ describe('GET /api/admin/testimonies', () => {
   });
 
   it('includes title in list results', async () => {
-    await seedTestimony({ program: 'mens', status: 'unfulfilled', title: 'Saturday night testimony' });
+    await seedTestimony({ program: 'mens', status: 'not_received', title: 'Saturday night testimony' });
     const cookie = await getAuthCookie();
     const res = await app.fetch(makeReq('GET', '/api/admin/testimonies', cookie, 'mens'), testEnv);
     const json = await res.json<{ testimonies: Array<{ title: string | null }> }>();
@@ -543,18 +609,21 @@ describe('GET /api/admin/testimonies', () => {
     expect(found).toBeDefined();
   });
 
-  it('returns items in status display order (unfulfilled < waiting < draft_1 < draft_2 < awaiting < approved < archived)', async () => {
+  it('returns items in status display order (not_received -> awaiting_draft_1 -> draft_1_review -> awaiting_draft_2 -> draft_2_review -> approved -> archived)', async () => {
     await seedTestimony({ program: 'mens', status: 'approved' });
-    await seedTestimony({ program: 'mens', status: 'draft_2' });
-    await seedTestimony({ program: 'mens', status: 'unfulfilled' });
-    await seedTestimony({ program: 'mens', status: 'waiting' });
-    await seedTestimony({ program: 'mens', status: 'awaiting' });
-    await seedTestimony({ program: 'mens', status: 'draft_1' });
+    await seedTestimony({ program: 'mens', status: 'draft_2_review' });
+    await seedTestimony({ program: 'mens', status: 'not_received' });
+    await seedTestimony({ program: 'mens', status: 'awaiting_draft_1' });
+    await seedTestimony({ program: 'mens', status: 'awaiting_draft_2' });
+    await seedTestimony({ program: 'mens', status: 'draft_1_review' });
     const cookie = await getAuthCookie();
     const res = await app.fetch(makeReq('GET', '/api/admin/testimonies', cookie, 'mens'), testEnv);
     const json = await res.json<{ testimonies: Array<{ status: string }> }>();
     const statuses = json.testimonies.map((t) => t.status);
-    const ORDER = ['unfulfilled', 'waiting', 'draft_1', 'draft_2', 'awaiting', 'approved', 'archived'];
+    const ORDER = [
+      'not_received', 'awaiting_draft_1', 'draft_1_review',
+      'awaiting_draft_2', 'draft_2_review', 'approved', 'archived',
+    ];
     const sorted = [...statuses].sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b));
     expect(statuses).toEqual(sorted);
   });
@@ -566,7 +635,7 @@ describe('POST /api/admin/testimonies (create needed item)', () => {
     await seedAdmin();
   });
 
-  it('creates a new unfulfilled testimony item for a person', async () => {
+  it('creates a new not_received testimony item for a person', async () => {
     const personId = await seedPerson({ program: 'mens', firstName: 'Alex', lastName: 'Smith' });
     const cookie = await getAuthCookie();
     const res = await app.fetch(
@@ -581,7 +650,7 @@ describe('POST /api/admin/testimonies (create needed item)', () => {
     const json = await res.json<{ ok: boolean; testimony: { type: string; status: string; person_id: number; title: string | null } }>();
     expect(json.ok).toBe(true);
     expect(json.testimony.type).toBe('testimony');
-    expect(json.testimony.status).toBe('unfulfilled');
+    expect(json.testimony.status).toBe('not_received');
     expect(json.testimony.person_id).toBe(personId);
     expect(json.testimony.title).toBe('Sunday closing testimony');
   });
@@ -599,7 +668,7 @@ describe('POST /api/admin/testimonies (create needed item)', () => {
     const json = await res.json<{ ok: boolean; testimony: { type: string; status: string; person_id: null } }>();
     expect(json.ok).toBe(true);
     expect(json.testimony.type).toBe('teaching');
-    expect(json.testimony.status).toBe('unfulfilled');
+    expect(json.testimony.status).toBe('not_received');
   });
 
   it('returns 404 when person_id does not exist', async () => {
@@ -647,10 +716,10 @@ describe('GET /api/admin/testimonies/new-count', () => {
   });
 
   it('returns program_new and unassigned_new counts (needs-attention items)', async () => {
-    await seedTestimony({ program: 'mens', status: 'unfulfilled' });
-    await seedTestimony({ program: 'mens', status: 'draft_1' });
+    await seedTestimony({ program: 'mens', status: 'not_received' });
+    await seedTestimony({ program: 'mens', status: 'draft_1_review' });
     await seedTestimony({ program: 'mens', status: 'approved' }); // not needing attention
-    await seedTestimony({ program: null, status: 'draft_1' }); // unassigned
+    await seedTestimony({ program: null, status: 'draft_1_review' }); // unassigned
     const cookie = await getAuthCookie();
     const url = `http://localhost/api/admin/testimonies/new-count?program=mens`;
     const res = await app.fetch(new Request(url, { headers: { Cookie: cookie } }), testEnv);
@@ -662,7 +731,9 @@ describe('GET /api/admin/testimonies/new-count', () => {
   });
 
   it('counts all 5 non-approved statuses as needs attention', async () => {
-    for (const s of ['unfulfilled', 'waiting', 'draft_1', 'draft_2', 'awaiting'] as BoardStatus[]) {
+    for (const s of [
+      'not_received', 'awaiting_draft_1', 'draft_1_review', 'awaiting_draft_2', 'draft_2_review',
+    ] as BoardStatus[]) {
       await seedTestimony({ program: 'mens', status: s });
     }
     await seedTestimony({ program: 'mens', status: 'approved' });
@@ -689,7 +760,7 @@ describe('GET /api/admin/testimonies/:id/view', () => {
       `INSERT INTO testimonies (type, person_id, program, title, from_email, from_name, subject,
        body_text, body_html, match_confidence, status, received_at, created_at)
        VALUES ('testimony', ?, 'mens', 'Sunday Night', 'john@test.com', 'John Doe', 'My testimony',
-       'God moved.', '<p>God moved.</p>', 'email', 'draft_1', ?, ?)`
+       'God moved.', '<p>God moved.</p>', 'email', 'draft_1_review', ?, ?)`
     ).bind(personId, now, now).run();
     const tid = meta.last_row_id as number;
 
@@ -704,7 +775,7 @@ describe('GET /api/admin/testimonies/:id/view', () => {
   });
 
   it('returns HTML page with attachment links', async () => {
-    const tid = await seedTestimony({ program: 'mens', status: 'draft_1' });
+    const tid = await seedTestimony({ program: 'mens', status: 'draft_1_review' });
     const now = nowIso();
     await testEnv.DB.prepare(
       `INSERT INTO testimony_attachments (testimony_id, filename, content_type, r2_key, link_url, created_at)
@@ -719,12 +790,11 @@ describe('GET /api/admin/testimonies/:id/view', () => {
   });
 
   it('shows awaiting message when no content yet', async () => {
-    // Insert a testimony with no body_text/body_html to test the "no content" branch
     const now = nowIso();
     const { meta } = await testEnv.DB.prepare(
       `INSERT INTO testimonies (type, program, from_email, from_name, subject,
        body_text, body_html, match_confidence, status, created_at)
-       VALUES ('testimony', 'mens', '', 'Empty Person', NULL, NULL, NULL, NULL, 'unfulfilled', ?)`
+       VALUES ('testimony', 'mens', '', 'Empty Person', NULL, NULL, NULL, NULL, 'not_received', ?)`
     ).bind(now).run();
     const tid = meta.last_row_id as number;
 
@@ -736,7 +806,7 @@ describe('GET /api/admin/testimonies/:id/view', () => {
   });
 
   it('returns 404 for wrong program', async () => {
-    const tid = await seedTestimony({ program: 'women', status: 'draft_1' });
+    const tid = await seedTestimony({ program: 'women', status: 'draft_1_review' });
     const cookie = await getAuthCookie();
     const res = await app.fetch(makeReq('GET', `/api/admin/testimonies/${tid}/view`, cookie, 'mens'), testEnv);
     expect(res.status).toBe(404);
@@ -751,7 +821,7 @@ describe('GET /api/admin/testimonies/:id', () => {
 
   it('returns full record with attachments and comments', async () => {
     const personId = await seedPerson({ program: 'mens', firstName: 'John', lastName: 'Doe' });
-    const tid = await seedTestimony({ program: 'mens', person_id: personId, status: 'draft_1' });
+    const tid = await seedTestimony({ program: 'mens', person_id: personId, status: 'draft_1_review' });
     const now = nowIso();
     await testEnv.DB.prepare(
       `INSERT INTO testimony_attachments (testimony_id, filename, link_url, created_at) VALUES (?, 'doc.pdf', 'https://docs.google.com/d/abc', ?)`
@@ -781,14 +851,14 @@ describe('GET /api/admin/testimonies/:id', () => {
   });
 
   it('returns 404 for a testimony of the wrong program', async () => {
-    const tid = await seedTestimony({ program: 'women', status: 'unfulfilled' });
+    const tid = await seedTestimony({ program: 'women', status: 'not_received' });
     const cookie = await getAuthCookie();
     const res = await app.fetch(makeReq('GET', `/api/admin/testimonies/${tid}`, cookie, 'mens'), testEnv);
     expect(res.status).toBe(404);
   });
 
   it('returns unassigned testimony to any program admin', async () => {
-    const tid = await seedTestimony({ program: null, status: 'draft_1' });
+    const tid = await seedTestimony({ program: null, status: 'draft_1_review' });
     const cookie = await getAuthCookie();
     const res = await app.fetch(makeReq('GET', `/api/admin/testimonies/${tid}`, cookie, 'mens'), testEnv);
     expect(res.status).toBe(200);
@@ -802,7 +872,7 @@ describe('POST /api/admin/testimonies/:id/comment', () => {
   });
 
   it('adds a comment to a testimony', async () => {
-    const tid = await seedTestimony({ program: 'mens', status: 'draft_1' });
+    const tid = await seedTestimony({ program: 'mens', status: 'draft_1_review' });
     const cookie = await getAuthCookie();
     const res = await app.fetch(
       makeReq('POST', `/api/admin/testimonies/${tid}/comment`, cookie, 'mens', { body: 'Wonderful sharing!' }),
@@ -819,7 +889,7 @@ describe('POST /api/admin/testimonies/:id/comment', () => {
   });
 
   it('returns 400 when body is missing', async () => {
-    const tid = await seedTestimony({ program: 'mens', status: 'draft_1' });
+    const tid = await seedTestimony({ program: 'mens', status: 'draft_1_review' });
     const cookie = await getAuthCookie();
     const res = await app.fetch(
       makeReq('POST', `/api/admin/testimonies/${tid}/comment`, cookie, 'mens', { body: '' }),
@@ -835,8 +905,8 @@ describe('POST /api/admin/testimonies/:id/reply', () => {
     await seedAdmin();
   });
 
-  it('writes email_log row and sets status=awaiting when EMAIL_ENABLED=false', async () => {
-    const tid = await seedTestimony({ program: 'mens', status: 'draft_1', from_email: 'sender@test.com' });
+  it('writes email_log row and sets status=awaiting_draft_2 when EMAIL_ENABLED=false', async () => {
+    const tid = await seedTestimony({ program: 'mens', status: 'draft_1_review', from_email: 'sender@test.com' });
     const cookie = await getAuthCookie();
     const res = await app.fetch(
       makeReq('POST', `/api/admin/testimonies/${tid}/reply`, cookie, 'mens', {
@@ -850,10 +920,10 @@ describe('POST /api/admin/testimonies/:id/reply', () => {
     const json = await res.json<{ ok: boolean }>();
     expect(json.ok).toBe(true);
 
-    // Status moves to awaiting in new model
+    // Status moves to awaiting_draft_2 in new model
     const testimony = await testEnv.DB.prepare(`SELECT status FROM testimonies WHERE id = ?`)
       .bind(tid).first<{ status: string }>();
-    expect(testimony?.status).toBe('awaiting');
+    expect(testimony?.status).toBe('awaiting_draft_2');
 
     const logRow = await testEnv.DB.prepare(
       `SELECT to_email, subject FROM email_log WHERE to_email = ? ORDER BY id DESC LIMIT 1`
@@ -869,60 +939,60 @@ describe('PATCH /api/admin/testimonies/:id', () => {
     await seedAdmin();
   });
 
-  it('updates status to waiting', async () => {
-    const tid = await seedTestimony({ program: 'mens', status: 'unfulfilled' });
+  it('updates status to awaiting_draft_1', async () => {
+    const tid = await seedTestimony({ program: 'mens', status: 'not_received' });
     const cookie = await getAuthCookie();
     const res = await app.fetch(
-      makeReq('PATCH', `/api/admin/testimonies/${tid}`, cookie, 'mens', { status: 'waiting' }),
+      makeReq('PATCH', `/api/admin/testimonies/${tid}`, cookie, 'mens', { status: 'awaiting_draft_1' }),
       testEnv
     );
     expect(res.status).toBe(200);
     const row = await testEnv.DB.prepare(`SELECT status FROM testimonies WHERE id = ?`)
       .bind(tid).first<{ status: string }>();
-    expect(row?.status).toBe('waiting');
+    expect(row?.status).toBe('awaiting_draft_1');
   });
 
-  it('updates status to draft_1', async () => {
-    const tid = await seedTestimony({ program: 'mens', status: 'unfulfilled' });
+  it('updates status to draft_1_review', async () => {
+    const tid = await seedTestimony({ program: 'mens', status: 'not_received' });
     const cookie = await getAuthCookie();
     const res = await app.fetch(
-      makeReq('PATCH', `/api/admin/testimonies/${tid}`, cookie, 'mens', { status: 'draft_1' }),
+      makeReq('PATCH', `/api/admin/testimonies/${tid}`, cookie, 'mens', { status: 'draft_1_review' }),
       testEnv
     );
     expect(res.status).toBe(200);
     const row = await testEnv.DB.prepare(`SELECT status FROM testimonies WHERE id = ?`)
       .bind(tid).first<{ status: string }>();
-    expect(row?.status).toBe('draft_1');
+    expect(row?.status).toBe('draft_1_review');
   });
 
-  it('updates status to draft_2', async () => {
-    const tid = await seedTestimony({ program: 'mens', status: 'draft_1' });
+  it('updates status to awaiting_draft_2', async () => {
+    const tid = await seedTestimony({ program: 'mens', status: 'draft_1_review' });
     const cookie = await getAuthCookie();
     const res = await app.fetch(
-      makeReq('PATCH', `/api/admin/testimonies/${tid}`, cookie, 'mens', { status: 'draft_2' }),
+      makeReq('PATCH', `/api/admin/testimonies/${tid}`, cookie, 'mens', { status: 'awaiting_draft_2' }),
       testEnv
     );
     expect(res.status).toBe(200);
     const row = await testEnv.DB.prepare(`SELECT status FROM testimonies WHERE id = ?`)
       .bind(tid).first<{ status: string }>();
-    expect(row?.status).toBe('draft_2');
+    expect(row?.status).toBe('awaiting_draft_2');
   });
 
-  it('updates status to awaiting', async () => {
-    const tid = await seedTestimony({ program: 'mens', status: 'draft_2' });
+  it('updates status to draft_2_review', async () => {
+    const tid = await seedTestimony({ program: 'mens', status: 'awaiting_draft_2' });
     const cookie = await getAuthCookie();
     const res = await app.fetch(
-      makeReq('PATCH', `/api/admin/testimonies/${tid}`, cookie, 'mens', { status: 'awaiting' }),
+      makeReq('PATCH', `/api/admin/testimonies/${tid}`, cookie, 'mens', { status: 'draft_2_review' }),
       testEnv
     );
     expect(res.status).toBe(200);
     const row = await testEnv.DB.prepare(`SELECT status FROM testimonies WHERE id = ?`)
       .bind(tid).first<{ status: string }>();
-    expect(row?.status).toBe('awaiting');
+    expect(row?.status).toBe('draft_2_review');
   });
 
   it('updates status to approved (marks fulfilled)', async () => {
-    const tid = await seedTestimony({ program: 'mens', status: 'draft_1' });
+    const tid = await seedTestimony({ program: 'mens', status: 'draft_1_review' });
     const cookie = await getAuthCookie();
     const res = await app.fetch(
       makeReq('PATCH', `/api/admin/testimonies/${tid}`, cookie, 'mens', { status: 'approved' }),
@@ -934,8 +1004,8 @@ describe('PATCH /api/admin/testimonies/:id', () => {
     expect(row?.status).toBe('approved');
   });
 
-  it('rejects invalid status (old in_progress)', async () => {
-    const tid = await seedTestimony({ program: 'mens', status: 'unfulfilled' });
+  it('rejects old status values (in_progress)', async () => {
+    const tid = await seedTestimony({ program: 'mens', status: 'not_received' });
     const cookie = await getAuthCookie();
     const res = await app.fetch(
       makeReq('PATCH', `/api/admin/testimonies/${tid}`, cookie, 'mens', { status: 'in_progress' }),
@@ -944,8 +1014,8 @@ describe('PATCH /api/admin/testimonies/:id', () => {
     expect(res.status).toBe(400);
   });
 
-  it('rejects invalid status (old awaiting_next)', async () => {
-    const tid = await seedTestimony({ program: 'mens', status: 'unfulfilled' });
+  it('rejects old status values (awaiting_next)', async () => {
+    const tid = await seedTestimony({ program: 'mens', status: 'not_received' });
     const cookie = await getAuthCookie();
     const res = await app.fetch(
       makeReq('PATCH', `/api/admin/testimonies/${tid}`, cookie, 'mens', { status: 'awaiting_next' }),
@@ -954,8 +1024,18 @@ describe('PATCH /api/admin/testimonies/:id', () => {
     expect(res.status).toBe(400);
   });
 
+  it('rejects old status values (unfulfilled)', async () => {
+    const tid = await seedTestimony({ program: 'mens', status: 'not_received' });
+    const cookie = await getAuthCookie();
+    const res = await app.fetch(
+      makeReq('PATCH', `/api/admin/testimonies/${tid}`, cookie, 'mens', { status: 'unfulfilled' }),
+      testEnv
+    );
+    expect(res.status).toBe(400);
+  });
+
   it('rejects unknown status', async () => {
-    const tid = await seedTestimony({ program: 'mens', status: 'unfulfilled' });
+    const tid = await seedTestimony({ program: 'mens', status: 'not_received' });
     const cookie = await getAuthCookie();
     const res = await app.fetch(
       makeReq('PATCH', `/api/admin/testimonies/${tid}`, cookie, 'mens', { status: 'new' }),
@@ -965,7 +1045,7 @@ describe('PATCH /api/admin/testimonies/:id', () => {
   });
 
   it('updates type', async () => {
-    const tid = await seedTestimony({ program: 'mens', status: 'unfulfilled' });
+    const tid = await seedTestimony({ program: 'mens', status: 'not_received' });
     const cookie = await getAuthCookie();
     const res = await app.fetch(
       makeReq('PATCH', `/api/admin/testimonies/${tid}`, cookie, 'mens', { type: 'teaching' }),
@@ -978,7 +1058,7 @@ describe('PATCH /api/admin/testimonies/:id', () => {
   });
 
   it('updates title', async () => {
-    const tid = await seedTestimony({ program: 'mens', status: 'unfulfilled' });
+    const tid = await seedTestimony({ program: 'mens', status: 'not_received' });
     const cookie = await getAuthCookie();
     const res = await app.fetch(
       makeReq('PATCH', `/api/admin/testimonies/${tid}`, cookie, 'mens', { title: 'Opening night testimony' }),
@@ -992,7 +1072,7 @@ describe('PATCH /api/admin/testimonies/:id', () => {
 
   it('reassigns to a different person and updates program', async () => {
     const womensPersonId = await seedPerson({ program: 'women', firstName: 'Jane', lastName: 'Doe' });
-    const tid = await seedTestimony({ program: null, status: 'unfulfilled' }); // unassigned
+    const tid = await seedTestimony({ program: null, status: 'not_received' }); // unassigned
     const cookie = await getAuthCookie();
     const res = await app.fetch(
       makeReq('PATCH', `/api/admin/testimonies/${tid}`, cookie, 'women', { person_id: womensPersonId }),
@@ -1007,7 +1087,7 @@ describe('PATCH /api/admin/testimonies/:id', () => {
 
   it('unassigns when person_id=null', async () => {
     const personId = await seedPerson({ program: 'mens' });
-    const tid = await seedTestimony({ program: 'mens', person_id: personId, status: 'unfulfilled' });
+    const tid = await seedTestimony({ program: 'mens', person_id: personId, status: 'not_received' });
     const cookie = await getAuthCookie();
     const res = await app.fetch(
       makeReq('PATCH', `/api/admin/testimonies/${tid}`, cookie, 'mens', { person_id: null }),
@@ -1021,33 +1101,33 @@ describe('PATCH /api/admin/testimonies/:id', () => {
   });
 
   it('denies mens admin from patching a women-program testimony', async () => {
-    const tid = await seedTestimony({ program: 'women', status: 'unfulfilled' });
+    const tid = await seedTestimony({ program: 'women', status: 'not_received' });
     const cookie = await getAuthCookie();
     const res = await app.fetch(
-      makeReq('PATCH', `/api/admin/testimonies/${tid}`, cookie, 'mens', { status: 'draft_1' }),
+      makeReq('PATCH', `/api/admin/testimonies/${tid}`, cookie, 'mens', { status: 'draft_1_review' }),
       testEnv
     );
     expect(res.status).toBe(404);
   });
 });
 
-describe('ingest: attach to existing needed item', () => {
+describe('ingest: auto-advance rules', () => {
   beforeEach(async () => {
     await applyMigrations(env as unknown as { DB: D1Database });
   });
 
-  it('attaches email to awaiting item and moves to draft_1', async () => {
-    const personId = await seedPerson({ program: 'mens', email: 'awaiting@example.com', firstName: 'Wait', lastName: 'Person' });
+  it('awaiting_draft_2 + email -> draft_2_review', async () => {
+    const personId = await seedPerson({ program: 'mens', email: 'awaiting2b@example.com', firstName: 'Wait2', lastName: 'Person' });
     const neededId = await seedTestimony({
       person_id: personId,
       program: 'mens',
-      status: 'awaiting',
+      status: 'awaiting_draft_2',
       type: 'testimony',
     });
 
     const result = await storeTestimony(testEnv, {
-      from_email: 'awaiting@example.com',
-      from_name: 'Wait Person',
+      from_email: 'awaiting2b@example.com',
+      from_name: 'Wait2 Person',
       body_text: 'My next draft is here.',
     });
 
@@ -1055,29 +1135,28 @@ describe('ingest: attach to existing needed item', () => {
     expect(result.testimony_id).toBe(neededId);
     const row = await testEnv.DB.prepare(`SELECT status FROM testimonies WHERE id = ?`)
       .bind(neededId).first<{ status: string }>();
-    expect(row?.status).toBe('draft_1');
+    expect(row?.status).toBe('draft_2_review');
   });
 
-  it('attaches email to draft_2 item and moves to draft_1', async () => {
-    const personId = await seedPerson({ program: 'mens', email: 'draft2@example.com', firstName: 'Draft', lastName: 'Two' });
+  it('draft_2_review + email (re-send) -> stays draft_2_review (never backwards)', async () => {
+    const personId = await seedPerson({ program: 'mens', email: 'resend2@example.com', firstName: 'Resend2', lastName: 'Person' });
     const neededId = await seedTestimony({
       person_id: personId,
       program: 'mens',
-      status: 'draft_2',
+      status: 'draft_2_review',
       type: 'testimony',
     });
 
     const result = await storeTestimony(testEnv, {
-      from_email: 'draft2@example.com',
-      from_name: 'Draft Two',
-      body_text: 'Revised draft.',
+      from_email: 'resend2@example.com',
+      from_name: 'Resend2 Person',
+      body_text: 'Revised draft 2.',
     });
 
     expect(result.attached_to_existing).toBe(true);
-    expect(result.testimony_id).toBe(neededId);
     const row = await testEnv.DB.prepare(`SELECT status FROM testimonies WHERE id = ?`)
       .bind(neededId).first<{ status: string }>();
-    expect(row?.status).toBe('draft_1');
+    expect(row?.status).toBe('draft_2_review');
   });
 
   it('does not attach to approved or archived items', async () => {
@@ -1091,7 +1170,6 @@ describe('ingest: attach to existing needed item', () => {
     });
 
     expect(result.attached_to_existing).toBe(false);
-    // Should create a fresh item
     const count = await testEnv.DB.prepare(
       `SELECT COUNT(*) AS n FROM testimonies WHERE person_id = ?`
     ).bind(personId).first<{ n: number }>();

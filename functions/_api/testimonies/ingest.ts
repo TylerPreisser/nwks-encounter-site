@@ -38,7 +38,33 @@ export interface StoreResult {
 }
 
 // Board statuses that indicate the item is still active (not fulfilled/done)
-const OPEN_STATUSES = ['unfulfilled', 'waiting', 'draft_1', 'draft_2', 'awaiting'];
+const OPEN_STATUSES = [
+  'not_received', 'awaiting_draft_1', 'draft_1_review',
+  'awaiting_draft_2', 'draft_2_review',
+];
+
+/**
+ * AUTO-ADVANCE RULE for ingest:
+ *
+ * When a submission email arrives and matches a person's open item:
+ *   - not_received or awaiting_draft_1  -> draft_1_review  (first submission received)
+ *   - awaiting_draft_2                  -> draft_2_review  (second draft received)
+ *   - draft_1_review or draft_2_review  -> stay (re-send; keep the most-advanced review state)
+ *   - approved / archived               -> never touched (not in OPEN_STATUSES)
+ *
+ * Never move backwards. Never advance past approved.
+ * Unmatched sender -> new item at draft_1_review (something arrived, needs review).
+ */
+function nextStatusForIngest(currentStatus: string): string {
+  if (currentStatus === 'not_received' || currentStatus === 'awaiting_draft_1') {
+    return 'draft_1_review';
+  }
+  if (currentStatus === 'awaiting_draft_2') {
+    return 'draft_2_review';
+  }
+  // Already in a review state — re-send; keep current status (do not move backwards).
+  return currentStatus;
+}
 
 // ---------------------------------------------------------------------------
 // matchTestimonyToPerson
@@ -216,12 +242,9 @@ async function attachContentToTestimony(
  * 1. Match the sender to a person.
  * 2. If matched and that person already has an OPEN needed item of the same type
  *    (status not approved/archived), attach the email content to that item and
- *    advance its status to in_progress.
- * 3. Otherwise create a new item (status in_progress if matched, unfulfilled if not).
- *    Unmatched senders get an unassigned in_progress item for review.
- *
- * Always sets status = 'new' is replaced by: 'in_progress' for matched/unmatched
- * (a new submission is always "in progress" — they've sent something).
+ *    auto-advance its status using nextStatusForIngest().
+ * 3. Otherwise create a new item at draft_1_review (something arrived, needs review).
+ *    Unmatched senders get an unassigned draft_1_review item for review.
  */
 export async function storeTestimony(
   env: Env,
@@ -237,18 +260,19 @@ export async function storeTestimony(
   if (match.person_id !== null) {
     const openItem = await db
       .prepare(
-        `SELECT id FROM testimonies
+        `SELECT id, status FROM testimonies
          WHERE person_id = ? AND type = ?
            AND status IN (${OPEN_STATUSES.map(() => '?').join(',')})
          ORDER BY created_at ASC
          LIMIT 1`
       )
       .bind(match.person_id, type, ...OPEN_STATUSES)
-      .first<{ id: number }>();
+      .first<{ id: number; status: string }>();
 
     if (openItem) {
-      // Attach content to the existing needed item; advance to draft_1
-      await attachContentToTestimony(env, openItem.id, parsed, 'draft_1');
+      // Auto-advance based on current status per the draft-workflow rule
+      const nextStatus = nextStatusForIngest(openItem.status);
+      await attachContentToTestimony(env, openItem.id, parsed, nextStatus);
       return {
         testimony_id: openItem.id,
         matched: true,
@@ -257,9 +281,9 @@ export async function storeTestimony(
     }
   }
 
-  // No existing open item -- create a new one
-  // Matched or unmatched: incoming submission -> draft_1
-  const status = 'draft_1';
+  // No existing open item -- create a new one at draft_1_review
+  // (something arrived and needs review, regardless of match)
+  const status = 'draft_1_review';
 
   const { meta } = await db
     .prepare(
