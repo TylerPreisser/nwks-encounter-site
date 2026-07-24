@@ -9,12 +9,12 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: '/admin/',              label: 'Dashboard',               icon: '📊' },
-  { to: '/admin/registrations', label: 'Registrations',           icon: '📋' },
-  { to: '/admin/events',        label: 'Events',                  icon: '📅' },
-  { to: '/admin/email',         label: 'Email',                   icon: '✉️' },
-  { to: '/admin/gallery',       label: 'Gallery',                 icon: '🖼️' },
-  { to: '/admin/testimonies',   label: 'Testimonies & Teachings', icon: '🕊️' },
+  { to: '/',              label: 'Dashboard',               icon: '📊' },
+  { to: '/registrations', label: 'Registrations',           icon: '📋' },
+  { to: '/events',        label: 'Events',                  icon: '📅' },
+  { to: '/email',         label: 'Email',                   icon: '✉️' },
+  { to: '/gallery',       label: 'Gallery',                 icon: '🖼️' },
+  { to: '/testimonies',   label: 'Testimonies & Teachings', icon: '🕊️' },
 ];
 
 interface NavProps {
@@ -54,10 +54,10 @@ export default function Nav({ extraItems = [] }: NavProps) {
     <nav aria-label="Main navigation" className="flex-1 py-4 space-y-0.5 px-2">
       {items.map(({ to, label, icon }) => {
         const active =
-          to === '/admin/'
-            ? location.pathname === '/admin/' || location.pathname === '/admin'
+          to === '/'
+            ? location.pathname === '/' || location.pathname === ''
             : location.pathname.startsWith(to);
-        const isTestimonies = to === '/admin/testimonies';
+        const isTestimonies = to === '/testimonies';
         return (
           <Link
             key={to}

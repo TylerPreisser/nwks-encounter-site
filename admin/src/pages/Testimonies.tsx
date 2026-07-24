@@ -549,7 +549,7 @@ function TestimonyDetail({ testimonyId, initialStatus, program, onUpdate }: Deta
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">Assigned person</p>
             <Link
-              to={`/admin/people/${person.id}`}
+              to={`/people/${person.id}`}
               className="text-sm font-medium text-blue-600 hover:underline"
             >
               {person.first_name} {person.last_name}

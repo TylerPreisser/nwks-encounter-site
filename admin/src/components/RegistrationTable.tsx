@@ -43,7 +43,7 @@ export default function RegistrationTable({ rows }: Props) {
               <td className="px-4 py-3 font-medium text-gray-900">
                 {r.person_id ? (
                   <Link
-                    to={`/admin/people/${r.person_id}`}
+                    to={`/people/${r.person_id}`}
                     className="hover:underline"
                     style={{ color: 'var(--color-primary)' }}
                   >

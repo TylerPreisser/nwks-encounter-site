@@ -18,7 +18,7 @@ export default function LoginPage() {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
-      navigate('/admin/', { replace: true });
+      navigate('/', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {

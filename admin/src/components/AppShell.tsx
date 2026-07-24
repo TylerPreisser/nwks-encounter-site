@@ -22,7 +22,7 @@ export default function AppShell() {
 
   async function handleLogout() {
     await apiFetch('/auth/logout', { method: 'POST' }).catch(() => {});
-    navigate('/admin/login', { replace: true });
+    navigate('/login', { replace: true });
   }
 
   return (

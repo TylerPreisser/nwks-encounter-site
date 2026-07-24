@@ -28,10 +28,10 @@ function personPayload(overrides = {}) {
 
 function wrapper() {
   return ({ children }: { children: React.ReactNode }) => (
-    <MemoryRouter initialEntries={['/admin/people/42']}>
+    <MemoryRouter initialEntries={['/people/42']}>
       <ProgramContext.Provider value={{ program: 'mens', setProgram: vi.fn() }}>
         <Routes>
-          <Route path="/admin/people/:id" element={<>{children}</>} />
+          <Route path="/people/:id" element={<>{children}</>} />
         </Routes>
       </ProgramContext.Provider>
     </MemoryRouter>
@@ -196,10 +196,10 @@ describe('PersonPage', () => {
     });
 
     render(
-      <MemoryRouter initialEntries={['/admin/people/42']}>
+      <MemoryRouter initialEntries={['/people/42']}>
         <ProgramContext.Provider value={{ program: 'mens', setProgram: vi.fn() }}>
           <Routes>
-            <Route path="/admin/people/:id" element={<PersonPage />} />
+            <Route path="/people/:id" element={<PersonPage />} />
           </Routes>
         </ProgramContext.Provider>
       </MemoryRouter>

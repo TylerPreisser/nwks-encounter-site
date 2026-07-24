@@ -354,7 +354,7 @@ describe('Testimonies page — detail view', () => {
     fireEvent.click(screen.getByTestId('testimony-row-1'));
     await waitFor(() => {
       const link = screen.getByRole('link', { name: /john doe/i });
-      expect(link).toHaveAttribute('href', '/admin/people/10');
+      expect(link).toHaveAttribute('href', '/people/10');
     });
   });
 

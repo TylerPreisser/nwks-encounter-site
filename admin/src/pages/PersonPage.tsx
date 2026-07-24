@@ -146,7 +146,7 @@ export default function PersonPage() {
         body: JSON.stringify({ into_id: mergeTarget.id }),
       });
       setMergeTarget(null);
-      navigate(`/admin/people/${mergeTarget.id}`, { replace: true });
+      navigate(`/people/${mergeTarget.id}`, { replace: true });
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Merge failed');
     } finally {

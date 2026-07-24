@@ -64,9 +64,9 @@ describe('App — auth-guard routing', () => {
 
     render(
       <ProgramContext.Provider value={{ program: 'mens', setProgram: () => {} }}>
-        <MemoryRouter initialEntries={['/admin/']}>
+        <MemoryRouter initialEntries={['/']}>
           <Routes>
-            <Route path="/admin/" element={<div data-testid="dashboard">Dashboard (Task 8)</div>} />
+            <Route path="/" element={<div data-testid="dashboard">Dashboard (Task 8)</div>} />
           </Routes>
         </MemoryRouter>
       </ProgramContext.Provider>,

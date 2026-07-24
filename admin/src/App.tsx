@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  BrowserRouter,
+  HashRouter,
   Routes,
   Route,
   Navigate,
@@ -72,7 +72,7 @@ function AuthGuard() {
     );
   }
 
-  if (status === 'unauth') return <Navigate to="/admin/login" replace />;
+  if (status === 'unauth') return <Navigate to="/login" replace />;
 
   return (
     <ProgramContext.Provider value={{ program, setProgram }}>
@@ -84,36 +84,36 @@ function AuthGuard() {
 /* ── App shell ───────────────────────────────────────────────────── */
 export default function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         {/* Public */}
-        <Route path="/admin/login" element={<LoginPage />} />
+        <Route path="/login" element={<LoginPage />} />
 
         {/* Protected — AuthGuard verifies session, AppShell provides layout */}
         <Route element={<AuthGuard />}>
           <Route element={<AppShell />}>
-            <Route path="/admin/" element={<DashboardPage />} />
+            <Route path="/" element={<DashboardPage />} />
             <Route
-              path="/admin/registrations"
+              path="/registrations"
               element={<RegistrationsPage />}
             />
             <Route
-              path="/admin/people/:id"
+              path="/people/:id"
               element={<PersonPage />}
             />
-            <Route path="/admin/events" element={<Events />} />
-            <Route path="/admin/email" element={<EmailPage />} />
+            <Route path="/events" element={<Events />} />
+            <Route path="/email" element={<EmailPage />} />
             {/* Assistant route disabled — component preserved for re-activation */}
-            <Route path="/admin/assistant" element={<Navigate to="/admin/" replace />} />
-            <Route path="/admin/gallery" element={<Gallery />} />
-            <Route path="/admin/testimonies" element={<Testimonies />} />
-            <Route path="/admin/*" element={<Navigate to="/admin/" replace />} />
+            <Route path="/assistant" element={<Navigate to="/" replace />} />
+            <Route path="/gallery" element={<Gallery />} />
+            <Route path="/testimonies" element={<Testimonies />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Route>
 
         {/* Fallback */}
-        <Route path="*" element={<Navigate to="/admin/" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
