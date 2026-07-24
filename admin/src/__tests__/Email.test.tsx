@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { ProgramContext } from '../App';
@@ -8,6 +8,7 @@ import { RecipientPreview } from '../components/email/RecipientPreview';
 import { CampaignComposer } from '../components/email/CampaignComposer';
 import { CampaignHistory } from '../components/email/CampaignHistory';
 import { TemplateEditor } from '../components/email/TemplateEditor';
+import { RichTextEditor, sanitizeHtml, htmlToText } from '../components/email/RichTextEditor';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -74,6 +75,116 @@ describe('RecipientPreview', () => {
   });
 });
 
+// ── RichTextEditor ────────────────────────────────────────────────────────────
+
+describe('RichTextEditor', () => {
+  it('renders with role=textbox and label', () => {
+    const onChange = vi.fn();
+    render(<RichTextEditor value="" onChange={onChange} label="Email body" />);
+    expect(screen.getByRole('textbox', { name: /email body/i })).toBeInTheDocument();
+  });
+
+  it('renders initial HTML value', () => {
+    const onChange = vi.fn();
+    render(<RichTextEditor value="<p>Hello world</p>" onChange={onChange} />);
+    const editor = screen.getByRole('textbox', { name: /email body/i });
+    expect(editor.innerHTML).toContain('Hello world');
+  });
+
+  it('calls onChange with sanitized HTML and plain text on input', () => {
+    const onChange = vi.fn();
+    render(<RichTextEditor value="" onChange={onChange} />);
+    const editor = screen.getByRole('textbox', { name: /email body/i });
+    // Simulate typing by mutating innerHTML and firing input event
+    fireEvent.input(editor, { target: { innerHTML: '<p>Hello <strong>world</strong></p>' } });
+    expect(onChange).toHaveBeenCalled();
+    const [html, text] = onChange.mock.calls[0];
+    expect(html).toContain('Hello');
+    expect(html).toContain('<strong>world</strong>');
+    expect(text).toContain('Hello world');
+    // Should not contain raw contenteditable attribute in saved HTML
+    expect(html).not.toContain('contenteditable');
+  });
+
+  it('tokens like {{first_name}} survive as plain text', () => {
+    const onChange = vi.fn();
+    render(<RichTextEditor value="" onChange={onChange} />);
+    const editor = screen.getByRole('textbox', { name: /email body/i });
+    fireEvent.input(editor, { target: { innerHTML: '<p>Hello {{first_name}},</p>' } });
+    const [html] = onChange.mock.calls[0];
+    expect(html).toContain('{{first_name}}');
+  });
+
+  it('shows toolbar buttons for bold, italic, H2, lists, link, clear', () => {
+    const onChange = vi.fn();
+    render(<RichTextEditor value="" onChange={onChange} />);
+    expect(screen.getByTitle(/bold/i)).toBeInTheDocument();
+    expect(screen.getByTitle(/italic/i)).toBeInTheDocument();
+    expect(screen.getByTitle(/heading/i)).toBeInTheDocument();
+    expect(screen.getByTitle(/bullet list/i)).toBeInTheDocument();
+    expect(screen.getByTitle(/numbered list/i)).toBeInTheDocument();
+    expect(screen.getByTitle(/insert link/i)).toBeInTheDocument();
+    expect(screen.getByTitle(/clear formatting/i)).toBeInTheDocument();
+  });
+
+  it('renders a live preview of the HTML content', () => {
+    const onChange = vi.fn();
+    render(<RichTextEditor value="<p>Preview text here</p>" onChange={onChange} />);
+    // "Preview" label appears in the preview section header
+    expect(screen.getAllByText(/preview/i).length).toBeGreaterThan(0);
+    // "Preview text here" appears at least once (editor + preview card both show it)
+    expect(screen.getAllByText('Preview text here').length).toBeGreaterThan(0);
+  });
+
+  describe('sanitizeHtml', () => {
+    it('keeps semantic tags: p, strong, em, h2, ul, ol, li, a', () => {
+      const input = '<p>Hello <strong>world</strong> and <em>italic</em></p>';
+      expect(sanitizeHtml(input)).toBe(input);
+    });
+
+    it('converts b/i to strong/em', () => {
+      expect(sanitizeHtml('<p><b>bold</b> <i>italic</i></p>')).toBe('<p><strong>bold</strong> <em>italic</em></p>');
+    });
+
+    it('strips unknown/unsafe tags leaving text content', () => {
+      const result = sanitizeHtml('<p>Hello <script>alert(1)</script> world</p>');
+      expect(result).not.toContain('<script>');
+      expect(result).toContain('Hello');
+    });
+
+    it('strips contenteditable from tags', () => {
+      const result = sanitizeHtml('<p contenteditable="true">Text</p>');
+      expect(result).not.toContain('contenteditable');
+      expect(result).toContain('<p>Text</p>');
+    });
+
+    it('emits clean output for a full email body', () => {
+      const input = '<h2>Welcome</h2><p>Hello <strong>{{first_name}}</strong>,</p><ul><li>Item one</li><li>Item two</li></ul>';
+      const result = sanitizeHtml(input);
+      expect(result).toContain('<h2>Welcome</h2>');
+      expect(result).toContain('{{first_name}}');
+      expect(result).toContain('<ul>');
+      expect(result).toContain('<li>Item one</li>');
+    });
+  });
+
+  describe('htmlToText', () => {
+    it('strips all tags to readable text', () => {
+      expect(htmlToText('<p>Hello <strong>world</strong></p>')).toBe('Hello world');
+    });
+
+    it('preserves tokens in plain text', () => {
+      expect(htmlToText('<p>Hello {{first_name}},</p>')).toBe('Hello {{first_name}},');
+    });
+
+    it('converts block tags to newlines', () => {
+      const text = htmlToText('<p>Line one</p><p>Line two</p>');
+      expect(text).toContain('Line one');
+      expect(text).toContain('Line two');
+    });
+  });
+});
+
 // ── CampaignComposer ──────────────────────────────────────────────────────────
 
 describe('CampaignComposer', () => {
@@ -87,9 +198,11 @@ describe('CampaignComposer', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders subject input, body fields and send button', async () => {
+  it('renders subject input, rich-text editor and send button', async () => {
     render(<CampaignComposer />, { wrapper: wrapper() });
     expect(screen.getByPlaceholderText(/email subject/i)).toBeInTheDocument();
+    // The rich-text editor is a contentEditable div with role="textbox"
+    expect(screen.getByRole('textbox', { name: /email body/i })).toBeInTheDocument();
     expect(screen.getByText(/send campaign/i)).toBeInTheDocument();
   });
 
@@ -134,14 +247,9 @@ describe('CampaignComposer', () => {
     render(<CampaignComposer />, { wrapper: wrapper() });
 
     await userEvent.type(screen.getByPlaceholderText(/email subject/i), 'Test Subject');
-    // Find the two textareas
-    const textareas = screen.getAllByRole('textbox').filter(
-      el => el.tagName === 'TEXTAREA'
-    );
-    // body_html textarea
-    await userEvent.type(textareas[0], '<p>Hello</p>');
-    // body_text textarea
-    await userEvent.type(textareas[1], 'Hello plain');
+    // Type into the rich-text editor (contentEditable div with role="textbox")
+    const editor = screen.getByRole('textbox', { name: /email body/i });
+    fireEvent.input(editor, { target: { innerHTML: '<p>Hello</p>' } });
 
     await userEvent.click(screen.getByRole('button', { name: /send campaign/i }));
     await waitFor(() =>
@@ -187,9 +295,9 @@ describe('CampaignComposer', () => {
     await userEvent.click(screen.getByLabelText(/schedule for/i));
     // Fill required fields
     await userEvent.type(screen.getByPlaceholderText(/email subject/i), 'Scheduled Email');
-    const textareas = screen.getAllByRole('textbox').filter(el => el.tagName === 'TEXTAREA');
-    await userEvent.type(textareas[0], '<p>Body</p>');
-    await userEvent.type(textareas[1], 'Body plain');
+    // Type into the rich-text editor
+    const editor = screen.getByRole('textbox', { name: /email body/i });
+    fireEvent.input(editor, { target: { innerHTML: '<p>Body</p>' } });
 
     // Set a datetime
     const dtInput = screen.getByLabelText(/schedule date and time/i);

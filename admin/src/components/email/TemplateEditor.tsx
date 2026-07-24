@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useProgram } from '@/App';
+import { RichTextEditor } from './RichTextEditor';
 
 interface Template {
   id: number; program: string; key: string; name: string;
@@ -99,19 +100,11 @@ export function TemplateEditor() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Body (HTML)</label>
-              <textarea
-                className="w-full border rounded px-3 py-2 text-sm font-mono h-40"
+              <label className="block text-xs font-medium text-gray-600 mb-2">Body</label>
+              <RichTextEditor
                 value={form.body_html}
-                onChange={e => setForm(f => ({ ...f, body_html: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Body (Plain text)</label>
-              <textarea
-                className="w-full border rounded px-3 py-2 text-sm font-mono h-28"
-                value={form.body_text}
-                onChange={e => setForm(f => ({ ...f, body_text: e.target.value }))}
+                onChange={(html, text) => setForm(f => ({ ...f, body_html: html, body_text: text }))}
+                label="Template body"
               />
             </div>
             <div className="flex items-center gap-3">

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useProgram } from '@/App';
 import { RecipientPreview } from './RecipientPreview';
+import { RichTextEditor } from './RichTextEditor';
 
 interface Segment {
   event_id?: number;
@@ -50,8 +51,8 @@ export function CampaignComposer({ onSent }: Props) {
   }, [fetchPreview]);
 
   async function submit() {
-    if (!subject.trim() || !bodyHtml.trim() || !bodyText.trim()) {
-      setErrorMsg('Subject and both body fields are required.');
+    if (!subject.trim() || !bodyHtml.trim()) {
+      setErrorMsg('Subject and body are required.');
       return;
     }
     setStatus('sending');
@@ -153,21 +154,12 @@ export function CampaignComposer({ onSent }: Props) {
         />
       </div>
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">Body (HTML)</label>
-        <textarea
-          className="w-full border rounded px-3 py-2 text-sm font-mono h-36"
+        <label className="block text-xs font-medium text-gray-600 mb-2">Body</label>
+        <RichTextEditor
           value={bodyHtml}
-          onChange={e => setBodyHtml(e.target.value)}
-          placeholder="<p>Hello {{first_name}},</p>"
-        />
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">Body (Plain text)</label>
-        <textarea
-          className="w-full border rounded px-3 py-2 text-sm font-mono h-24"
-          value={bodyText}
-          onChange={e => setBodyText(e.target.value)}
-          placeholder="Hello {{first_name}},"
+          onChange={(html, text) => { setBodyHtml(html); setBodyText(text); }}
+          placeholder="Hello {{first_name}}, …"
+          label="Email body"
         />
       </div>
 
