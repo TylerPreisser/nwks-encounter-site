@@ -1,4 +1,4 @@
-// functions/_api/routes/testimonies.ts -- Admin Testimonies & Teachings API (Board Model)
+// functions/_api/routes/testimonies.ts -- Admin Testimonies & Teachings API
 
 import { Hono } from 'hono';
 import type { Env } from '../app';
@@ -12,8 +12,8 @@ export const testimoniesRouter = new Hono<{ Bindings: Env; Variables: AppVariabl
 
 testimoniesRouter.use('*', requireAuth(), requireProgram());
 
-// Valid board statuses
-const BOARD_STATUSES = ['unfulfilled', 'in_progress', 'awaiting_next', 'approved', 'archived'] as const;
+// Valid board statuses (display order)
+const BOARD_STATUSES = ['unfulfilled', 'waiting', 'draft_1', 'draft_2', 'awaiting', 'approved', 'archived'] as const;
 type BoardStatus = typeof BOARD_STATUSES[number];
 
 function isValidStatus(s: string): s is BoardStatus {
@@ -21,7 +21,7 @@ function isValidStatus(s: string): s is BoardStatus {
 }
 
 // "Needs attention" = any non-approved, non-archived status
-const NEEDS_ATTENTION_STATUSES = ['unfulfilled', 'in_progress', 'awaiting_next'];
+const NEEDS_ATTENTION_STATUSES = ['unfulfilled', 'waiting', 'draft_1', 'draft_2', 'awaiting'];
 
 // ---------------------------------------------------------------------------
 // GET /api/admin/testimonies/new-count
@@ -102,11 +102,14 @@ testimoniesRouter.get('/', async (c) => {
      ${where}
      ORDER BY
        CASE t.status
-         WHEN 'approved'     THEN 4
-         WHEN 'archived'     THEN 5
-         WHEN 'in_progress'  THEN 2
-         WHEN 'awaiting_next' THEN 3
-         ELSE 1
+         WHEN 'unfulfilled' THEN 1
+         WHEN 'waiting'     THEN 2
+         WHEN 'draft_1'     THEN 3
+         WHEN 'draft_2'     THEN 4
+         WHEN 'awaiting'    THEN 5
+         WHEN 'approved'    THEN 6
+         WHEN 'archived'    THEN 7
+         ELSE 8
        END,
        t.received_at DESC, t.created_at DESC`
   ).bind(...bindings).all();
@@ -116,7 +119,7 @@ testimoniesRouter.get('/', async (c) => {
 
 // ---------------------------------------------------------------------------
 // POST /api/admin/testimonies
-// Create a needed item (unfulfilled or in_progress).
+// Create a needed item (unfulfilled).
 // Body: { type, person_id?, title?, status? }
 // Program is derived from assigned person, or stays null if unassigned.
 // ---------------------------------------------------------------------------
@@ -193,6 +196,110 @@ testimoniesRouter.post('/', async (c) => {
   ).bind(newId).first<Record<string, unknown>>();
 
   return c.json({ ok: true, testimony: created }, 201);
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/admin/testimonies/:id/view
+// Returns a standalone HTML page for viewing the testimony submission in a new tab.
+// Shows body_html / body_text, attachment links, and a note if no content yet.
+// ---------------------------------------------------------------------------
+testimoniesRouter.get('/:id/view', async (c) => {
+  const program = c.get('program') as Program;
+  const id = Number(c.req.param('id'));
+
+  const testimony = await c.env.DB.prepare(
+    `SELECT t.*, p.first_name, p.last_name
+     FROM testimonies t
+     LEFT JOIN people p ON p.id = t.person_id
+     WHERE t.id = ? AND (t.program = ? OR t.program IS NULL)`
+  ).bind(id, program).first<Record<string, unknown>>();
+
+  if (!testimony) return c.json({ ok: false, error: 'not found' }, 404);
+
+  const attachments = await c.env.DB.prepare(
+    `SELECT id, filename, content_type, r2_key, link_url FROM testimony_attachments WHERE testimony_id = ? ORDER BY id`
+  ).bind(id).all<{ id: number; filename: string | null; content_type: string | null; r2_key: string | null; link_url: string | null }>();
+
+  const personName = testimony.first_name
+    ? `${testimony.first_name} ${testimony.last_name ?? ''}`.trim()
+    : (testimony.from_name as string) || 'Unknown';
+  const type = testimony.type === 'teaching' ? 'Teaching' : 'Testimony';
+  const title = (testimony.title as string) || (testimony.subject as string) || '';
+
+  const bodyHtml = testimony.body_html as string | null;
+  const bodyText = testimony.body_text as string | null;
+
+  const hasContent = !!(bodyHtml || bodyText || attachments.results.length > 0);
+
+  // Build attachment HTML
+  const attHtml = attachments.results.map(att => {
+    if (att.r2_key) {
+      const isPdf = att.content_type === 'application/pdf' || (att.filename ?? '').toLowerCase().endsWith('.pdf');
+      if (isPdf) {
+        return `<div class="att">
+          <p><strong>${att.filename ?? 'Attachment'}</strong> (hosted PDF)</p>
+          <embed src="/api/admin/attachments/${att.r2_key}" type="application/pdf" width="100%" height="600" />
+        </div>`;
+      }
+      return `<div class="att"><a href="/api/admin/attachments/${att.r2_key}" target="_blank" rel="noopener">${att.filename ?? 'Attachment'}</a></div>`;
+    }
+    if (att.link_url) {
+      return `<div class="att"><a href="${att.link_url}" target="_blank" rel="noopener">${att.filename ?? att.link_url}</a></div>`;
+    }
+    return `<div class="att"><span>${att.filename ?? 'Attachment'} (no link available)</span></div>`;
+  }).join('\n');
+
+  const contentHtml = bodyHtml
+    ? `<div class="body-content">${bodyHtml}</div>`
+    : bodyText
+    ? `<pre class="body-text">${bodyText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`
+    : '';
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${type}: ${personName}${title ? ' - ' + title : ''}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; color: #1a1a1a; background: #fafafa; }
+    .header { border-bottom: 2px solid #e5e7eb; padding-bottom: 1rem; margin-bottom: 1.5rem; }
+    .meta { font-size: 0.85rem; color: #6b7280; margin-top: 0.25rem; }
+    .badge { display: inline-block; font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 9999px; font-weight: 600; margin-right: 0.5rem; }
+    .badge-testimony { background: #e0f2fe; color: #0369a1; }
+    .badge-teaching { background: #f3e8ff; color: #7c3aed; }
+    .section { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.25rem; margin-bottom: 1rem; }
+    .section h3 { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #9ca3af; margin: 0 0 0.75rem; }
+    .body-content { font-size: 0.95rem; line-height: 1.6; }
+    .body-text { font-family: inherit; white-space: pre-wrap; font-size: 0.95rem; line-height: 1.6; margin: 0; }
+    .att { margin-bottom: 0.5rem; font-size: 0.9rem; }
+    .att a { color: #2563eb; text-decoration: none; }
+    .att a:hover { text-decoration: underline; }
+    .no-content { font-style: italic; color: #9ca3af; text-align: center; padding: 2rem; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span class="badge badge-${testimony.type}">${type}</span>
+    <h1 style="margin: 0.25rem 0 0; font-size: 1.25rem;">${personName}${title ? ` — ${title}` : ''}</h1>
+    <div class="meta">
+      ${testimony.received_at ? `Received: ${new Date(testimony.received_at as string).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} &nbsp;&middot;&nbsp; ` : ''}
+      Status: ${String(testimony.status).replace(/_/g, ' ')}
+      ${testimony.from_email ? ` &nbsp;&middot;&nbsp; From: ${testimony.from_email}` : ''}
+    </div>
+  </div>
+
+  ${!hasContent ? `<div class="no-content">No submission content yet — awaiting from ${personName}.</div>` : ''}
+
+  ${contentHtml ? `<div class="section"><h3>Submission</h3>${contentHtml}</div>` : ''}
+
+  ${attHtml ? `<div class="section"><h3>Attachments &amp; Links</h3>${attHtml}</div>` : ''}
+</body>
+</html>`;
+
+  return new Response(html, {
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -284,7 +391,7 @@ testimoniesRouter.post('/:id/comment', async (c) => {
 
 // ---------------------------------------------------------------------------
 // POST /api/admin/testimonies/:id/reply
-// Sends a reply email to from_email; sets status='in_progress' (board model).
+// Sends a reply email to from_email; sets status='awaiting'.
 // ---------------------------------------------------------------------------
 testimoniesRouter.post('/:id/reply', async (c) => {
   const program = c.get('program') as Program;
@@ -314,9 +421,9 @@ testimoniesRouter.post('/:id/reply', async (c) => {
     program,
   });
 
-  // In board model, replying moves to awaiting_next (waiting for their next draft)
+  // After replying, move to awaiting (they need to send next draft)
   await c.env.DB.prepare(
-    `UPDATE testimonies SET status = 'awaiting_next' WHERE id = ?`
+    `UPDATE testimonies SET status = 'awaiting' WHERE id = ?`
   ).bind(id).run();
 
   return c.json({ ok: true });

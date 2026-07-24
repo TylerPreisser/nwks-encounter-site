@@ -38,7 +38,7 @@ export interface StoreResult {
 }
 
 // Board statuses that indicate the item is still active (not fulfilled/done)
-const OPEN_STATUSES = ['unfulfilled', 'in_progress', 'awaiting_next'];
+const OPEN_STATUSES = ['unfulfilled', 'waiting', 'draft_1', 'draft_2', 'awaiting'];
 
 // ---------------------------------------------------------------------------
 // matchTestimonyToPerson
@@ -247,8 +247,8 @@ export async function storeTestimony(
       .first<{ id: number }>();
 
     if (openItem) {
-      // Attach content to the existing needed item
-      await attachContentToTestimony(env, openItem.id, parsed, 'in_progress');
+      // Attach content to the existing needed item; advance to draft_1
+      await attachContentToTestimony(env, openItem.id, parsed, 'draft_1');
       return {
         testimony_id: openItem.id,
         matched: true,
@@ -258,9 +258,8 @@ export async function storeTestimony(
   }
 
   // No existing open item -- create a new one
-  // Matched person -> in_progress (they sent something)
-  // Unmatched sender -> in_progress (needs review, goes to unassigned bucket)
-  const status = 'in_progress';
+  // Matched or unmatched: incoming submission -> draft_1
+  const status = 'draft_1';
 
   const { meta } = await db
     .prepare(

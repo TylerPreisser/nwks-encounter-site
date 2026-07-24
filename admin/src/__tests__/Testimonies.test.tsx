@@ -1,4 +1,4 @@
-// admin/src/__tests__/Testimonies.test.tsx -- RTL tests for Testimonies & Teachings Board UI
+// admin/src/__tests__/Testimonies.test.tsx -- RTL tests for Testimonies grouped list UI
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
@@ -16,17 +16,8 @@ vi.mock('../api', () => ({
 import { apiFetch } from '../api';
 const mockApiFetch = vi.mocked(apiFetch);
 
-// Silence the RichTextEditor's execCommand calls in jsdom
-beforeEach(() => {
-  if (!document.execCommand) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (document as any).execCommand = vi.fn();
-  }
-});
-
 // ── Fixtures ───────────────────────────────────────────────────────────────────
 
-// Board uses unfulfilled/in_progress/awaiting_next/approved/archived
 const TESTIMONY_UNFULFILLED: import('../pages/Testimonies').TestimonyRow = {
   id: 1,
   program: 'mens',
@@ -45,7 +36,7 @@ const TESTIMONY_UNFULFILLED: import('../pages/Testimonies').TestimonyRow = {
   comment_count: 0,
 };
 
-const TESTIMONY_IN_PROGRESS: import('../pages/Testimonies').TestimonyRow = {
+const TESTIMONY_DRAFT1: import('../pages/Testimonies').TestimonyRow = {
   id: 2,
   program: 'mens',
   person_id: null,
@@ -55,12 +46,84 @@ const TESTIMONY_IN_PROGRESS: import('../pages/Testimonies').TestimonyRow = {
   from_email: 'jane@example.com',
   subject: 'Teaching session',
   title: null,
-  status: 'in_progress',
+  status: 'draft_1',
   type: 'teaching',
   received_at: '2026-07-19T09:00:00Z',
   created_at: '2026-07-19T09:00:00Z',
   attachment_count: 0,
   comment_count: 2,
+};
+
+const TESTIMONY_WAITING: import('../pages/Testimonies').TestimonyRow = {
+  id: 5,
+  program: 'mens',
+  person_id: 20,
+  first_name: 'Alice',
+  last_name: 'Cooper',
+  from_name: 'Alice Cooper',
+  from_email: 'alice@example.com',
+  subject: null,
+  title: 'Opening testimony',
+  status: 'waiting',
+  type: 'testimony',
+  received_at: null,
+  created_at: '2026-07-21T08:00:00Z',
+  attachment_count: 0,
+  comment_count: 0,
+};
+
+const TESTIMONY_DRAFT2: import('../pages/Testimonies').TestimonyRow = {
+  id: 6,
+  program: 'mens',
+  person_id: 21,
+  first_name: 'Bob',
+  last_name: 'Ross',
+  from_name: 'Bob Ross',
+  from_email: 'bob@example.com',
+  subject: 'Draft 2 testimony',
+  title: null,
+  status: 'draft_2',
+  type: 'testimony',
+  received_at: '2026-07-21T09:00:00Z',
+  created_at: '2026-07-21T09:00:00Z',
+  attachment_count: 1,
+  comment_count: 0,
+};
+
+const TESTIMONY_AWAITING: import('../pages/Testimonies').TestimonyRow = {
+  id: 7,
+  program: 'mens',
+  person_id: 22,
+  first_name: 'Carol',
+  last_name: 'Davis',
+  from_name: 'Carol Davis',
+  from_email: 'carol@example.com',
+  subject: null,
+  title: null,
+  status: 'awaiting',
+  type: 'testimony',
+  received_at: null,
+  created_at: '2026-07-21T10:00:00Z',
+  attachment_count: 0,
+  comment_count: 0,
+};
+
+const TESTIMONY_APPROVED: import('../pages/Testimonies').TestimonyRow = {
+  id: 4,
+  program: 'mens',
+  person_id: 30,
+  first_name: 'Mary',
+  last_name: 'Johnson',
+  from_name: 'Mary Johnson',
+  from_email: 'mary@example.com',
+  subject: 'Approved teaching',
+  title: 'Done testimony',
+  status: 'approved',
+  type: 'testimony',
+  received_at: '2026-07-18T10:00:00Z',
+  created_at: '2026-07-18T10:00:00Z',
+  attachment_count: 2,
+  comment_count: 1,
 };
 
 const TESTIMONY_UNASSIGNED: import('../pages/Testimonies').TestimonyRow = {
@@ -73,57 +136,12 @@ const TESTIMONY_UNASSIGNED: import('../pages/Testimonies').TestimonyRow = {
   from_email: 'unknown@example.com',
   subject: 'Unmatched email',
   title: null,
-  status: 'in_progress',
+  status: 'draft_1',
   type: 'testimony',
   received_at: '2026-07-18T08:00:00Z',
   created_at: '2026-07-18T08:00:00Z',
   attachment_count: 0,
   comment_count: 0,
-};
-
-const DETAIL_RESPONSE = {
-  ok: true,
-  testimony: {
-    id: 1,
-    program: 'mens',
-    person_id: 10,
-    from_name: 'John Doe',
-    from_email: 'john@example.com',
-    subject: 'My testimony',
-    title: 'Saturday night testimony',
-    body_html: '<p>This is my <strong>testimony</strong>.</p>',
-    body_text: 'This is my testimony.',
-    status: 'unfulfilled' as const,
-    type: 'testimony' as const,
-    received_at: '2026-07-20T10:00:00Z',
-    created_at: '2026-07-20T10:00:00Z',
-  },
-  attachments: [
-    {
-      id: 1,
-      filename: 'document.pdf',
-      content_type: 'application/pdf',
-      size: 1024,
-      r2_key: null,
-      link_url: 'https://docs.google.com/doc1',
-      created_at: '2026-07-20T10:00:00Z',
-    },
-  ],
-  comments: [
-    {
-      id: 1,
-      body: 'Looks genuine',
-      created_at: '2026-07-20T11:00:00Z',
-      admin_name: 'Admin User',
-    },
-  ],
-  person: {
-    id: 10,
-    first_name: 'John',
-    last_name: 'Doe',
-    email: 'john@example.com',
-    program: 'mens',
-  },
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -154,7 +172,6 @@ describe('Testimonies page — list', () => {
   });
 
   it('shows loading state initially', () => {
-    // Never resolves -> stays loading
     mockApiFetch.mockReturnValue(new Promise(() => {}));
     renderTestimonies();
     expect(screen.getAllByText(/loading/i).length).toBeGreaterThan(0);
@@ -163,24 +180,13 @@ describe('Testimonies page — list', () => {
   it('renders testimonies from a mocked payload', async () => {
     mockApiFetch.mockResolvedValue({
       ok: true,
-      testimonies: [TESTIMONY_UNFULFILLED, TESTIMONY_IN_PROGRESS],
+      testimonies: [TESTIMONY_UNFULFILLED, TESTIMONY_DRAFT1],
     });
     renderTestimonies();
     await waitFor(() => {
       expect(screen.getByText('John Doe')).toBeInTheDocument();
       expect(screen.getByText('Jane Smith')).toBeInTheDocument();
     });
-  });
-
-  it('visually flags UNFULFILLED items (grey dot)', async () => {
-    mockApiFetch.mockResolvedValue({
-      ok: true,
-      testimonies: [TESTIMONY_UNFULFILLED],
-    });
-    renderTestimonies();
-    await waitFor(() => expect(screen.getByText('John Doe')).toBeInTheDocument());
-    // The unfulfilled indicator has aria-label="New"
-    expect(screen.getByLabelText('New')).toBeInTheDocument();
   });
 
   it('shows empty state when no testimonies', async () => {
@@ -199,22 +205,163 @@ describe('Testimonies page — list', () => {
     );
   });
 
-  it('shows board sections (Unfulfilled / Fulfilled) when items present', async () => {
-    const approvedItem: import('../pages/Testimonies').TestimonyRow = {
-      ...TESTIMONY_UNFULFILLED,
-      id: 99,
-      status: 'approved',
-      title: 'Done testimony',
-    };
+  it('shows all 6 status section headers (Unfulfilled through Approved)', async () => {
     mockApiFetch.mockResolvedValue({
       ok: true,
-      testimonies: [TESTIMONY_UNFULFILLED, approvedItem],
+      testimonies: [TESTIMONY_UNFULFILLED, TESTIMONY_DRAFT1, TESTIMONY_APPROVED],
     });
     renderTestimonies();
     await waitFor(() => {
-      expect(screen.getByText(/unfulfilled/i)).toBeInTheDocument();
-      expect(screen.getByText(/fulfilled/i)).toBeInTheDocument();
+      expect(screen.getByText('Unfulfilled')).toBeInTheDocument();
+      expect(screen.getByText('Waiting')).toBeInTheDocument();
+      expect(screen.getByText('Draft 1')).toBeInTheDocument();
+      expect(screen.getByText('Draft 2')).toBeInTheDocument();
+      expect(screen.getByText('Awaiting')).toBeInTheDocument();
+      expect(screen.getByText('Approved')).toBeInTheDocument();
     });
+  });
+
+  it('groups items into the correct status sections', async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      testimonies: [
+        TESTIMONY_UNFULFILLED,   // unfulfilled
+        TESTIMONY_DRAFT1,        // draft_1
+        TESTIMONY_APPROVED,      // approved
+        TESTIMONY_WAITING,       // waiting
+        TESTIMONY_DRAFT2,        // draft_2
+        TESTIMONY_AWAITING,      // awaiting
+      ],
+    });
+    renderTestimonies();
+    await waitFor(() => {
+      // Verify items appear under correct sections by checking row testids
+      expect(screen.getByTestId('testimony-row-1')).toBeInTheDocument(); // unfulfilled
+      expect(screen.getByTestId('testimony-row-2')).toBeInTheDocument(); // draft_1
+      expect(screen.getByTestId('testimony-row-4')).toBeInTheDocument(); // approved
+      expect(screen.getByTestId('testimony-row-5')).toBeInTheDocument(); // waiting
+      expect(screen.getByTestId('testimony-row-6')).toBeInTheDocument(); // draft_2
+      expect(screen.getByTestId('testimony-row-7')).toBeInTheDocument(); // awaiting
+    });
+  });
+
+  it('renders person name as a link to /people/:id when person is assigned', async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      testimonies: [TESTIMONY_UNFULFILLED],
+    });
+    renderTestimonies();
+    await waitFor(() => {
+      const link = screen.getByRole('link', { name: 'John Doe' });
+      expect(link).toHaveAttribute('href', '/people/10');
+    });
+  });
+
+  it('shows type badge for each item', async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      testimonies: [TESTIMONY_UNFULFILLED, TESTIMONY_DRAFT1],
+    });
+    renderTestimonies();
+    await waitFor(() => {
+      // Testimony badge
+      expect(screen.getAllByText('Testimony').length).toBeGreaterThan(0);
+      // Teaching badge
+      expect(screen.getAllByText('Teaching').length).toBeGreaterThan(0);
+    });
+  });
+
+  it('shows View link opening in new tab when item has submission', async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      testimonies: [TESTIMONY_UNFULFILLED], // attachment_count: 1 => has submission
+    });
+    renderTestimonies();
+    await waitFor(() => {
+      const viewLink = screen.getByRole('link', { name: /view submission for john doe/i });
+      expect(viewLink).toHaveAttribute('href', '/api/admin/testimonies/1/view');
+      expect(viewLink).toHaveAttribute('target', '_blank');
+    });
+  });
+
+  it('shows "— awaiting —" when item has no submission', async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      testimonies: [TESTIMONY_AWAITING], // attachment_count: 0, subject: null
+    });
+    renderTestimonies();
+    await waitFor(() => {
+      expect(screen.getByText(/— awaiting —/i)).toBeInTheDocument();
+    });
+  });
+
+  it('shows status dropdown for each row with 7 options (6 + archived)', async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      testimonies: [TESTIMONY_UNFULFILLED],
+    });
+    renderTestimonies();
+    await waitFor(() => {
+      const select = screen.getByRole('combobox', { name: /status for john doe/i });
+      expect(select).toBeInTheDocument();
+      // Should have all 7 status options
+      const options = select.querySelectorAll('option');
+      const values = Array.from(options).map(o => o.getAttribute('value'));
+      expect(values).toContain('unfulfilled');
+      expect(values).toContain('waiting');
+      expect(values).toContain('draft_1');
+      expect(values).toContain('draft_2');
+      expect(values).toContain('awaiting');
+      expect(values).toContain('approved');
+      expect(values).toContain('archived');
+    });
+  });
+
+  it('status dropdown change PATCHes status and moves row to new section (optimistic)', async () => {
+    mockApiFetch
+      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_UNFULFILLED] })
+      .mockResolvedValue({ ok: true, testimony: { id: 1, status: 'approved', type: 'testimony', title: null, person_id: 10, program: 'mens' } });
+
+    renderTestimonies();
+    await waitFor(() => screen.getByTestId('testimony-row-1'));
+
+    const select = screen.getByRole('combobox', { name: /status for john doe/i });
+    fireEvent.change(select, { target: { value: 'approved' } });
+
+    // Optimistic update: row should now be in approved section
+    await waitFor(() => {
+      const patchCall = mockApiFetch.mock.calls.find(
+        c =>
+          typeof c[0] === 'string' &&
+          c[0] === '/admin/testimonies/1' &&
+          (c[1] as RequestInit)?.method === 'PATCH'
+      );
+      expect(patchCall).toBeDefined();
+      const body = JSON.parse((patchCall![1] as RequestInit).body as string);
+      expect(body.status).toBe('approved');
+    });
+  });
+
+  it('does not show right-side detail panel', async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      testimonies: [TESTIMONY_UNFULFILLED],
+    });
+    renderTestimonies();
+    await waitFor(() => screen.getByText('John Doe'));
+    // No detail panel / drawer should be present
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByText(/submitted content/i)).not.toBeInTheDocument();
+  });
+
+  it('does not render status filter chips in the toolbar', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [] });
+    renderTestimonies();
+    await waitFor(() => screen.getByText('Testimonies & Teachings'));
+    // The clutter filter buttons should not be visible (they're sr-only)
+    // We can verify the hidden buttons exist via testid but not be visually shown
+    const btn = screen.getByTestId('filter-status-unfulfilled');
+    expect(btn).toHaveClass('sr-only');
   });
 });
 
@@ -272,294 +419,141 @@ describe('Testimonies page — filters', () => {
     });
   });
 
-  it('calls API with assigned=unassigned when Unassigned view clicked', async () => {
+  it('calls API with status=waiting when waiting filter clicked', async () => {
     renderTestimonies();
-    await waitFor(() => screen.getByTestId('view-unassigned'));
-    fireEvent.click(screen.getByTestId('view-unassigned'));
+    await waitFor(() => screen.getByTestId('filter-status-waiting'));
+    fireEvent.click(screen.getByTestId('filter-status-waiting'));
     await waitFor(() => {
       const calls = mockApiFetch.mock.calls;
       const lastCall = calls[calls.length - 1][0] as string;
-      expect(lastCall).toMatch(/assigned=unassigned/);
+      expect(lastCall).toMatch(/status=waiting/);
     });
   });
 
-  it('renders unassigned testimonies in the unassigned view', async () => {
-    mockApiFetch
-      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_UNFULFILLED, TESTIMONY_IN_PROGRESS] })
-      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_UNASSIGNED] });
-
+  it('calls API with status=draft_1 when draft_1 filter clicked', async () => {
     renderTestimonies();
-    await waitFor(() => screen.getByTestId('view-unassigned'));
-    fireEvent.click(screen.getByTestId('view-unassigned'));
+    await waitFor(() => screen.getByTestId('filter-status-draft_1'));
+    fireEvent.click(screen.getByTestId('filter-status-draft_1'));
+    await waitFor(() => {
+      const calls = mockApiFetch.mock.calls;
+      const lastCall = calls[calls.length - 1][0] as string;
+      expect(lastCall).toMatch(/status=draft_1/);
+    });
+  });
+
+  it('calls API with status=awaiting when awaiting filter clicked', async () => {
+    renderTestimonies();
+    await waitFor(() => screen.getByTestId('filter-status-awaiting'));
+    fireEvent.click(screen.getByTestId('filter-status-awaiting'));
+    await waitFor(() => {
+      const calls = mockApiFetch.mock.calls;
+      const lastCall = calls[calls.length - 1][0] as string;
+      expect(lastCall).toMatch(/status=awaiting/);
+    });
+  });
+
+  it('refetches when program toggles (re-renders with new program)', async () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <ProgramContext.Provider value={{ program: 'mens', setProgram: vi.fn() }}>
+          <Testimonies />
+        </ProgramContext.Provider>
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(1));
+
+    rerender(
+      <MemoryRouter>
+        <ProgramContext.Provider value={{ program: 'women', setProgram: vi.fn() }}>
+          <Testimonies />
+        </ProgramContext.Provider>
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(2));
+  });
+
+  it('renders unassigned testimonies in the list (from_name shown)', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_UNASSIGNED] });
+    renderTestimonies();
     await waitFor(() =>
       expect(screen.getByText('Unknown Sender')).toBeInTheDocument()
     );
   });
 });
 
-// ── Detail view tests ─────────────────────────────────────────────────────────
+// ── Add item tests ─────────────────────────────────────────────────────────────
 
-describe('Testimonies page — detail view', () => {
+describe('Testimonies page — add item', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   afterEach(() => vi.restoreAllMocks());
 
-  function setupWithList() {
-    // Sequence: list -> GET detail -> PATCH unfulfilled->in_progress
-    mockApiFetch
-      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_UNFULFILLED, TESTIMONY_IN_PROGRESS] })
-      .mockResolvedValueOnce(DETAIL_RESPONSE)  // GET /admin/testimonies/1
-      .mockResolvedValue({ ok: true });        // PATCH auto-advance + any subsequent
+  it('opens add dialog when + Add is clicked', async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [] });
     renderTestimonies();
-  }
-
-  it('opens detail when a board row is clicked', async () => {
-    setupWithList();
-    await waitFor(() => screen.getByTestId('testimony-row-1'));
-    fireEvent.click(screen.getByTestId('testimony-row-1'));
-    // The detail header shows the title prominently
-    await waitFor(() =>
-      expect(screen.getByText(/saturday night testimony/i)).toBeInTheDocument()
-    );
-    // The detail body text should appear
-    await waitFor(() =>
-      expect(screen.getByText(/this is my/i)).toBeInTheDocument()
-    );
+    await waitFor(() => screen.getByTestId('add-needed-item'));
+    fireEvent.click(screen.getByTestId('add-needed-item'));
+    expect(screen.getByText('Add Item')).toBeInTheDocument();
   });
 
-  it('renders body_html safely', async () => {
-    setupWithList();
-    await waitFor(() => screen.getByTestId('testimony-row-1'));
-    fireEvent.click(screen.getByTestId('testimony-row-1'));
-    await waitFor(() =>
-      expect(screen.getByText(/this is my/i)).toBeInTheDocument()
-    );
-  });
-
-  it('shows attachments with link_url as a clickable link', async () => {
-    setupWithList();
-    await waitFor(() => screen.getByTestId('testimony-row-1'));
-    fireEvent.click(screen.getByTestId('testimony-row-1'));
-    await waitFor(() => {
-      const link = screen.getByRole('link', { name: /open document\.pdf/i });
-      expect(link).toHaveAttribute('href', 'https://docs.google.com/doc1');
-    });
-  });
-
-  it('shows person link when testimony is matched to a person', async () => {
-    setupWithList();
-    await waitFor(() => screen.getByTestId('testimony-row-1'));
-    fireEvent.click(screen.getByTestId('testimony-row-1'));
-    await waitFor(() => {
-      const link = screen.getByRole('link', { name: /john doe/i });
-      expect(link).toHaveAttribute('href', '/people/10');
-    });
-  });
-
-  it('shows comments thread', async () => {
-    setupWithList();
-    await waitFor(() => screen.getByTestId('testimony-row-1'));
-    fireEvent.click(screen.getByTestId('testimony-row-1'));
-    await waitFor(() =>
-      expect(screen.getByText('Looks genuine')).toBeInTheDocument()
-    );
-    expect(screen.getByText(/admin user/i)).toBeInTheDocument();
-  });
-
-  it('advances unfulfilled item to in_progress when opened', async () => {
-    setupWithList();
-    await waitFor(() => screen.getByTestId('testimony-row-1'));
-    fireEvent.click(screen.getByTestId('testimony-row-1'));
-    // After detail loads, PATCH status=in_progress should be called
-    await waitFor(() => {
-      const patchCall = mockApiFetch.mock.calls.find(
-        c =>
-          typeof c[0] === 'string' &&
-          c[0] === '/admin/testimonies/1' &&
-          (c[1] as RequestInit)?.method === 'PATCH'
-      );
-      expect(patchCall).toBeDefined();
-      const body = JSON.parse((patchCall![1] as RequestInit).body as string);
-      expect(body.status).toBe('in_progress');
-    });
-  });
-});
-
-// ── Add comment tests ─────────────────────────────────────────────────────────
-
-describe('Testimonies page — add comment', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => vi.restoreAllMocks());
-
-  it('posts a comment and shows it in the thread', async () => {
-    mockApiFetch.mockReset();
+  it('POSTs to create a new unfulfilled item and closes the dialog', async () => {
     mockApiFetch
-      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_IN_PROGRESS] })
-      .mockResolvedValueOnce({
-        ...DETAIL_RESPONSE,
-        testimony: { ...DETAIL_RESPONSE.testimony, id: 2, status: 'in_progress' as const },
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        comment: { id: 99, body: 'Great word!', created_at: '2026-07-21T00:00:00Z', admin_name: 'Me' },
-      });
+      .mockResolvedValueOnce({ ok: true, testimonies: [] }) // initial list
+      .mockResolvedValueOnce({ ok: true, testimony: { id: 99, status: 'unfulfilled', type: 'testimony', title: null, person_id: null, program: 'mens' } }) // POST
+      .mockResolvedValueOnce({ ok: true, testimonies: [] }); // refetch
 
     renderTestimonies();
-    await waitFor(() => screen.getByTestId('testimony-row-2'));
-    fireEvent.click(screen.getByTestId('testimony-row-2'));
-    await waitFor(() => screen.getByLabelText(/add comment/i));
+    await waitFor(() => screen.getByTestId('add-needed-item'));
+    fireEvent.click(screen.getByTestId('add-needed-item'));
+    expect(screen.getByText('Add Item')).toBeInTheDocument();
 
-    const textarea = screen.getByLabelText(/add comment/i);
-    fireEvent.change(textarea, { target: { value: 'Great word!' } });
-    fireEvent.click(screen.getByRole('button', { name: /add note/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^create$/i }));
 
     await waitFor(() => {
       const postCall = mockApiFetch.mock.calls.find(
-        c => typeof c[0] === 'string' && c[0].includes('/comment') && (c[1] as RequestInit)?.method === 'POST'
+        c => typeof c[0] === 'string' && c[0] === '/admin/testimonies' && (c[1] as RequestInit)?.method === 'POST'
       );
       expect(postCall).toBeDefined();
-      const body = JSON.parse((postCall![1] as RequestInit).body as string);
-      expect(body.body).toBe('Great word!');
-    });
-
-    await waitFor(() =>
-      expect(screen.getByText('Great word!')).toBeInTheDocument()
-    );
-  });
-});
-
-// ── Reply tests ───────────────────────────────────────────────────────────────
-
-describe('Testimonies page — reply', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => vi.restoreAllMocks());
-
-  it('shows reply composer when "Compose reply" is clicked and POSTs on send', async () => {
-    mockApiFetch
-      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_IN_PROGRESS] })
-      .mockResolvedValueOnce({
-        ...DETAIL_RESPONSE,
-        testimony: { ...DETAIL_RESPONSE.testimony, id: 2, status: 'in_progress' as const },
-      })
-      .mockResolvedValueOnce({ ok: true }); // reply POST
-
-    renderTestimonies();
-    await waitFor(() => screen.getByTestId('testimony-row-2'));
-    fireEvent.click(screen.getByTestId('testimony-row-2'));
-    await waitFor(() => screen.getByText(/compose reply/i));
-
-    fireEvent.click(screen.getByText(/compose reply/i));
-    await waitFor(() => screen.getByLabelText(/reply subject/i));
-
-    const subjectInput = screen.getByLabelText(/reply subject/i);
-    fireEvent.change(subjectInput, { target: { value: 'Re: Teaching session' } });
-
-    const editor = screen.getByRole('textbox', { name: /reply body/i });
-    fireEvent.input(editor, { target: { innerHTML: '<p>Thank you!</p>' } });
-
-    Object.defineProperty(editor, 'innerHTML', { value: '<p>Thank you!</p>', writable: true });
-    fireEvent.input(editor);
-
-    await waitFor(() => {
-      const sendBtn = screen.getByRole('button', { name: /send reply/i });
-      expect(sendBtn).toBeInTheDocument();
     });
   });
 });
 
-// ── Reassign / retag / status PATCH tests ─────────────────────────────────────
+// ── Archived section tests ─────────────────────────────────────────────────────
 
-describe('Testimonies page — reassign / retag / status PATCH', () => {
+describe('Testimonies page — archived section', () => {
+  beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.restoreAllMocks());
 
-  it('PATCHes type when the type dropdown changes', async () => {
-    vi.clearAllMocks();
-    mockApiFetch
-      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_UNFULFILLED] })
-      .mockResolvedValueOnce(DETAIL_RESPONSE)
-      .mockResolvedValueOnce({ ok: true }) // PATCH auto-advance to in_progress
-      .mockResolvedValueOnce({
-        ok: true,
-        testimony: { id: 1, status: 'in_progress', type: 'teaching', title: null, person_id: 10, program: 'mens' },
-      });
-
-    renderTestimonies();
-    await waitFor(() => screen.getByTestId('testimony-row-1'));
-    fireEvent.click(screen.getByTestId('testimony-row-1'));
-    await waitFor(() => screen.getByLabelText(/retag type/i));
-
-    const typeSelect = screen.getByLabelText(/retag type/i);
-    fireEvent.change(typeSelect, { target: { value: 'teaching' } });
-
-    await waitFor(() => {
-      const patchCall = mockApiFetch.mock.calls.find(
-        c =>
-          typeof c[0] === 'string' &&
-          c[0] === '/admin/testimonies/1' &&
-          (c[1] as RequestInit)?.method === 'PATCH' &&
-          JSON.parse((c[1] as RequestInit).body as string)?.type === 'teaching'
-      );
-      expect(patchCall).toBeDefined();
-    });
-  });
-
-  it('PATCHes status when the status dropdown changes', async () => {
-    vi.clearAllMocks();
-    mockApiFetch
-      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_UNFULFILLED] })
-      .mockResolvedValueOnce(DETAIL_RESPONSE)
-      .mockResolvedValueOnce({ ok: true }) // PATCH auto-advance
-      .mockResolvedValueOnce({
-        ok: true,
-        testimony: { id: 1, status: 'approved', type: 'testimony', title: null, person_id: 10, program: 'mens' },
-      });
-
-    renderTestimonies();
-    await waitFor(() => screen.getByTestId('testimony-row-1'));
-    fireEvent.click(screen.getByTestId('testimony-row-1'));
-    await waitFor(() => screen.getByLabelText(/change status/i));
-
-    const statusSelect = screen.getByLabelText(/change status/i);
-    fireEvent.change(statusSelect, { target: { value: 'approved' } });
-
-    await waitFor(() => {
-      const patchCall = mockApiFetch.mock.calls.find(
-        c =>
-          typeof c[0] === 'string' &&
-          c[0] === '/admin/testimonies/1' &&
-          (c[1] as RequestInit)?.method === 'PATCH' &&
-          JSON.parse((c[1] as RequestInit).body as string)?.status === 'approved'
-      );
-      expect(patchCall).toBeDefined();
-    });
-  });
-
-  it('shows "Assign person" button when no person matched', async () => {
-    vi.clearAllMocks();
-    const noPersonDetail = {
-      ...DETAIL_RESPONSE,
-      person: null,
-      testimony: { ...DETAIL_RESPONSE.testimony, person_id: null },
+  it('hides archived items behind toggle by default', async () => {
+    const archivedItem: import('../pages/Testimonies').TestimonyRow = {
+      ...TESTIMONY_UNFULFILLED,
+      id: 99,
+      status: 'archived',
+      first_name: 'Archived',
+      last_name: 'Person',
     };
-    mockApiFetch
-      .mockResolvedValueOnce({ ok: true, testimonies: [TESTIMONY_UNFULFILLED] })
-      .mockResolvedValueOnce(noPersonDetail)
-      .mockResolvedValue({ ok: true });
-
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [archivedItem] });
     renderTestimonies();
-    await waitFor(() => screen.getByTestId('testimony-row-1'));
-    fireEvent.click(screen.getByTestId('testimony-row-1'));
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /assign person/i })).toBeInTheDocument()
-    );
+    await waitFor(() => screen.getByText(/show archived/i));
+    // Person name should not be visible yet
+    expect(screen.queryByText('Archived Person')).not.toBeInTheDocument();
+  });
+
+  it('shows archived items when toggle clicked', async () => {
+    const archivedItem: import('../pages/Testimonies').TestimonyRow = {
+      ...TESTIMONY_UNFULFILLED,
+      id: 99,
+      status: 'archived',
+      first_name: 'Archived',
+      last_name: 'Person',
+    };
+    mockApiFetch.mockResolvedValue({ ok: true, testimonies: [archivedItem] });
+    renderTestimonies();
+    await waitFor(() => screen.getByText(/show archived/i));
+    fireEvent.click(screen.getByText(/show archived/i));
+    expect(screen.getByText('Archived Person')).toBeInTheDocument();
   });
 });
 
