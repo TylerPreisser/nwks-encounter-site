@@ -66,7 +66,7 @@ const WOMENS_STATS = {
 
 // ── Helper: render DashboardPage with a given program ────────────────────────
 
-function renderDashboard(program: 'mens' | 'womens' = 'mens', setProgram = vi.fn()) {
+function renderDashboard(program: 'mens' | 'women' = 'mens', setProgram = vi.fn()) {
   return render(
     <ProgramContext.Provider value={{ program, setProgram }}>
       <MemoryRouter>
@@ -171,7 +171,7 @@ describe('DashboardPage', () => {
     mockApiFetch.mockResolvedValueOnce({ ok: true, stats: WOMENS_STATS });
 
     rerender(
-      <ProgramContext.Provider value={{ program: 'womens', setProgram }}>
+      <ProgramContext.Provider value={{ program: 'women', setProgram }}>
         <MemoryRouter>
           <DashboardPage />
         </MemoryRouter>
@@ -196,7 +196,7 @@ describe('DashboardPage', () => {
 
     await act(async () => {
       rerender(
-        <ProgramContext.Provider value={{ program: 'womens', setProgram: vi.fn() }}>
+        <ProgramContext.Provider value={{ program: 'women', setProgram: vi.fn() }}>
           <MemoryRouter>
             <DashboardPage />
           </MemoryRouter>

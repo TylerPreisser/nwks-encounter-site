@@ -144,8 +144,8 @@ describe('Assistant page', () => {
 
     await waitFor(() => expect(listPendingMock).toHaveBeenCalledWith('mens'));
 
-    rerender(<Assistant program="womens" />);
+    rerender(<Assistant program="women" />);
 
-    await waitFor(() => expect(listPendingMock).toHaveBeenCalledWith('womens'));
+    await waitFor(() => expect(listPendingMock).toHaveBeenCalledWith('women'));
   });
 });

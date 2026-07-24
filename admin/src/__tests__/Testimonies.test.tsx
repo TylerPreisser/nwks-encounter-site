@@ -124,7 +124,7 @@ const DETAIL_RESPONSE = {
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-function wrapper(program: 'mens' | 'womens' = 'mens') {
+function wrapper(program: 'mens' | 'women' = 'mens') {
   return ({ children }: { children: React.ReactNode }) => (
     <MemoryRouter>
       <ProgramContext.Provider value={{ program, setProgram: vi.fn() }}>
@@ -134,7 +134,7 @@ function wrapper(program: 'mens' | 'womens' = 'mens') {
   );
 }
 
-function renderTestimonies(program: 'mens' | 'womens' = 'mens') {
+function renderTestimonies(program: 'mens' | 'women' = 'mens') {
   return render(<Testimonies />, { wrapper: wrapper(program) });
 }
 

@@ -12,7 +12,7 @@ import { RichTextEditor, sanitizeHtml, htmlToText } from '../components/email/Ri
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-function wrapper(program: 'mens' | 'womens' = 'mens') {
+function wrapper(program: 'mens' | 'women' = 'mens') {
   return ({ children }: { children: React.ReactNode }) => (
     <MemoryRouter>
       <ProgramContext.Provider value={{ program, setProgram: vi.fn() }}>
@@ -399,13 +399,13 @@ describe('CampaignHistory', () => {
 
     rerender(
       <MemoryRouter>
-        <ProgramContext.Provider value={{ program: 'womens', setProgram: vi.fn() }}>
+        <ProgramContext.Provider value={{ program: 'women', setProgram: vi.fn() }}>
           <CampaignHistory refresh={0} />
         </ProgramContext.Provider>
       </MemoryRouter>
     );
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    expect((fetchMock.mock.calls[1] as [string])[0]).toContain('program=womens');
+    expect((fetchMock.mock.calls[1] as [string])[0]).toContain('program=women');
   });
 
   it('refetches when refresh prop increments', async () => {
@@ -520,12 +520,12 @@ describe('TemplateEditor', () => {
 
     rerender(
       <MemoryRouter>
-        <ProgramContext.Provider value={{ program: 'womens', setProgram: vi.fn() }}>
+        <ProgramContext.Provider value={{ program: 'women', setProgram: vi.fn() }}>
           <TemplateEditor />
         </ProgramContext.Provider>
       </MemoryRouter>
     );
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    expect((fetchMock.mock.calls[1] as [string])[0]).toContain('program=womens');
+    expect((fetchMock.mock.calls[1] as [string])[0]).toContain('program=women');
   });
 });

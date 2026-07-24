@@ -44,7 +44,7 @@ const SAMPLE_EVENT = {
   is_current: 1,
 };
 
-function wrapper(program: 'mens' | 'womens' = 'mens') {
+function wrapper(program: 'mens' | 'women' = 'mens') {
   return ({ children }: { children: React.ReactNode }) => (
     <MemoryRouter>
       <ProgramContext.Provider value={{ program, setProgram: vi.fn() }}>
@@ -250,7 +250,7 @@ describe('Events page', () => {
 
     rerender(
       <MemoryRouter>
-        <ProgramContext.Provider value={{ program: 'womens', setProgram: vi.fn() }}>
+        <ProgramContext.Provider value={{ program: 'women', setProgram: vi.fn() }}>
           <Events />
         </ProgramContext.Provider>
       </MemoryRouter>,
@@ -282,7 +282,7 @@ describe('Events page', () => {
         body: { ok: true, events: [{ ...SAMPLE_EVENT, program: 'women' }], needs_next_event: true },
       },
     });
-    render(<Events />, { wrapper: wrapper('womens') });
+    render(<Events />, { wrapper: wrapper('women') });
     await waitFor(() =>
       expect(screen.getByRole('alert', { name: /needs-next-event/i })).toBeInTheDocument()
     );

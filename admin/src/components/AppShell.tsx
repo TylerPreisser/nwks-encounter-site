@@ -39,7 +39,7 @@ export default function AppShell() {
         {/* Program toggle at top-left */}
         <div className="p-4 border-b border-white/10">
           <p className="text-white/50 text-[10px] font-semibold uppercase tracking-widest mb-2">
-            Program
+            NWKS Encounter
           </p>
           <ProgramToggle />
         </div>

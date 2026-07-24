@@ -2,8 +2,8 @@ import { useProgram } from '@/App';
 import { THEMES, type Program } from '@/theme';
 
 const OPTIONS: { value: Program; label: string }[] = [
-  { value: 'mens',   label: "Men's" },
-  { value: 'womens', label: "Women's" },
+  { value: 'mens',  label: "Men's" },
+  { value: 'women', label: "Women's" },
 ];
 
 /**
@@ -14,21 +14,26 @@ const OPTIONS: { value: Program; label: string }[] = [
  *   • Women's active → soft rose-pink (#F2C4D0) background on the pill
  *
  * Accessible: role="group", aria-pressed per button, keyboard-operable.
+ *
+ * Alignment: both segments are equal-width (flex: 1). The highlight pill is
+ * exactly 50% wide and translates by 0% (Men's) or 100% of its own width
+ * (Women's) so the highlight always lands precisely under the active segment.
  */
 export default function ProgramToggle() {
   const { program, setProgram } = useProgram();
 
   // Soft tint colors for the active pill (lighter than brand primaries)
   const ACTIVE_BG: Record<Program, string> = {
-    mens:   '#C9D4A3',  // light olive-green
-    womens: '#F2C4D0',  // light rose-pink
+    mens:  '#C9D4A3',  // light olive-green
+    women: '#F2C4D0',  // light rose-pink
   };
   const ACTIVE_TEXT: Record<Program, string> = {
-    mens:   '#3D4A1A',  // dark olive for contrast
-    womens: '#6B2740',  // dark rose for contrast
+    mens:  '#3D4A1A',  // dark olive for contrast
+    women: '#6B2740',  // dark rose for contrast
   };
 
-  const pillOffset = program === 'womens' ? '50%' : '0%';
+  // Translate by 0 for Men's (left segment), 100% of its own width for Women's (right segment).
+  const pillTranslate = program === 'women' ? 'translateX(100%)' : 'translateX(0%)';
 
   return (
     <div
@@ -41,18 +46,19 @@ export default function ProgramToggle() {
         width: '100%',
       }}
     >
-      {/* Sliding highlight pill */}
+      {/* Sliding highlight pill — exactly 50% wide, translates by its own width */}
       <span
         aria-hidden="true"
         style={{
           position: 'absolute',
           top: '3px',
           bottom: '3px',
-          left: `calc(${pillOffset} + 3px)`,
+          left: '3px',
           width: 'calc(50% - 3px)',
           background: ACTIVE_BG[program],
           borderRadius: '8px',
-          transition: 'left 220ms cubic-bezier(0.4,0,0.2,1), background 220ms ease',
+          transform: pillTranslate,
+          transition: 'transform 220ms cubic-bezier(0.4,0,0.2,1), background 220ms ease',
           pointerEvents: 'none',
           zIndex: 0,
         }}

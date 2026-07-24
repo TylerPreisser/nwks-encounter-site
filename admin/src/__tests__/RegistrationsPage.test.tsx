@@ -12,7 +12,7 @@ global.fetch = mockFetch;
 global.URL.createObjectURL = vi.fn(() => 'blob:mock');
 global.URL.revokeObjectURL = vi.fn();
 
-function wrapper(program: 'mens' | 'womens' = 'mens') {
+function wrapper(program: 'mens' | 'women' = 'mens') {
   return ({ children }: { children: React.ReactNode }) => (
     <MemoryRouter>
       <ProgramContext.Provider value={{ program, setProgram: vi.fn() }}>
@@ -78,7 +78,7 @@ describe('RegistrationsPage', () => {
 
     rerender(
       <MemoryRouter>
-        <ProgramContext.Provider value={{ program: 'womens', setProgram: vi.fn() }}>
+        <ProgramContext.Provider value={{ program: 'women', setProgram: vi.fn() }}>
           <RegistrationsPage />
         </ProgramContext.Provider>
       </MemoryRouter>

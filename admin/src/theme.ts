@@ -1,4 +1,4 @@
-export type Program = 'mens' | 'womens';
+export type Program = 'mens' | 'women';
 
 export interface ThemeTokens {
   primary: string;
@@ -20,7 +20,7 @@ export const THEMES: Record<Program, ThemeTokens> = {
     label:     "Men's Encounter",
     emoji:     '⛺',
   },
-  womens: {
+  women: {
     primary:   '#A0536A',
     secondary: '#D4748C',
     bg:        '#FDF5F7',

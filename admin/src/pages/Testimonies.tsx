@@ -241,7 +241,7 @@ interface DetailProps {
 }
 
 function TestimonyDetail({ testimonyId, initialStatus, program, onUpdate }: DetailProps) {
-  const theme = THEMES[program as 'mens' | 'womens'] ?? THEMES.mens;
+  const theme = THEMES[program as 'mens' | 'women'] ?? THEMES.mens;
   const [testimony, setTestimony] = useState<TestimonyDetail | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -633,7 +633,7 @@ function TestimonyDetail({ testimonyId, initialStatus, program, onUpdate }: Deta
 
 export default function Testimonies() {
   const { program } = useProgram();
-  const theme = THEMES[program as 'mens' | 'womens'] ?? THEMES.mens;
+  const theme = THEMES[program as 'mens' | 'women'] ?? THEMES.mens;
 
   const [viewMode, setViewMode] = useState<ViewMode>('program');
   const [filterType, setFilterType] = useState<FilterType>('all');

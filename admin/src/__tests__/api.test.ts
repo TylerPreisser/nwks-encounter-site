@@ -38,7 +38,7 @@ describe('apiFetch', () => {
   });
 
   it('uses the active program set via setApiProgram', async () => {
-    setApiProgram('womens');
+    setApiProgram('women');
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({}),
@@ -48,7 +48,7 @@ describe('apiFetch', () => {
     await apiFetch('/dashboard/stats');
 
     const [url] = mockFetch.mock.calls[0];
-    expect(url).toContain('program=womens');
+    expect(url).toContain('program=women');
   });
 
   it('includes credentials: include', async () => {

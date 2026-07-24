@@ -181,19 +181,40 @@ describe('auth.ts', () => {
       app.get('/test', (c) => c.json({ ok: true, program: c.get('program') }));
 
       const res = await app.fetch(
-        new Request('http://localhost/test', { headers: { 'X-Program': 'womens' } }),
-        testEnv(),
-      );
-      // 'womens' is not a valid value — expect 400
-      expect(res.status).toBe(400);
-
-      const res2 = await app.fetch(
         new Request('http://localhost/test', { headers: { 'X-Program': 'mens' } }),
         testEnv(),
       );
-      expect(res2.status).toBe(200);
-      const body = await res2.json() as any;
+      expect(res.status).toBe(200);
+      const body = await res.json() as any;
       expect(body.program).toBe('mens');
+    });
+
+    it('accepts ?program=womens as alias for women and normalises to "women"', async () => {
+      const app = new Hono<{ Bindings: Env; Variables: AppVariables }>();
+      app.use('*', requireProgram());
+      app.get('/test', (c) => c.json({ ok: true, program: c.get('program') }));
+
+      const res = await app.fetch(
+        new Request('http://localhost/test?program=womens'),
+        testEnv(),
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json() as any;
+      expect(body.program).toBe('women');
+    });
+
+    it('accepts ?program=women (canonical DB value)', async () => {
+      const app = new Hono<{ Bindings: Env; Variables: AppVariables }>();
+      app.use('*', requireProgram());
+      app.get('/test', (c) => c.json({ ok: true, program: c.get('program') }));
+
+      const res = await app.fetch(
+        new Request('http://localhost/test?program=women'),
+        testEnv(),
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json() as any;
+      expect(body.program).toBe('women');
     });
   });
 });

@@ -20,26 +20,26 @@ describe('ProgramToggle', () => {
       </ProgramContext.Provider>,
     );
     expect(screen.getByTestId('program-btn-mens')).toBeInTheDocument();
-    expect(screen.getByTestId('program-btn-womens')).toBeInTheDocument();
+    expect(screen.getByTestId('program-btn-women')).toBeInTheDocument();
     expect(screen.getByTestId('program-btn-mens')).toHaveTextContent("Men's");
-    expect(screen.getByTestId('program-btn-womens')).toHaveTextContent("Women's");
+    expect(screen.getByTestId('program-btn-women')).toHaveTextContent("Women's");
   });
 
-  it('calls setProgram with "womens" when Women\'s is clicked', () => {
+  it('calls setProgram with "women" when Women\'s is clicked', () => {
     const setProgram = vi.fn();
     render(
       <ProgramContext.Provider value={{ program: 'mens', setProgram }}>
         <ProgramToggle />
       </ProgramContext.Provider>,
     );
-    fireEvent.click(screen.getByTestId('program-btn-womens'));
-    expect(setProgram).toHaveBeenCalledWith('womens');
+    fireEvent.click(screen.getByTestId('program-btn-women'));
+    expect(setProgram).toHaveBeenCalledWith('women');
   });
 
-  it('calls setProgram with "mens" when Men\'s is clicked while on womens', () => {
+  it('calls setProgram with "mens" when Men\'s is clicked while on women', () => {
     const setProgram = vi.fn();
     render(
-      <ProgramContext.Provider value={{ program: 'womens', setProgram }}>
+      <ProgramContext.Provider value={{ program: 'women', setProgram }}>
         <ProgramToggle />
       </ProgramContext.Provider>,
     );
@@ -54,16 +54,16 @@ describe('ProgramToggle', () => {
       </ProgramContext.Provider>,
     );
     expect(screen.getByTestId('program-btn-mens')).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByTestId('program-btn-womens')).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByTestId('program-btn-women')).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('marks womens as active when program is womens', () => {
+  it('marks women as active when program is women', () => {
     render(
-      <ProgramContext.Provider value={{ program: 'womens', setProgram: vi.fn() }}>
+      <ProgramContext.Provider value={{ program: 'women', setProgram: vi.fn() }}>
         <ProgramToggle />
       </ProgramContext.Provider>,
     );
-    expect(screen.getByTestId('program-btn-womens')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('program-btn-women')).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByTestId('program-btn-mens')).toHaveAttribute('aria-pressed', 'false');
   });
 

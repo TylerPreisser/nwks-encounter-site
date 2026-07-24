@@ -123,11 +123,15 @@ export function requireAuth(): AppMiddleware {
 
 /**
  * Hono middleware: validates ?program= query param (or X-Program header).
- * Accepts 'mens' or 'women'. On success sets c.var.program. On failure returns 400.
+ * Accepts 'mens' or 'women'. Also accepts 'womens' as an alias for 'women'
+ * (defensive normalisation — the DB canonical value is always 'women').
+ * On success sets c.var.program. On failure returns 400.
  */
 export function requireProgram(): AppMiddleware {
   return async (c, next) => {
-    const program = c.req.query('program') ?? c.req.header('X-Program');
+    const raw = c.req.query('program') ?? c.req.header('X-Program');
+    // Normalise legacy alias 'womens' → 'women' so stray clients never break.
+    const program: string | undefined = raw === 'womens' ? 'women' : raw;
     if (program !== 'mens' && program !== 'women') {
       return c.json({ ok: false, error: 'program required' }, 400);
     }
