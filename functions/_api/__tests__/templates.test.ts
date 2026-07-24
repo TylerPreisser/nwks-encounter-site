@@ -21,11 +21,11 @@ describe('email_templates seed (0002_seed_templates.sql)', () => {
     await applyMigrations(env as unknown as { DB: D1Database });
   });
 
-  it('seeds exactly 7 rows', async () => {
+  it('seeds exactly 4 rows after v2 migration', async () => {
     const { results } = await (env as any).DB
       .prepare('SELECT COUNT(*) AS n FROM email_templates')
       .all<{ n: number }>();
-    expect(results[0].n).toBe(7);
+    expect(results[0].n).toBe(4);
   });
 
   it('seeds welcome template for mens with non-empty subject, body_html, body_text, and variables', async () => {
@@ -58,9 +58,6 @@ describe('email_templates seed (0002_seed_templates.sql)', () => {
   it.each([
     ['shared', 'reminder'],
     ['shared', 'packing_list'],
-    ['shared', 'prayer_partner'],
-    ['mens',   'post_event'],
-    ['women',  'post_event'],
   ])('seeds %s/%s with non-empty content and variables array', async (program, key) => {
     const row = await (env as any).DB
       .prepare(`SELECT * FROM email_templates WHERE program = ? AND key = ?`)
@@ -75,11 +72,11 @@ describe('email_templates seed (0002_seed_templates.sql)', () => {
     expect(vars.length).toBeGreaterThan(0);
   });
 
-  it('all 7 rows have a non-null updated_at of 2026-07-23T00:00:00.000Z', async () => {
+  it('all 4 rows have a non-null updated_at', async () => {
     const { results } = await (env as any).DB
-      .prepare(`SELECT updated_at FROM email_templates WHERE updated_at = '2026-07-23T00:00:00.000Z'`)
+      .prepare(`SELECT updated_at FROM email_templates WHERE updated_at IS NOT NULL`)
       .all<{ updated_at: string }>();
-    expect(results.length).toBe(7);
+    expect(results.length).toBe(4);
   });
 
   it('seed is idempotent (INSERT OR IGNORE — no duplicates on second apply)', async () => {

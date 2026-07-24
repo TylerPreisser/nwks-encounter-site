@@ -161,8 +161,11 @@ function TokenMenu({ onInsert }: TokenMenuProps) {
                 setOpen(false);
               }}
             >
-              {t.label}
-              <span className="ml-2 text-xs text-gray-400 font-mono">{t.value}</span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-block bg-blue-100 text-blue-700 text-xs font-medium px-2 py-0.5 rounded-full">
+                  {t.label}
+                </span>
+              </span>
             </button>
           ))}
         </div>

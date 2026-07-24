@@ -92,8 +92,8 @@ describe('Admin Templates API', () => {
     expect(programs.every((p) => p === 'mens' || p === 'shared')).toBe(true);
     // Must NOT contain women-only rows
     expect(programs).not.toContain('women');
-    // Should contain at least the mens + 3 shared rows (2 mens + 3 shared = 5)
-    expect(body.templates.length).toBeGreaterThanOrEqual(5);
+    // Should contain at least the mens welcome + 2 shared rows (1 mens + 2 shared = 3)
+    expect(body.templates.length).toBeGreaterThanOrEqual(3);
   });
 
   it('GET /api/admin/templates for women returns women + shared templates (not mens-only)', async () => {
