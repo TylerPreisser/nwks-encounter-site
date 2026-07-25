@@ -85,3 +85,27 @@ export function IconHeart({ className }: IconProps) {
     </svg>
   );
 }
+
+/** Forms — clipboard with pencil edit mark */
+export function IconForms({ className }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <path d="M7 3H5a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1h-2" />
+      <rect x="7" y="2" width="6" height="3" rx="1" />
+      <line x1="7" y1="9" x2="13" y2="9" />
+      <path d="M7 13h3l3.5-3.5-3-3L7 10v3z" />
+    </svg>
+  );
+}
+
+/** Web Page Details — browser window with text lines */
+export function IconPageDetails({ className }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <rect x="2" y="3" width="16" height="14" rx="1.5" />
+      <line x1="2" y1="8" x2="18" y2="8" />
+      <line x1="6" y1="12" x2="14" y2="12" />
+      <line x1="6" y1="15" x2="11" y2="15" />
+    </svg>
+  );
+}

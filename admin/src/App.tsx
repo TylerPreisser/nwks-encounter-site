@@ -19,6 +19,8 @@ import Assistant from './pages/Assistant';
 import Gallery from './pages/Gallery';
 import Testimonies from './pages/Testimonies';
 import AppShell from './components/AppShell';
+import FormsEditor from './pages/FormsEditor';
+import PageDetails from './pages/PageDetails';
 
 /* ── Auth types ─────────────────────────────────────────────────── */
 interface AuthUser {
@@ -107,6 +109,8 @@ export default function App() {
             <Route path="/assistant" element={<Navigate to="/" replace />} />
             <Route path="/gallery" element={<Gallery />} />
             <Route path="/testimonies" element={<Testimonies />} />
+            <Route path="/forms" element={<FormsEditor />} />
+            <Route path="/page-details" element={<PageDetails />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Route>

@@ -8,6 +8,8 @@ import {
   IconMail,
   IconImage,
   IconHeart,
+  IconForms,
+  IconPageDetails,
 } from './NavIcons';
 
 type IconComponent = React.ComponentType<{ className?: string }>;
@@ -19,12 +21,14 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: '/',              label: 'Dashboard',               Icon: IconDashboard },
-  { to: '/registrations', label: 'Registrations',           Icon: IconClipboard },
-  { to: '/events',        label: 'Upcoming Encounter',      Icon: IconCalendar  },
-  { to: '/email',         label: 'Email',                   Icon: IconMail      },
-  { to: '/gallery',       label: 'Gallery',                 Icon: IconImage     },
-  { to: '/testimonies',   label: 'Testimonies & Teachings', Icon: IconHeart     },
+  { to: '/',              label: 'Dashboard',               Icon: IconDashboard   },
+  { to: '/registrations', label: 'Registrations',           Icon: IconClipboard   },
+  { to: '/events',        label: 'Upcoming Encounter',      Icon: IconCalendar    },
+  { to: '/email',         label: 'Email',                   Icon: IconMail        },
+  { to: '/gallery',       label: 'Gallery',                 Icon: IconImage       },
+  { to: '/testimonies',   label: 'Testimonies & Teachings', Icon: IconHeart       },
+  { to: '/forms',         label: 'Forms',                   Icon: IconForms       },
+  { to: '/page-details',  label: 'Web Page Details',        Icon: IconPageDetails },
 ];
 
 interface ExtraNavItem {
