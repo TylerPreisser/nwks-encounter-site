@@ -82,28 +82,31 @@ describe('Admin Templates API', () => {
 
   // ── GET list ───────────────────────────────────────────────────────────────
 
-  it('GET /api/admin/templates returns mens + shared templates (not women-only)', async () => {
+  it('GET /api/admin/templates returns only mens templates (no women, no shared)', async () => {
     const res = await app.fetch(makeReq('GET', '/api/admin/templates', cookie, 'mens'), testEnv);
     expect(res.status).toBe(200);
     const body = await res.json<{ ok: boolean; templates: Array<{ program: string }> }>();
     expect(body.ok).toBe(true);
     const programs = body.templates.map((t) => t.program);
-    // All returned rows must be 'mens' or 'shared'
-    expect(programs.every((p) => p === 'mens' || p === 'shared')).toBe(true);
+    // All returned rows must be 'mens' (no shared rows exist anymore)
+    expect(programs.every((p) => p === 'mens')).toBe(true);
     // Must NOT contain women-only rows
     expect(programs).not.toContain('women');
-    // Should contain at least the mens welcome + 2 shared rows (1 mens + 2 shared = 3)
-    expect(body.templates.length).toBeGreaterThanOrEqual(3);
+    expect(programs).not.toContain('shared');
+    // Exactly 3 program-specific rows
+    expect(body.templates.length).toBe(3);
   });
 
-  it('GET /api/admin/templates for women returns women + shared templates (not mens-only)', async () => {
+  it('GET /api/admin/templates for women returns only women templates (no mens, no shared)', async () => {
     const res = await app.fetch(makeReq('GET', '/api/admin/templates', cookie, 'women'), testEnv);
     expect(res.status).toBe(200);
     const body = await res.json<{ ok: boolean; templates: Array<{ program: string }> }>();
     expect(body.ok).toBe(true);
     const programs = body.templates.map((t) => t.program);
-    expect(programs.every((p) => p === 'women' || p === 'shared')).toBe(true);
+    expect(programs.every((p) => p === 'women')).toBe(true);
     expect(programs).not.toContain('mens');
+    expect(programs).not.toContain('shared');
+    expect(body.templates.length).toBe(3);
   });
 
   it('GET /api/admin/templates response includes expected fields on each template', async () => {
@@ -138,17 +141,18 @@ describe('Admin Templates API', () => {
     expect(body.template.key).toBe('welcome');
   });
 
-  it('GET /api/admin/templates/:id returns shared template when requested by any program', async () => {
+  it('GET /api/admin/templates/:id returns a program-specific reminder template', async () => {
     const row = await testEnv.DB.prepare(
-      `SELECT id FROM email_templates WHERE program='shared' AND key='reminder'`
+      `SELECT id FROM email_templates WHERE program='mens' AND key='reminder'`
     ).first<{ id: number }>();
     const id = row!.id;
 
     const res = await app.fetch(makeReq('GET', `/api/admin/templates/${id}`, cookie, 'mens'), testEnv);
     expect(res.status).toBe(200);
-    const body = await res.json<{ ok: boolean; template: { program: string } }>();
+    const body = await res.json<{ ok: boolean; template: { program: string; key: string } }>();
     expect(body.ok).toBe(true);
-    expect(body.template.program).toBe('shared');
+    expect(body.template.program).toBe('mens');
+    expect(body.template.key).toBe('reminder');
   });
 
   it('GET /api/admin/templates/:id returns 404 for unknown id', async () => {
@@ -231,21 +235,21 @@ describe('Admin Templates API', () => {
     expect(parsed).toContain('custom_var');
   });
 
-  it('PATCH /api/admin/templates/:id works on a shared template', async () => {
+  it('PATCH /api/admin/templates/:id works on any program-specific template (mens/reminder)', async () => {
     const row = await testEnv.DB.prepare(
-      `SELECT id FROM email_templates WHERE program='shared' AND key='reminder'`
+      `SELECT id FROM email_templates WHERE program='mens' AND key='reminder'`
     ).first<{ id: number }>();
     const id = row!.id;
 
     const res = await app.fetch(
       makeReq('PATCH', `/api/admin/templates/${id}`, cookie, 'mens', {
-        subject: 'Shared Updated Subject',
+        subject: 'Reminder Updated Subject',
       }),
       testEnv
     );
     expect(res.status).toBe(200);
     const body = await res.json<{ ok: boolean; template: { subject: string } }>();
-    expect(body.template.subject).toBe('Shared Updated Subject');
+    expect(body.template.subject).toBe('Reminder Updated Subject');
   });
 
   it('PATCH /api/admin/templates/:id returns 400 with no updatable fields', async () => {
@@ -272,11 +276,6 @@ describe('Admin Templates API', () => {
   });
 
   it("PATCH /api/admin/templates/:id returns 403 for another program's template", async () => {
-    const row = await testEnv.DB.prepare(
-      `SELECT id FROM email_templates WHERE program='womens' AND key='welcome'`
-    ).first<{ id: number }>();
-    // If somehow women row exists with 'womens' (shouldn't), skip; else use a direct insert
-    // Use a women template that exists (program='women')
     const wRow = await testEnv.DB.prepare(
       `SELECT id FROM email_templates WHERE program='women' AND key='welcome'`
     ).first<{ id: number }>();
