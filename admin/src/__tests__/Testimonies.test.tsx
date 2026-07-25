@@ -1029,13 +1029,13 @@ describe('Testimonies Kanban — waiting-on color + label', () => {
     });
   });
 
-  it('card with draft_1_awaiting has data-waiting="server" and "Waiting on server" label', async () => {
+  it('card with draft_1_awaiting has data-waiting="server" and color dot', async () => {
     mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_DRAFT1_AWAITING] });
     renderTestimonies();
     await waitFor(() => {
       const card = screen.getByTestId('testimony-row-2');
       expect(card).toHaveAttribute('data-waiting', 'server');
-      expect(screen.getByTestId('waiting-label-2')).toHaveTextContent('Waiting on server');
+      expect(screen.getByTestId('waiting-label-2')).toBeInTheDocument();
     });
   });
 
@@ -1057,13 +1057,13 @@ describe('Testimonies Kanban — waiting-on color + label', () => {
     });
   });
 
-  it('card with draft_1_review has data-waiting="us" and "Waiting on us" label', async () => {
+  it('card with draft_1_review has data-waiting="us" and color dot', async () => {
     mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_DRAFT1_REVIEW] });
     renderTestimonies();
     await waitFor(() => {
       const card = screen.getByTestId('testimony-row-3');
       expect(card).toHaveAttribute('data-waiting', 'us');
-      expect(screen.getByTestId('waiting-label-3')).toHaveTextContent('Waiting on us');
+      expect(screen.getByTestId('waiting-label-3')).toBeInTheDocument();
     });
   });
 
@@ -1085,13 +1085,13 @@ describe('Testimonies Kanban — waiting-on color + label', () => {
     });
   });
 
-  it('card with approved status has data-waiting="approved" and "Approved" label', async () => {
+  it('card with approved status has data-waiting="approved" and color dot', async () => {
     mockApiFetch.mockResolvedValue({ ok: true, testimonies: [TESTIMONY_APPROVED] });
     renderTestimonies();
     await waitFor(() => {
       const card = screen.getByTestId('testimony-row-6');
       expect(card).toHaveAttribute('data-waiting', 'approved');
-      expect(screen.getByTestId('waiting-label-6')).toHaveTextContent('Approved');
+      expect(screen.getByTestId('waiting-label-6')).toBeInTheDocument();
     });
   });
 });

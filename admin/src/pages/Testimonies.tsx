@@ -450,12 +450,9 @@ function KanbanCard({ item, columnKey, onStatusChange, onDragStart }: KanbanCard
       onDragStart={() => onDragStart(item.id)}
       className={`rounded-lg border border-gray-200 p-3 shadow-sm space-y-2 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow ${ws.border} ${ws.bg}`}
     >
-      {/* Waiting-on label */}
+      {/* Waiting-on color dot (text label removed — status dropdown already states it) */}
       <div className="flex items-center gap-1.5">
-        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${ws.dotColor}`} />
-        <span className={`text-xs font-medium ${ws.labelColor}`} data-testid={`waiting-label-${item.id}`}>
-          {ws.labelText}
-        </span>
+        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${ws.dotColor}`} data-testid={`waiting-label-${item.id}`} />
       </div>
 
       {/* Person name */}
@@ -472,9 +469,6 @@ function KanbanCard({ item, columnKey, onStatusChange, onDragStart }: KanbanCard
           <span className="text-sm font-medium text-gray-500 italic block leading-tight">
             {personName ?? 'Unassigned'}
           </span>
-        )}
-        {item.title && (
-          <span className="text-xs text-gray-400 leading-tight block mt-0.5 truncate">{item.title}</span>
         )}
       </div>
 
