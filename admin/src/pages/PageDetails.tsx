@@ -1,6 +1,8 @@
 // admin/src/pages/PageDetails.tsx
 // CMS admin — edit the public website's page text blocks.
-import { useEffect, useState, useCallback } from 'react';
+// Renders a compact page-mock-up: click any text block to edit it inline.
+// Auto-saves on blur (debounced). No big per-block Save buttons.
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { apiFetch } from '@/api';
 import { useProgram } from '@/App';
 import { THEMES } from '@/theme';
@@ -17,75 +19,198 @@ interface PageBlock {
   updated_at: string;
 }
 
-// ── Sub-component: single editable block ──────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
-interface BlockEditorProps {
+/** Which keys look like page headings vs body paragraphs. */
+function isHeadingKey(key: string): boolean {
+  return key === 'hero_tagline';
+}
+
+/** One-line site-position hint per well-known key. */
+const LOCATION_HINTS: Record<string, string> = {
+  hero_tagline:      'Appears as the large headline at the top of the page',
+  event_invite_text: 'Shown in the invitation section below the hero',
+  what_is_encounter: 'Used in the "What is Encounter?" info block',
+  contact_note:      'Shown near the footer / contact section',
+};
+
+function getHint(key: string): string {
+  return LOCATION_HINTS[key] ?? 'Appears on the public-facing page';
+}
+
+// ── Sub-component: single inline-editable block ───────────────────────────────
+
+interface InlineBlockProps {
   block: PageBlock;
-  themeAccent: string;
-  themePrimary: string;
+  accent: string;
+  primary: string;
   onSave: (id: number, value: string) => Promise<void>;
 }
 
-function BlockEditor({ block, themeAccent, themePrimary, onSave }: BlockEditorProps) {
+function InlineBlock({ block, accent, primary, onSave }: InlineBlockProps) {
   const [value, setValue] = useState(block.value);
+  const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const dirty = value !== block.value;
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isHeading = isHeadingKey(block.key);
 
-  async function handleSave() {
-    setSaving(true);
-    setError(null);
-    setSaved(false);
-    try {
-      await onSave(block.id, value);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Save failed');
-    } finally {
-      setSaving(false);
+  // Keep local value in sync if parent reloads
+  useEffect(() => { setValue(block.value); }, [block.value]);
+
+  function autoResize() {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }
+
+  function handleActivate() {
+    setEditing(true);
+    // Focus after state + paint
+    setTimeout(() => {
+      textareaRef.current?.focus();
+      autoResize();
+    }, 0);
+  }
+
+  function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const next = e.target.value;
+    setValue(next);
+    autoResize();
+
+    // Debounced auto-save
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      if (next === block.value) return;
+      setSaving(true);
+      setSaveError(null);
+      try {
+        await onSave(block.id, next);
+        setSavedAt(Date.now());
+      } catch (err) {
+        setSaveError(err instanceof Error ? err.message : 'Save failed');
+      } finally {
+        setSaving(false);
+      }
+    }, 600);
+  }
+
+  async function handleBlur() {
+    setEditing(false);
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    if (value !== block.value) {
+      setSaving(true);
+      setSaveError(null);
+      try {
+        await onSave(block.id, value);
+        setSavedAt(Date.now());
+      } catch (err) {
+        setSaveError(err instanceof Error ? err.message : 'Save failed');
+      } finally {
+        setSaving(false);
+      }
     }
   }
 
+  const showSaved = savedAt !== null && !saving && !saveError;
+
   return (
     <div
-      className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+      className="group relative"
       data-testid={`block-${block.id}`}
     >
-      <h3 className="text-sm font-bold mb-2" style={{ color: themePrimary }}>
-        {block.label}
-      </h3>
-      <textarea
-        aria-label={`Edit ${block.label}`}
-        rows={4}
-        className="w-full border border-gray-300 rounded px-3 py-2 text-sm resize-y focus:outline-none focus:ring-1"
-        style={{ '--tw-ring-color': themeAccent } as React.CSSProperties}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-      />
-      <div className="flex items-center gap-3 mt-2">
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving || !dirty}
-          className="px-3 py-1.5 text-xs rounded font-semibold text-white transition-opacity disabled:opacity-40"
-          style={{ background: themeAccent }}
-          aria-label={`Save ${block.label}`}
+      {/* Label + hint row */}
+      <div className="flex items-baseline justify-between mb-1 gap-2">
+        <span
+          className="text-xs font-semibold tracking-wide uppercase"
+          style={{ color: primary }}
+          data-testid={`block-label-${block.id}`}
         >
-          {saving ? 'Saving…' : 'Save'}
-        </button>
-        {saved && (
-          <span className="text-xs text-green-600 font-medium" role="status">
-            Saved
-          </span>
+          {block.label}
+        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          {saving && (
+            <span className="text-xs text-gray-400 animate-pulse" aria-live="polite">
+              Saving…
+            </span>
+          )}
+          {showSaved && (
+            <span
+              className="text-xs font-medium"
+              style={{ color: accent }}
+              role="status"
+              aria-label={`${block.label} saved`}
+            >
+              Saved
+            </span>
+          )}
+          {saveError && (
+            <span className="text-xs text-red-500" role="alert">{saveError}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Editable text area — styled to look like the page */}
+      <div
+        className="relative cursor-text"
+        onClick={!editing ? handleActivate : undefined}
+        data-testid={`block-display-${block.id}`}
+      >
+        {editing ? (
+          <textarea
+            ref={textareaRef}
+            aria-label={`Edit ${block.label}`}
+            className={[
+              'w-full resize-none overflow-hidden bg-transparent border-0 outline-none p-0 m-0',
+              'focus:ring-0 rounded-none',
+              isHeading
+                ? 'text-2xl font-bold leading-snug'
+                : 'text-sm leading-relaxed text-gray-700',
+            ].join(' ')}
+            style={{
+              color: isHeading ? primary : undefined,
+              borderBottom: `2px solid ${accent}`,
+              minHeight: '1.5em',
+            }}
+            value={value}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            rows={1}
+          />
+        ) : (
+          <div
+            className={[
+              'rounded px-0 py-0.5 transition-colors',
+              'group-hover:bg-black/[0.03]',
+              isHeading
+                ? 'text-2xl font-bold leading-snug'
+                : 'text-sm leading-relaxed text-gray-700',
+            ].join(' ')}
+            style={{ color: isHeading ? primary : undefined }}
+            aria-label={`Click to edit: ${block.label}`}
+          >
+            {value || <span className="text-gray-300 italic">Empty — click to add text</span>}
+          </div>
         )}
-        {error && (
-          <span role="alert" className="text-xs text-red-600">
-            {error}
+
+        {/* "Click to edit" nudge on hover */}
+        {!editing && (
+          <span
+            className="absolute right-0 top-0 text-[10px] text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none select-none"
+          >
+            click to edit
           </span>
         )}
       </div>
+
+      {/* Hint */}
+      <p className="text-[11px] text-gray-400 mt-1">{getHint(block.key)}</p>
     </div>
   );
 }
@@ -123,21 +248,28 @@ export default function PageDetails() {
     await load();
   }
 
+  const programLabel = program === 'mens' ? "Men's" : "Women's";
+
   return (
-    <div>
-      <div className="mb-6">
+    <div className="max-w-2xl mx-auto">
+      {/* Page header */}
+      <div className="mb-5">
         <h1 className="text-xl font-bold" style={{ color: theme.primary }}>
           Web Page Details
         </h1>
-        <p className="text-sm text-gray-500 mt-1">
-          These text blocks appear on the public-facing{' '}
-          {program === 'mens' ? "Men's" : "Women's"} Encounter website.
-          Edit and save each block to update the live site.
+        <p className="text-sm text-gray-500 mt-0.5">
+          Click any text on the page mock-up below to edit it.
+          Changes are saved automatically — no Save button needed.
+          These are the{' '}
+          <span className="font-medium">public-facing</span>{' '}
+          {programLabel} Encounter page texts.
         </p>
       </div>
 
       {loading && (
-        <p className="text-sm text-gray-400 animate-pulse">Loading page content…</p>
+        <p className="text-sm text-gray-400 animate-pulse" aria-live="polite">
+          Loading page content…
+        </p>
       )}
 
       {error && (
@@ -150,17 +282,44 @@ export default function PageDetails() {
         </div>
       )}
 
+      {/* Page mock-up card */}
       {!loading && !error && blocks.length > 0 && (
-        <div className="flex flex-col gap-4">
-          {blocks.map((block) => (
-            <BlockEditor
-              key={block.id}
-              block={block}
-              themeAccent={theme.accent}
-              themePrimary={theme.primary}
-              onSave={handleSave}
-            />
-          ))}
+        <div
+          className="rounded-2xl border shadow-sm overflow-hidden"
+          style={{ borderColor: `${theme.accent}40`, background: theme.bg }}
+          data-testid="page-mockup"
+        >
+          {/* Simulated browser chrome bar */}
+          <div
+            className="flex items-center gap-1.5 px-4 py-2.5 border-b"
+            style={{
+              background: theme.primary,
+              borderColor: `${theme.accent}40`,
+            }}
+          >
+            <span className="w-2.5 h-2.5 rounded-full bg-white/20 inline-block" />
+            <span className="w-2.5 h-2.5 rounded-full bg-white/20 inline-block" />
+            <span className="w-2.5 h-2.5 rounded-full bg-white/20 inline-block" />
+            <span
+              className="ml-3 text-xs font-medium tracking-wide opacity-60"
+              style={{ color: '#fff' }}
+            >
+              {theme.label} — Public Page
+            </span>
+          </div>
+
+          {/* Page content sections */}
+          <div className="p-6 flex flex-col gap-6">
+            {blocks.map((block) => (
+              <InlineBlock
+                key={block.id}
+                block={block}
+                accent={theme.accent}
+                primary={theme.primary}
+                onSave={handleSave}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>
