@@ -15,6 +15,7 @@ import { campaignsRouter } from './routes/campaigns';
 import { aiRouter } from './routes/ai';
 import { photosAdminRouter, photosPublicRouter } from './routes/photos';
 import { testimoniesRouter } from './routes/testimonies';
+import { contentAdminRouter, contentPublicRouter } from './routes/content';
 
 export interface Env {
   DB: D1Database;
@@ -82,3 +83,7 @@ app.route('/api/admin/photos', photosAdminRouter);
 
 // Testimonies & Teachings (email-in, person-matched, admin review)
 app.route('/api/admin/testimonies', testimoniesRouter);
+
+// P7: CMS — editable form fields + page text blocks
+app.route('/api/admin', contentAdminRouter);
+app.route('/api/public', contentPublicRouter);
