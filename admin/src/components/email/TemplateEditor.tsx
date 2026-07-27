@@ -297,56 +297,59 @@ export function TemplateEditor() {
   const automated = templates.filter((t) => AUTOMATED_KEYS.has(t.key));
   const manual = templates.filter((t) => !AUTOMATED_KEYS.has(t.key));
 
-  const renderItem = (t: Template) => (
-    <li key={t.id}>
-      <button onClick={() => selectTemplate(t)}
-        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${selected?.id === t.id ? 'font-semibold' : 'hover:bg-gray-100'}`}
-        style={selected?.id === t.id ? { background: 'var(--color-primary)', color: '#fff' } : undefined}>
-        {t.name}
-        {t.key === 'general' && <span className="block text-[11px] opacity-70">Start here — your general template</span>}
-        {AUTOMATED_KEYS.has(t.key) && <span className="block text-[11px] opacity-70">Sent automatically on registration</span>}
-      </button>
-    </li>
-  );
+  const renderItem = (t: Template) => {
+    const active = selected?.id === t.id;
+    return (
+      <li key={t.id}>
+        <button onClick={() => selectTemplate(t)}
+          className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors ${active ? '' : 'text-gray-700 hover:bg-black/[0.04]'}`}
+          style={active ? { background: 'var(--color-primary)', color: '#fff' } : undefined}>
+          <span className="flex-1 truncate">{t.name}</span>
+          {AUTOMATED_KEYS.has(t.key) && (
+            <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+              style={active ? { background: 'rgba(255,255,255,0.25)' } : { background: '#f1f1f4', color: '#9ca3af' }}>Auto</span>
+          )}
+        </button>
+      </li>
+    );
+  };
 
   return (
     <div className="grid grid-cols-12 gap-6">
-      {/* Template library */}
-      <aside className="col-span-3 space-y-5">
-        {automated.length > 0 && (
+      {/* Template library — clean, sectioned sidebar */}
+      <aside className="col-span-3 border-r border-gray-100 pr-4">
+        <nav className="space-y-6 sticky top-2">
           <div>
-            <h3 className="font-semibold text-gray-500 mb-2 text-xs uppercase tracking-wide flex items-center gap-1.5">
-              <span aria-hidden="true">⚙️</span> Automated emails
-            </h3>
-            <ul className="space-y-1">{automated.map(renderItem)}</ul>
+            <h3 className="px-3 mb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Templates</h3>
+            <ul className="space-y-0.5">{manual.map(renderItem)}</ul>
           </div>
-        )}
-        <div>
-          <h3 className="font-semibold text-gray-500 mb-2 text-xs uppercase tracking-wide">Your templates</h3>
-          <ul className="space-y-1">{manual.map(renderItem)}</ul>
-        </div>
-        <div>
-          <h3 className="font-semibold text-gray-500 mb-2 text-xs uppercase tracking-wide flex items-center gap-1.5">
-            <span aria-hidden="true">📨</span> Sent history
-          </h3>
-          {history.length === 0 ? (
-            <p className="text-xs text-gray-400 px-1">No emails sent yet.</p>
-          ) : (
-            <ul className="space-y-1">
-              {history.map((c) => (
-                <li key={c.id}>
-                  <button onClick={() => useAsTemplate(c.id)} title="Click to reuse this as a new template"
-                    className="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-gray-100">
-                    <span className="block truncate text-gray-800">{c.subject || '(no subject)'}</span>
-                    <span className="block text-[11px] text-gray-400">
-                      {c.status} · {c.recipient_count} · {new Date(c.created_at).toLocaleDateString()}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+          {automated.length > 0 && (
+            <div>
+              <h3 className="px-3 mb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Automated</h3>
+              <ul className="space-y-0.5">{automated.map(renderItem)}</ul>
+            </div>
           )}
-        </div>
+          <div>
+            <h3 className="px-3 mb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Sent history</h3>
+            {history.length === 0 ? (
+              <p className="px-3 py-1 text-xs text-gray-400">Nothing sent yet.</p>
+            ) : (
+              <ul className="space-y-0.5">
+                {history.map((c) => (
+                  <li key={c.id}>
+                    <button onClick={() => useAsTemplate(c.id)} title="Reuse as a new template"
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-black/[0.04] transition-colors">
+                      <span className="block truncate text-sm text-gray-700">{c.subject || '(no subject)'}</span>
+                      <span className="block text-[11px] text-gray-400">
+                        {new Date(c.created_at).toLocaleDateString()} · {c.recipient_count} sent
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </nav>
       </aside>
 
       {/* Live email editor */}

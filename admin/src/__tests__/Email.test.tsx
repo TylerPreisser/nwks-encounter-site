@@ -663,13 +663,15 @@ describe('TemplateEditor', () => {
     body_text: 'Reminder', variables: '["first_name"]', updated_at: '2026-07-27T00:00:00Z',
   };
 
-  it('lists templates from the API and labels the general one', async () => {
+  it('lists templates from the API in the sidebar', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ ok: true, templates: [GENERAL] }), { status: 200 })
     );
     render(<TemplateEditor />, { wrapper: wrapper() });
     await waitFor(() => expect(screen.getByText("Men's Encounter")).toBeInTheDocument());
-    expect(screen.getByText(/general template/i)).toBeInTheDocument();
+    // Sidebar section headers present.
+    expect(screen.getByText(/^templates$/i)).toBeInTheDocument();
+    expect(screen.getByText(/sent history/i)).toBeInTheDocument();
   });
 
   it('auto-selects the general template on mount', async () => {
