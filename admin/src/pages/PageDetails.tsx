@@ -8,6 +8,12 @@ import { apiFetch } from '@/api';
 import { useProgram } from '@/App';
 import { THEMES } from '@/theme';
 import './page-editor.css';
+import mensHeroLogo from '../assets/mens-hero-logo.jpg';
+import womensHeroLogo from '../assets/womens-hero-logo.jpg';
+
+// The exact logo images the real public hero uses (trimmed men's mark that blends
+// into the olive; women's source mark) — NOT the disc-backed admin thumbnails.
+const HERO_LOGO: Record<'mens' | 'women', string> = { mens: mensHeroLogo, women: womensHeroLogo };
 
 // ── Doc shape (mirrors src/content/*.js) ─────────────────────────────────────
 interface LinkBlock { link: { label: string; href: string } }
@@ -197,7 +203,7 @@ export default function PageDetails() {
       <div className={`pe-page pe-page--${door}`} data-testid="page-editor" key={ver}>
         {/* Hero */}
         <div className="pe-hero">
-          <div className="pe-logo" style={{ backgroundImage: `url(${theme.logoSrc})` }} role="img" aria-label={`${programLabel} Encounter logo`} />
+          <div className="pe-logo" style={{ backgroundImage: `url(${HERO_LOGO[program]})` }} role="img" aria-label={`${programLabel} Encounter logo`} />
           <Editable tag="h1" className="pe-title" text={doc.eventName} ariaLabel="Event name"
             onText={(v) => edit((d) => { d.eventName = v; })} />
           {doc.tagline !== undefined && (
@@ -207,12 +213,12 @@ export default function PageDetails() {
           <Editable tag="p" className="pe-dates" text={doc.dates} ariaLabel="Dates"
             onText={(v) => edit((d) => { d.dates = v; })} />
           {doc.register && doc.register.length > 0 && (
-            <div style={{ marginTop: 6 }}>
-              <Editable tag="span" className="pe-cta" text={doc.register[0].label} ariaLabel="Register button label"
-                onText={(v) => edit((d) => { d.register![0].label = v; })} />
-              <p className="pe-dates" style={{ marginTop: 8, fontSize: '0.62rem', opacity: 0.55 }}>
-                Links to your built-in registration form
-              </p>
+            <div className="pe-cta-group">
+              {doc.register.map((r, ri) => (
+                <Editable key={ri} tag="span" className="pe-cta" text={r.label}
+                  ariaLabel={`Register button ${ri + 1} label`}
+                  onText={(v) => edit((d) => { d.register![ri].label = v; })} />
+              ))}
             </div>
           )}
         </div>
