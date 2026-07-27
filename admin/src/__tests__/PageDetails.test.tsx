@@ -1,51 +1,26 @@
 // admin/src/__tests__/PageDetails.test.tsx
 import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { ProgramContext } from '../App';
 import PageDetails from '../pages/PageDetails';
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
-
-type FetchStub = { status: number; body: unknown };
-
-function mockFetchMap(map: Record<string, FetchStub>) {
-  return vi.spyOn(global, 'fetch').mockImplementation(async (input) => {
-    const url = typeof input === 'string' ? input : (input as Request).url;
-    const stripped = url.split('?')[0];
-    const match = map[stripped] ?? map['*'];
-    if (!match) throw new Error(`Unmocked fetch: ${url}`);
-    return new Response(JSON.stringify(match.body), {
-      status: match.status,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  });
-}
-
-// Blocks use CLEAR human labels — NOT raw keys
-const BLOCK_1 = {
-  id: 10,
-  program: 'mens',
-  key: 'hero_tagline',
-  label: 'Main tagline (top of the page)',
-  value: 'An encounter that changes everything.',
-  sort: 1,
-  updated_at: '2024-01-01T00:00:00Z',
+// ── Fixture: the page document ───────────────────────────────────────────────
+const DOC = {
+  eventName: "NWKS Men's Encounter",
+  dates: 'August 6 - 8, 2026',
+  tagline: 'It is for freedom that Christ has set us free.',
+  logo: 'men-logo-300x300-1.jpg',
+  sections: [
+    { id: 'what-is', title: "What is Men's Encounter?", blocks: ['A paragraph here.'] },
+  ],
+  cost: '$125',
+  bring: ['Sleeping bag', 'Pillow(s)'],
+  contacts: [{ name: 'Norton - Lucas', phone: '785-202-0302' }],
+  register: [{ label: 'Register as an Attendee', href: 'https://example.com' }],
+  verse: 'Galatians 5:1',
 };
-
-const BLOCK_2 = {
-  id: 11,
-  program: 'mens',
-  key: 'event_invite_text',
-  label: 'Invitation paragraph',
-  value: 'Join us for a powerful weekend retreat.',
-  sort: 2,
-  updated_at: '2024-01-01T00:00:00Z',
-};
-
-const BLOCKS_RESPONSE = { ok: true, blocks: [BLOCK_1, BLOCK_2] };
 
 function wrapper(program: 'mens' | 'women' = 'mens') {
   return ({ children }: { children: React.ReactNode }) => (
@@ -57,262 +32,81 @@ function wrapper(program: 'mens' | 'women' = 'mens') {
   );
 }
 
-// ── Tests ──────────────────────────────────────────────────────────────────────
-
-describe('PageDetails page', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+/** Mock fetch: GET page-document → doc; PUT → updated_at (and record the body). */
+function mockPageDoc() {
+  const puts: Array<{ url: string; body: any }> = [];
+  const spy = vi.spyOn(global, 'fetch').mockImplementation(async (input, init) => {
+    const url = typeof input === 'string' ? input : (input as Request).url;
+    const method = (init?.method ?? 'GET').toUpperCase();
+    if (url.includes('/page-document') && method === 'PUT') {
+      puts.push({ url, body: JSON.parse(init!.body as string) });
+      return new Response(JSON.stringify({ ok: true, updated_at: '2026-07-27T12:00:00Z' }), { status: 200 });
+    }
+    if (url.includes('/page-document')) {
+      return new Response(JSON.stringify({ ok: true, doc: DOC }), { status: 200 });
+    }
+    throw new Error(`Unmocked fetch: ${url}`);
   });
+  return { spy, puts };
+}
 
-  afterEach(() => {
-    vi.runAllTimers();
-    vi.useRealTimers();
-  });
+describe('PageDetails inline editor', () => {
+  afterEach(() => vi.restoreAllMocks());
 
-  // ── 1. Labels: human-readable, no raw keys ─────────────────────────────────
-
-  it('shows loading state then renders block labels', async () => {
-    mockFetchMap({ '/api/admin/page-content': { status: 200, body: BLOCKS_RESPONSE } });
-
+  it('renders the page content from the document', async () => {
+    mockPageDoc();
     render(<PageDetails />, { wrapper: wrapper() });
-
-    expect(screen.getByText(/loading/i)).toBeInTheDocument();
-
-    await waitFor(() => {
-      expect(screen.getByText('Main tagline (top of the page)')).toBeInTheDocument();
-      expect(screen.getByText('Invitation paragraph')).toBeInTheDocument();
-    });
+    await waitFor(() => expect(screen.getByLabelText('Event name')).toBeInTheDocument());
+    expect(screen.getByLabelText('Event name')).toHaveValue("NWKS Men's Encounter");
+    expect(screen.getByDisplayValue('Sleeping bag')).toBeInTheDocument();
+    expect(screen.getByDisplayValue("What is Men's Encounter?")).toBeInTheDocument();
   });
 
-  it('never shows raw key names like hero_tagline or event_invite_text', async () => {
-    mockFetchMap({ '/api/admin/page-content': { status: 200, body: BLOCKS_RESPONSE } });
-
+  it('has a Publish button (not a Register button), disabled until edited', async () => {
+    mockPageDoc();
     render(<PageDetails />, { wrapper: wrapper() });
-
-    await waitFor(() =>
-      expect(screen.getByText('Main tagline (top of the page)')).toBeInTheDocument()
-    );
-
-    expect(screen.queryByText('hero_tagline')).not.toBeInTheDocument();
-    expect(screen.queryByText('event_invite_text')).not.toBeInTheDocument();
+    await waitFor(() => screen.getByTestId('publish-btn'));
+    expect(screen.getByRole('button', { name: /publish/i })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /register as an attendee/i })).not.toBeInTheDocument();
   });
 
-  it('renders block text values in the page mock-up', async () => {
-    mockFetchMap({ '/api/admin/page-content': { status: 200, body: BLOCKS_RESPONSE } });
-
+  it('editing text enables Publish and PUTs the document', async () => {
+    const { puts } = mockPageDoc();
     render(<PageDetails />, { wrapper: wrapper() });
+    await waitFor(() => screen.getByLabelText('Event name'));
 
-    await waitFor(() =>
-      expect(screen.getByText('An encounter that changes everything.')).toBeInTheDocument()
-    );
-    expect(screen.getByText('Join us for a powerful weekend retreat.')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Event name'), { target: { value: 'NWKS Mens Encounter (edited)' } });
+    const publish = screen.getByTestId('publish-btn');
+    expect(publish).not.toBeDisabled();
+
+    fireEvent.click(publish);
+    await waitFor(() => expect(puts.length).toBe(1));
+    expect(puts[0].body.doc.eventName).toBe('NWKS Mens Encounter (edited)');
+    await waitFor(() => expect(screen.getByText(/published/i)).toBeInTheDocument());
   });
 
-  // ── 2. Compact page-like layout ─────────────────────────────────────────────
-
-  it('renders a page-mockup container', async () => {
-    mockFetchMap({ '/api/admin/page-content': { status: 200, body: BLOCKS_RESPONSE } });
-
+  it('pressing Enter in a "What to Bring" item adds a new bulleted item', async () => {
+    mockPageDoc();
     render(<PageDetails />, { wrapper: wrapper() });
+    await waitFor(() => screen.getByDisplayValue('Sleeping bag'));
+
+    const before = screen.getAllByLabelText(/^List item/i).length;
+    const first = screen.getByDisplayValue('Sleeping bag');
+    fireEvent.keyDown(first, { key: 'Enter', code: 'Enter' });
 
     await waitFor(() =>
-      expect(screen.getByTestId('page-mockup')).toBeInTheDocument()
+      expect(screen.getAllByLabelText(/^List item/i).length).toBe(before + 1)
     );
   });
 
-  it('does NOT render any big Save button per block', async () => {
-    mockFetchMap({ '/api/admin/page-content': { status: 200, body: BLOCKS_RESPONSE } });
-
+  it('adds a new list item via the + Add item button too', async () => {
+    mockPageDoc();
     render(<PageDetails />, { wrapper: wrapper() });
-
+    await waitFor(() => screen.getByDisplayValue('Sleeping bag'));
+    const before = screen.getAllByLabelText(/^List item/i).length;
+    fireEvent.click(screen.getAllByRole('button', { name: /add item/i })[0]);
     await waitFor(() =>
-      expect(screen.getByTestId('page-mockup')).toBeInTheDocument()
+      expect(screen.getAllByLabelText(/^List item/i).length).toBe(before + 1)
     );
-
-    // No per-block save button should exist
-    expect(screen.queryByRole('button', { name: /save/i })).not.toBeInTheDocument();
-  });
-
-  // ── 3. Click-to-edit: clicking activates inline editing ───────────────────
-
-  it('clicking a block display activates an editable textarea', async () => {
-    mockFetchMap({ '/api/admin/page-content': { status: 200, body: BLOCKS_RESPONSE } });
-
-    render(<PageDetails />, { wrapper: wrapper() });
-
-    await waitFor(() =>
-      expect(screen.getByTestId('block-display-10')).toBeInTheDocument()
-    );
-
-    // Before click: no textarea, just a display div
-    expect(screen.queryByRole('textbox', { name: /edit main tagline/i })).not.toBeInTheDocument();
-
-    // Click the block
-    fireEvent.click(screen.getByTestId('block-display-10'));
-
-    // After click: textarea appears
-    await waitFor(() =>
-      expect(screen.getByRole('textbox', { name: /edit main tagline/i })).toBeInTheDocument()
-    );
-  });
-
-  // ── 4. Auto-save on blur — PATCH, no explicit save button ─────────────────
-
-  it('auto-saves on blur via PATCH without a Save button click', async () => {
-    const fetchMock = vi.spyOn(global, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(BLOCKS_RESPONSE), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, block: { ...BLOCK_1, value: 'New tagline' } }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(BLOCKS_RESPONSE), { status: 200 }));
-
-    render(<PageDetails />, { wrapper: wrapper() });
-
-    await waitFor(() =>
-      expect(screen.getByTestId('block-display-10')).toBeInTheDocument()
-    );
-
-    // Activate editing
-    fireEvent.click(screen.getByTestId('block-display-10'));
-
-    const textarea = await screen.findByRole('textbox', { name: /edit main tagline/i });
-
-    // Change the value
-    await act(async () => {
-      fireEvent.change(textarea, { target: { value: 'New tagline' } });
-    });
-
-    // Blur triggers save
-    await act(async () => {
-      fireEvent.blur(textarea);
-    });
-
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
-
-    const [patchUrl, patchInit] = fetchMock.mock.calls[1] as [string, RequestInit];
-    expect(patchUrl).toMatch(/\/api\/admin\/page-content\/10/);
-    expect(patchInit.method).toBe('PATCH');
-    const body = JSON.parse(patchInit.body as string);
-    expect(body.value).toBe('New tagline');
-  });
-
-  it('does NOT PATCH when value is unchanged after blur', async () => {
-    const fetchMock = vi.spyOn(global, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(BLOCKS_RESPONSE), { status: 200 }));
-
-    render(<PageDetails />, { wrapper: wrapper() });
-
-    await waitFor(() =>
-      expect(screen.getByTestId('block-display-10')).toBeInTheDocument()
-    );
-
-    // Activate then immediately blur without changing value
-    fireEvent.click(screen.getByTestId('block-display-10'));
-    const textarea = await screen.findByRole('textbox', { name: /edit main tagline/i });
-
-    await act(async () => {
-      fireEvent.blur(textarea);
-    });
-
-    // Only the initial GET; no PATCH
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
-  it('shows "Saved" status indicator after successful auto-save', async () => {
-    vi.spyOn(global, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(BLOCKS_RESPONSE), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, block: BLOCK_1 }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(BLOCKS_RESPONSE), { status: 200 }));
-
-    render(<PageDetails />, { wrapper: wrapper() });
-
-    await waitFor(() =>
-      expect(screen.getByTestId('block-display-10')).toBeInTheDocument()
-    );
-
-    fireEvent.click(screen.getByTestId('block-display-10'));
-    const textarea = await screen.findByRole('textbox', { name: /edit main tagline/i });
-
-    await act(async () => {
-      fireEvent.change(textarea, { target: { value: 'Changed text' } });
-      fireEvent.blur(textarea);
-    });
-
-    await waitFor(() =>
-      expect(screen.getByRole('status', { name: /main tagline.*saved/i })).toBeInTheDocument()
-    );
-  });
-
-  // ── 5. Empty / error states ─────────────────────────────────────────────────
-
-  it('shows empty state when no blocks are returned', async () => {
-    mockFetchMap({ '/api/admin/page-content': { status: 200, body: { ok: true, blocks: [] } } });
-
-    render(<PageDetails />, { wrapper: wrapper() });
-
-    await waitFor(() =>
-      expect(screen.getByText(/no page content blocks/i)).toBeInTheDocument()
-    );
-  });
-
-  it('shows error alert when API fails', async () => {
-    vi.spyOn(global, 'fetch').mockResolvedValueOnce(
-      new Response(JSON.stringify({ error: 'DB error' }), { status: 500 }),
-    );
-
-    render(<PageDetails />, { wrapper: wrapper() });
-
-    await waitFor(() =>
-      expect(screen.getByRole('alert')).toBeInTheDocument()
-    );
-  });
-
-  // ── 6. Program context: refetch on toggle ──────────────────────────────────
-
-  it('refetches when program context changes', async () => {
-    const fetchMock = mockFetchMap({
-      '/api/admin/page-content': { status: 200, body: BLOCKS_RESPONSE },
-    });
-
-    const { rerender } = render(
-      <MemoryRouter>
-        <ProgramContext.Provider value={{ program: 'mens', setProgram: vi.fn() }}>
-          <PageDetails />
-        </ProgramContext.Provider>
-      </MemoryRouter>,
-    );
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-
-    rerender(
-      <MemoryRouter>
-        <ProgramContext.Provider value={{ program: 'women', setProgram: vi.fn() }}>
-          <PageDetails />
-        </ProgramContext.Provider>
-      </MemoryRouter>,
-    );
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-  });
-
-  // ── 7. Helper text mentions public-facing ─────────────────────────────────
-
-  it('includes explanatory helper text about live site', async () => {
-    mockFetchMap({ '/api/admin/page-content': { status: 200, body: BLOCKS_RESPONSE } });
-    render(<PageDetails />, { wrapper: wrapper() });
-
-    await waitFor(() =>
-      expect(screen.getByText(/live public/i)).toBeInTheDocument()
-    );
-  });
-
-  // ── 8. Block hint text is shown ────────────────────────────────────────────
-
-  it('shows location hint text for each block', async () => {
-    mockFetchMap({ '/api/admin/page-content': { status: 200, body: BLOCKS_RESPONSE } });
-
-    render(<PageDetails />, { wrapper: wrapper() });
-
-    await waitFor(() =>
-      expect(screen.getByText(/large headline at the top of the page/i)).toBeInTheDocument()
-    );
-    expect(screen.getByText(/invitation section below the hero/i)).toBeInTheDocument();
   });
 });

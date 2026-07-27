@@ -317,6 +317,42 @@ contentAdminRouter.patch('/page-content/:id', async (c) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ADMIN — page-document (the whole public page as one editable JSON doc)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// GET /api/admin/page-document — the full page content doc for the active program.
+contentAdminRouter.get('/page-document', async (c) => {
+  const program = c.get('program');
+  const row = await c.env.DB.prepare(
+    `SELECT doc, updated_at FROM page_document WHERE program = ?`
+  ).bind(program).first<{ doc: string; updated_at: string }>();
+  if (!row) return c.json({ ok: true, doc: null, updated_at: null });
+  let doc: unknown = null;
+  try { doc = JSON.parse(row.doc); } catch { doc = null; }
+  return c.json({ ok: true, doc, updated_at: row.updated_at });
+});
+
+// PUT /api/admin/page-document — publish the edited page. Body = the doc object.
+contentAdminRouter.put('/page-document', async (c) => {
+  const program = c.get('program');
+  let body: unknown;
+  try { body = await c.req.json(); } catch { return c.json({ ok: false, error: 'invalid JSON' }, 400); }
+  // Accept either the doc directly or { doc: {...} }.
+  const doc = body && typeof body === 'object' && 'doc' in (body as Record<string, unknown>)
+    ? (body as { doc: unknown }).doc
+    : body;
+  if (!doc || typeof doc !== 'object' || Array.isArray(doc)) {
+    return c.json({ ok: false, error: 'doc must be an object' }, 400);
+  }
+  const updated_at = nowIso();
+  await c.env.DB.prepare(
+    `INSERT INTO page_document (program, doc, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT(program) DO UPDATE SET doc = excluded.doc, updated_at = excluded.updated_at`
+  ).bind(program, JSON.stringify(doc), updated_at).run();
+  return c.json({ ok: true, updated_at });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // PUBLIC — unauthenticated, CORS-served
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -365,4 +401,22 @@ contentPublicRouter.get('/page-content', async (c) => {
   }
 
   return c.json({ ok: true, content });
+});
+
+// GET /api/public/page-document?program= — the full page doc for the public site.
+contentPublicRouter.get('/page-document', async (c) => {
+  const rawProgram = c.req.query('program');
+  // Accept men/women (public door names) and mens/womens (internal) alike.
+  const map: Record<string, string> = { men: 'mens', mens: 'mens', women: 'women', womens: 'women' };
+  const program = map[rawProgram ?? ''];
+  if (!program) {
+    return c.json({ ok: false, error: 'program must be men(s) or women(s)' }, 400);
+  }
+  const row = await c.env.DB.prepare(
+    `SELECT doc, updated_at FROM page_document WHERE program = ?`
+  ).bind(program).first<{ doc: string; updated_at: string }>();
+  if (!row) return c.json({ ok: true, doc: null });
+  let doc: unknown = null;
+  try { doc = JSON.parse(row.doc); } catch { doc = null; }
+  return c.json({ ok: true, doc, updated_at: row.updated_at });
 });
