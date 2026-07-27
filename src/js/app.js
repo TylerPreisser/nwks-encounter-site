@@ -50,16 +50,33 @@ window.NWKS = window.NWKS || {};
     var go = function () { if (revealed) return; revealed = true; reveal(); };
     var base = (typeof window !== 'undefined' && window.NWKS_API_BASE) ? window.NWKS_API_BASE : '';
     if (base) {
+      var pending = 2;
+      var maybeGo = function () { pending -= 1; if (pending <= 0) go(); };
+      var prog = door === 'men' ? 'mens' : 'women';
+      // Editable page content.
       fetch(base + '/api/public/page-document?program=' + door)
         .then(function (r) { return r.json(); })
         .then(function (d) {
-          if (d && d.doc && NWKS.content) {
-            NWKS.content[door] = Object.assign({}, NWKS.content[door] || {}, d.doc);
-          }
-          go();
+          if (d && d.doc && NWKS.content) NWKS.content[door] = Object.assign({}, NWKS.content[door] || {}, d.doc);
         })
-        .catch(go);
-      setTimeout(go, 1800);
+        .catch(function () {})
+        .then(maybeGo);
+      // Attendee-cap status (is registration full?).
+      fetch(base + '/api/public/events/current?program=' + prog)
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d && d.event) {
+            NWKS.regStatus = NWKS.regStatus || {};
+            NWKS.regStatus[door] = {
+              attendee_full: !!d.event.attendee_full,
+              attendee_open: d.event.attendee_open !== false,
+              attendee_full_message: d.event.attendee_full_message
+            };
+          }
+        })
+        .catch(function () {})
+        .then(maybeGo);
+      setTimeout(go, 2000);
     } else {
       go();
     }

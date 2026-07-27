@@ -387,6 +387,8 @@ registerRouter.post('/:program/:role', async (c) => {
       year: number;
       attendee_registration_open: number;
       server_registration_open: number;
+      attendee_limit: number | null;
+      attendee_full_message: string | null;
     }>();
 
   if (!event) {
@@ -399,6 +401,21 @@ registerRouter.post('/:program/:role', async (c) => {
 
   if (!regOpen) {
     return c.json({ ok: false, error: 'Registration is not open for this event.' }, 409);
+  }
+
+  // Attendee cap: reject once confirmed attendee registrations reach the limit.
+  if (role === 'attendee' && event.attendee_limit != null) {
+    const countRow = await c.env.DB
+      .prepare(`SELECT COUNT(*) AS n FROM registrations WHERE program = ? AND event_id = ? AND role = 'attendee' AND status = 'registered'`)
+      .bind(program, event.id)
+      .first<{ n: number }>();
+    if ((countRow?.n ?? 0) >= event.attendee_limit) {
+      return c.json({
+        ok: false,
+        full: true,
+        error: event.attendee_full_message || 'This Encounter is currently full.',
+      }, 409);
+    }
   }
 
   // Upsert person (de-dupe by email / fuzzy match)
@@ -480,10 +497,13 @@ registerRouter.post('/:program/:role', async (c) => {
     ).bind(program).first<{ subject: string; body_html: string; body_text: string }>();
     const tpl = dbTpl ?? welcomeTemplate(program, role);
     const rendered = renderTemplate(tpl, {
-      first_name: fields.first_name,
-      last_name:  fields.last_name ?? '',
-      program:    program === 'mens' ? "Men's" : "Women's",
-      role:       role === 'server' ? 'Server' : 'Attendee',
+      first_name:   fields.first_name,
+      last_name:    fields.last_name ?? '',
+      program:      program === 'mens' ? "Men's" : "Women's",
+      role:         role === 'server' ? 'Server' : 'Attendee',
+      role_lower:   role === 'server' ? 'server' : 'attendee',
+      // Correct indefinite article: "an attendee" (vowel) vs "a server".
+      role_article: role === 'server' ? 'a' : 'an',
     });
 
     await sendEmail(c.env, {

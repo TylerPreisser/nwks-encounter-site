@@ -349,7 +349,7 @@ window.NWKS = window.NWKS || {};
         // (a real form for men; a "currently full" notice for women).
         if (formSpecKeys.server && NWKS.forms && NWKS.forms.specs && NWKS.forms.specs[formSpecKeys.server]) {
           var srvLabel = (reg[1] && reg[1].label) || 'Register as a Server';
-          var serverCta = el('button', { className: 'world-cta world-cta--secondary', text: srvLabel });
+          var serverCta = el('button', { className: 'world-cta', text: srvLabel });
           serverCta.type = 'button';
           serverCta.addEventListener('click', function () { if (formPage) formPage.open(formSpecKeys.server); });
           ctaGroup.appendChild(serverCta);
@@ -423,6 +423,15 @@ window.NWKS = window.NWKS || {};
       }
 
       if (hasNativeForm) {
+        // Attendee cap: when the current event is full (or attendee reg is toggled
+        // off), show the themed "currently full" notice instead of the form.
+        var st = (NWKS.regStatus && NWKS.regStatus[door]) || null;
+        if (st && (st.attendee_full || st.attendee_open === false) &&
+            NWKS.forms.specs && NWKS.forms.specs[formSpecKeys.attendee]) {
+          NWKS.forms.specs[formSpecKeys.attendee].closed = true;
+          NWKS.forms.specs[formSpecKeys.attendee].closedMessage =
+            st.attendee_full_message || 'This upcoming Encounter is currently full.';
+        }
         var formPageKeys = [formSpecKeys.attendee];
         if (formSpecKeys.server && NWKS.forms && NWKS.forms.specs && NWKS.forms.specs[formSpecKeys.server]) {
           formPageKeys.push(formSpecKeys.server);

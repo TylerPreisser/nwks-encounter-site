@@ -16,6 +16,8 @@ interface NwksEvent {
   launch_locations: string; // raw JSON string from API
   attendee_registration_open: number;
   server_registration_open: number;
+  attendee_limit: number | null;
+  attendee_full_message: string | null;
   is_current: number;
 }
 
@@ -27,6 +29,8 @@ interface EventFormState {
   launch_locations: string; // comma-separated for UI
   attendee_registration_open: boolean;
   server_registration_open: boolean;
+  attendee_limit: string;        // '' = no cap
+  attendee_full_message: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -46,6 +50,8 @@ function emptyForm(): EventFormState {
     launch_locations: '',
     attendee_registration_open: true,
     server_registration_open: true,
+    attendee_limit: '',
+    attendee_full_message: '',
   };
 }
 
@@ -107,6 +113,8 @@ export default function Events() {
       launch_locations: parseLaunchLocations(ev.launch_locations).join(', '),
       attendee_registration_open: ev.attendee_registration_open === 1,
       server_registration_open: ev.server_registration_open === 1,
+      attendee_limit: ev.attendee_limit != null ? String(ev.attendee_limit) : '',
+      attendee_full_message: ev.attendee_full_message ?? '',
     });
     setFormError(null);
     setFormOpen(true);
@@ -134,6 +142,8 @@ export default function Events() {
         : [],
       attendee_registration_open: form.attendee_registration_open,
       server_registration_open: form.server_registration_open,
+      attendee_limit: form.attendee_limit.trim() === '' ? null : Number(form.attendee_limit),
+      attendee_full_message: form.attendee_full_message.trim() || null,
     };
 
     try {
@@ -299,6 +309,32 @@ export default function Events() {
                 onChange={(e) => setForm({ ...form, server_registration_open: e.target.checked })}
               />
               Server registration open
+            </label>
+          </div>
+
+          {/* ── Attendee cap ─────────────────────────────────────── */}
+          <div className="rounded-lg border border-gray-200 p-3 space-y-3 bg-gray-50/60">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Attendee limit (auto full)</p>
+            <label className="flex flex-col text-sm font-medium gap-1">
+              Max attendees <span className="font-normal text-gray-400">— leave blank for no limit</span>
+              <input
+                type="number" min="0" inputMode="numeric"
+                value={form.attendee_limit}
+                onChange={(e) => setForm({ ...form, attendee_limit: e.target.value })}
+                placeholder="e.g. 60"
+                className="border rounded px-2 py-1 w-40"
+                aria-label="Attendee limit"
+              />
+            </label>
+            <label className="flex flex-col text-sm font-medium gap-1">
+              "Currently full" message <span className="font-normal text-gray-400">— shown when the limit is reached</span>
+              <textarea
+                value={form.attendee_full_message}
+                onChange={(e) => setForm({ ...form, attendee_full_message: e.target.value })}
+                placeholder="This upcoming Encounter is currently full…"
+                className="border rounded px-2 py-1.5 text-sm min-h-[3rem]"
+                aria-label="Attendee full message"
+              />
             </label>
           </div>
 

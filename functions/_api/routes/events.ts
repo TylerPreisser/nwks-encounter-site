@@ -99,6 +99,8 @@ eventsRouter.patch('/:id', async (c) => {
     launch_locations?: string[];
     attendee_registration_open?: boolean;
     server_registration_open?: boolean;
+    attendee_limit?: number | null | '';
+    attendee_full_message?: string | null;
   }>();
 
   if (body.start_date && !/^\d{4}-\d{2}-\d{2}$/.test(body.start_date)) {
@@ -120,6 +122,8 @@ eventsRouter.patch('/:id', async (c) => {
   if ('launch_locations' in body)           { sets.push('launch_locations = ?');            vals.push(JSON.stringify(body.launch_locations)); }
   if ('attendee_registration_open' in body) { sets.push('attendee_registration_open = ?'); vals.push(body.attendee_registration_open ? 1 : 0); }
   if ('server_registration_open' in body)   { sets.push('server_registration_open = ?');   vals.push(body.server_registration_open ? 1 : 0); }
+  if ('attendee_limit' in body)             { sets.push('attendee_limit = ?');             vals.push(body.attendee_limit === '' || body.attendee_limit == null ? null : Number(body.attendee_limit)); }
+  if ('attendee_full_message' in body)      { sets.push('attendee_full_message = ?');      vals.push(body.attendee_full_message ?? null); }
 
   if (sets.length === 0) return c.json({ ok: false, error: 'no fields to update' }, 400);
 
