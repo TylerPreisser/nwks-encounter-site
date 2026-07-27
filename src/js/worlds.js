@@ -337,13 +337,23 @@ window.NWKS = window.NWKS || {};
 
       if (hasNativeForm) {
         var ctaGroup = el('div', { className: 'world-hero__cta-group' });
+        var reg = content.register || [];
 
-        var attendeeCta = el('button', { className: 'world-cta', text: 'Register as an Attendee' });
+        var attLabel = (reg[0] && reg[0].label) || 'Register as an Attendee';
+        var attendeeCta = el('button', { className: 'world-cta', text: attLabel });
         attendeeCta.type = 'button';
         attendeeCta.addEventListener('click', function () { if (formPage) formPage.open(formSpecKeys.attendee); });
         ctaGroup.appendChild(attendeeCta);
-        // Server registration removed for now — no Server form is currently open
-        // (men's Google form is closed; there's no women's Server form). Re-add when available.
+
+        // Server registration — its own button opening the native Server form
+        // (a real form for men; a "currently full" notice for women).
+        if (formSpecKeys.server && NWKS.forms && NWKS.forms.specs && NWKS.forms.specs[formSpecKeys.server]) {
+          var srvLabel = (reg[1] && reg[1].label) || 'Register as a Server';
+          var serverCta = el('button', { className: 'world-cta world-cta--secondary', text: srvLabel });
+          serverCta.type = 'button';
+          serverCta.addEventListener('click', function () { if (formPage) formPage.open(formSpecKeys.server); });
+          ctaGroup.appendChild(serverCta);
+        }
 
         hero.appendChild(ctaGroup);
       } else if (content.register && content.register.length) {
@@ -414,6 +424,9 @@ window.NWKS = window.NWKS || {};
 
       if (hasNativeForm) {
         var formPageKeys = [formSpecKeys.attendee];
+        if (formSpecKeys.server && NWKS.forms && NWKS.forms.specs && NWKS.forms.specs[formSpecKeys.server]) {
+          formPageKeys.push(formSpecKeys.server);
+        }
         formPage = buildFormPage(worldEl, door, formPageKeys);
       }
 

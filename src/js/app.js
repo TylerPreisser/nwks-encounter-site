@@ -34,13 +34,35 @@ window.NWKS = window.NWKS || {};
   door = (door === 'men' || door === 'women') ? door : null;
 
   if (door) {
-    // ---- World page: render this world's content and reveal it (fresh load, no transition).
-    if (NWKS.worlds && typeof NWKS.worlds.render === 'function') NWKS.worlds.render(door);
-    var worldEl = document.getElementById('world-' + door);
-    if (worldEl) worldEl.hidden = false;
-    var stage = document.getElementById('stage');
-    if (stage) stage.classList.add('world-open');
-    document.body.setAttribute('data-view', door); // matches the inline head script
+    // ---- World page: pull editable content from the backend (page_document),
+    // overlay it onto the baked-in static content (which is the fallback), then
+    // render + reveal. Never blocks the page: a fetch failure or >1.8s and we
+    // render the static content instead.
+    var reveal = function () {
+      if (NWKS.worlds && typeof NWKS.worlds.render === 'function') NWKS.worlds.render(door);
+      var worldEl = document.getElementById('world-' + door);
+      if (worldEl) worldEl.hidden = false;
+      var stage = document.getElementById('stage');
+      if (stage) stage.classList.add('world-open');
+      document.body.setAttribute('data-view', door); // matches the inline head script
+    };
+    var revealed = false;
+    var go = function () { if (revealed) return; revealed = true; reveal(); };
+    var base = (typeof window !== 'undefined' && window.NWKS_API_BASE) ? window.NWKS_API_BASE : '';
+    if (base) {
+      fetch(base + '/api/public/page-document?program=' + door)
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d && d.doc && NWKS.content) {
+            NWKS.content[door] = Object.assign({}, NWKS.content[door] || {}, d.doc);
+          }
+          go();
+        })
+        .catch(go);
+      setTimeout(go, 1800);
+    } else {
+      go();
+    }
   } else {
     // ---- Gateway page: each ENTER navigates to that world's own page (real load).
     var doors = document.querySelectorAll('.half[data-door]');

@@ -221,7 +221,8 @@ describe('menAttendee submit → POST JSON to /api/register/mens/attendee', () =
 
     expect(fetchMock).toHaveBeenCalledOnce();
     const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toBe('/api/register/mens/attendee');
+    // NWKS_API_BASE now defaults to the backend origin, so the path may be prefixed.
+    expect(url).toContain('/api/register/mens/attendee');
     expect(opts.method).toBe('POST');
     expect(opts.headers['Content-Type']).toBe('application/json');
   });
@@ -342,6 +343,6 @@ describe('women submit → POST JSON to /api/register/womens/attendee', () => {
 
     expect(fetchMock).toHaveBeenCalledOnce();
     const [url] = fetchMock.mock.calls[0];
-    expect(url).toBe('/api/register/womens/attendee');
+    expect(url).toContain('/api/register/womens/attendee');
   });
 });
