@@ -166,7 +166,8 @@ describe('FormsEditor page', () => {
     // Advance past debounce (600ms)
     await act(async () => { vi.advanceTimersByTime(700); });
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3), { timeout: 3000 });
+    // Autosave no longer refetches — just the initial GET + the PATCH (no reload).
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2), { timeout: 3000 });
 
     const [patchUrl, patchInit] = fetchMock.mock.calls[1] as [string, RequestInit];
     expect(patchUrl).toMatch(/\/api\/admin\/form-fields\/1/);
@@ -197,7 +198,8 @@ describe('FormsEditor page', () => {
 
     await act(async () => { vi.advanceTimersByTime(700); });
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3), { timeout: 3000 });
+    // Autosave no longer refetches — just the initial GET + the PATCH (no reload).
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2), { timeout: 3000 });
     const [, patchInit] = fetchMock.mock.calls[1] as [string, RequestInit];
     const patched = JSON.parse(patchInit.body as string);
     expect(patched.type).toBe('textarea');
@@ -225,7 +227,8 @@ describe('FormsEditor page', () => {
 
     await act(async () => { vi.advanceTimersByTime(700); });
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3), { timeout: 3000 });
+    // Autosave no longer refetches — just the initial GET + the PATCH (no reload).
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2), { timeout: 3000 });
     const [, patchInit] = fetchMock.mock.calls[1] as [string, RequestInit];
     const patched = JSON.parse(patchInit.body as string);
     expect(patched.required).toBe(0);

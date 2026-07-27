@@ -36,6 +36,28 @@ dashboardRouter.get('/', async (c) => {
 
   const emailSentCount = emailRow?.n ?? 0;
 
+  // Inbox / mailbox monitor: inbound emails (stored via the email worker as
+  // testimonies) that have NOT yet been handled — i.e. need a response.
+  // Counts this program's items plus unassigned inbound mail.
+  const NEEDS_ATTENTION_STATUSES = [
+    'not_received',
+    'draft_1_awaiting', 'draft_1_review',
+    'draft_2_awaiting', 'draft_2_review',
+    'draft_3_awaiting', 'draft_3_review',
+  ];
+  const inboxPlaceholders = NEEDS_ATTENTION_STATUSES.map(() => '?').join(',');
+  const [inboxProgramRow, inboxUnassignedRow] = await Promise.all([
+    db.prepare(
+      `SELECT COUNT(*) AS n FROM testimonies
+       WHERE program = ? AND status IN (${inboxPlaceholders})`
+    ).bind(program, ...NEEDS_ATTENTION_STATUSES).first<{ n: number }>(),
+    db.prepare(
+      `SELECT COUNT(*) AS n FROM testimonies
+       WHERE program IS NULL AND status IN (${inboxPlaceholders})`
+    ).bind(...NEEDS_ATTENTION_STATUSES).first<{ n: number }>(),
+  ]);
+  const inboxCount = (inboxProgramRow?.n ?? 0) + (inboxUnassignedRow?.n ?? 0);
+
   if (!event) {
     return c.json({
       ok: true,
@@ -47,6 +69,7 @@ dashboardRouter.get('/', async (c) => {
         by_shirt_size: [],
         recent_registrations: [],
         email_sent_count: emailSentCount,
+        inbox_count: inboxCount,
         upcoming_event: null,
       },
     });
@@ -129,6 +152,7 @@ dashboardRouter.get('/', async (c) => {
       by_shirt_size: shirtResult.results,
       recent_registrations: recentResult.results,
       email_sent_count: emailSentCount,
+      inbox_count: inboxCount,
       upcoming_event: event,
     },
   });

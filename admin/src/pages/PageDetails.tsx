@@ -215,11 +215,34 @@ function InlineBlock({ block, accent, primary, onSave }: InlineBlockProps) {
   );
 }
 
+// ── Live public site — URL config per program ──────────────────────────────────
+
+/** The actual public "worlds" site we designed (separate Pages project). */
+const PUBLIC_SITE_ORIGIN = 'https://nwks-encounter-site.pages.dev';
+
+interface SiteLinks { worldUrl: string; registerUrl: string; label: string; }
+
+function siteLinksFor(program: string): SiteLinks {
+  if (program === 'women') {
+    return {
+      worldUrl: `${PUBLIC_SITE_ORIGIN}/?door=women`,
+      registerUrl: '/register/womens-attendee.html',
+      label: "Women's",
+    };
+  }
+  return {
+    worldUrl: `${PUBLIC_SITE_ORIGIN}/?door=men`,
+    registerUrl: '/register/mens-attendee.html',
+    label: "Men's",
+  };
+}
+
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function PageDetails() {
   const { program } = useProgram();
   const theme = THEMES[program];
+  const links = siteLinksFor(program);
 
   const [blocks, setBlocks] = useState<PageBlock[]>([]);
   const [loading, setLoading] = useState(true);
@@ -251,18 +274,71 @@ export default function PageDetails() {
   const programLabel = program === 'mens' ? "Men's" : "Women's";
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-3xl mx-auto">
       {/* Page header */}
       <div className="mb-5">
         <h1 className="text-xl font-bold" style={{ color: theme.primary }}>
           Web Page Details
         </h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          Click any text on the page mock-up below to edit it.
-          Changes are saved automatically — no Save button needed.
-          These are the{' '}
-          <span className="font-medium">public-facing</span>{' '}
-          {programLabel} Encounter page texts.
+          This is your live public {programLabel} Encounter website. Preview it below,
+          register an attendee, or scroll down to edit the page text.
+        </p>
+      </div>
+
+      {/* ── Live public site preview + register ─────────────────── */}
+      <div
+        className="rounded-2xl border shadow-sm overflow-hidden mb-8"
+        style={{ borderColor: `${theme.accent}40` }}
+        data-testid="live-site-preview"
+      >
+        <div
+          className="flex items-center gap-3 px-4 py-2.5 border-b"
+          style={{ background: theme.primary, borderColor: `${theme.accent}40` }}
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-white/20 inline-block" />
+          <span className="w-2.5 h-2.5 rounded-full bg-white/20 inline-block" />
+          <span className="w-2.5 h-2.5 rounded-full bg-white/20 inline-block" />
+          <span className="ml-2 text-xs font-medium tracking-wide text-white/70 truncate">
+            {links.worldUrl.replace(/^https?:\/\//, '')}
+          </span>
+          <div className="ml-auto flex items-center gap-2">
+            <a
+              href={links.worldUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-medium text-white/80 hover:text-white underline underline-offset-2"
+            >
+              Open site ↗
+            </a>
+            <a
+              href={links.registerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="register-attendee-link"
+              className="text-xs font-semibold px-3 py-1.5 rounded-full"
+              style={{ background: theme.secondary, color: '#fff' }}
+            >
+              Register as attendee →
+            </a>
+          </div>
+        </div>
+        <iframe
+          title={`Live ${programLabel} Encounter site`}
+          data-testid="live-site-frame"
+          src={links.worldUrl}
+          className="w-full bg-white"
+          style={{ height: 520, border: 0 }}
+          loading="lazy"
+        />
+      </div>
+
+      <div className="mb-4">
+        <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: theme.primary }}>
+          Edit the page text
+        </h2>
+        <p className="text-xs text-gray-500 mt-0.5">
+          Click any text block below to edit it. Changes save automatically.
         </p>
       </div>
 

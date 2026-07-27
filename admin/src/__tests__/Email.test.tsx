@@ -648,38 +648,40 @@ describe('TemplateEditor', () => {
     vi.restoreAllMocks();
   });
 
-  const TEMPLATE = {
-    id: 1, program: 'mens', key: 'welcome', name: 'Welcome Email',
-    subject: 'Welcome to Encounter!', body_html: '<p>Hello</p>', body_text: 'Hello',
-    variables: '[]', updated_at: '2025-01-01T00:00:00Z',
+  // The general template carries the branded wrapper + an editable message region.
+  const GENERAL = {
+    id: 1, program: 'mens', key: 'general', name: "Men's Encounter",
+    subject: 'A message from NWKS Men’s Encounter',
+    body_html: '<body><td style="background:#6E765F"></td><!--EDITABLE_START--><p>Hi {{first_name}},</p><p>Body</p><!--EDITABLE_END--><td style="background:#6E765F"></td></body>',
+    body_text: 'Hi {{first_name}},', variables: '["first_name"]', updated_at: '2026-07-27T00:00:00Z',
   };
 
-  const TEMPLATE2 = {
-    id: 2, program: 'mens', key: 'reminder', name: 'Reminder Email',
-    subject: 'One week away!', body_html: '<p>Reminder</p>', body_text: 'Reminder',
-    variables: '[]', updated_at: '2025-01-01T00:00:00Z',
+  const SAVED = {
+    id: 2, program: 'mens', key: 'reminder_2', name: 'One-week reminder',
+    subject: 'One week away!',
+    body_html: '<body><!--EDITABLE_START--><p>Reminder</p><!--EDITABLE_END--></body>',
+    body_text: 'Reminder', variables: '["first_name"]', updated_at: '2026-07-27T00:00:00Z',
   };
 
-  it('lists templates from the API', async () => {
+  it('lists templates from the API and labels the general one', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ ok: true, templates: [TEMPLATE] }), { status: 200 })
+      new Response(JSON.stringify({ ok: true, templates: [GENERAL] }), { status: 200 })
     );
     render(<TemplateEditor />, { wrapper: wrapper() });
-    await waitFor(() => expect(screen.getByText('Welcome Email')).toBeInTheDocument());
-    expect(screen.getByText(/mens · welcome/i)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Men's Encounter")).toBeInTheDocument());
+    expect(screen.getByText(/general template/i)).toBeInTheDocument();
   });
 
-  it('auto-selects the first template on mount without requiring a click', async () => {
+  it('auto-selects the general template on mount', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ ok: true, templates: [TEMPLATE, TEMPLATE2] }), { status: 200 })
+      new Response(JSON.stringify({ ok: true, templates: [SAVED, GENERAL] }), { status: 200 })
     );
     render(<TemplateEditor />, { wrapper: wrapper() });
-    // The subject input should be populated with the first template's subject
+    // Even though SAVED is first, GENERAL is auto-selected.
     await waitFor(() =>
-      expect(screen.getByDisplayValue('Welcome to Encounter!')).toBeInTheDocument()
+      expect(screen.getByDisplayValue(/A message from NWKS Men/)).toBeInTheDocument()
     );
-    // "Select a template to edit" prompt should NOT be shown
-    expect(screen.queryByText(/select a template to edit/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no template selected/i)).not.toBeInTheDocument();
   });
 
   it('shows empty prompt when no templates exist', async () => {
@@ -688,50 +690,84 @@ describe('TemplateEditor', () => {
     );
     render(<TemplateEditor />, { wrapper: wrapper() });
     await waitFor(() =>
-      expect(screen.getByText(/select a template to edit/i)).toBeInTheDocument()
+      expect(screen.getByText(/no template selected/i)).toBeInTheDocument()
     );
   });
 
   it('switches to a different template when clicked in the list', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ ok: true, templates: [TEMPLATE, TEMPLATE2] }), { status: 200 })
+      new Response(JSON.stringify({ ok: true, templates: [GENERAL, SAVED] }), { status: 200 })
     );
     render(<TemplateEditor />, { wrapper: wrapper() });
-    // Auto-selects first (Welcome)
-    await waitFor(() => screen.getByDisplayValue('Welcome to Encounter!'));
-    // Click second template
-    await userEvent.click(screen.getByText('Reminder Email'));
-    // Subject should switch
+    await waitFor(() => screen.getByDisplayValue(/A message from NWKS Men/));
+    await userEvent.click(screen.getByText('One-week reminder'));
     expect(screen.getByDisplayValue('One week away!')).toBeInTheDocument();
   });
 
-  it('populates form when template is clicked and saves via PATCH', async () => {
+  it('saves the selected template via PATCH', async () => {
     const fetchMock = vi.spyOn(global, 'fetch')
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ok: true, templates: [TEMPLATE] }), { status: 200 })
+        new Response(JSON.stringify({ ok: true, templates: [GENERAL] }), { status: 200 })
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ok: true, template: { ...TEMPLATE, subject: 'Updated Subject' } }), { status: 200 })
+        new Response(JSON.stringify({ ok: true, template: { ...GENERAL, subject: 'Updated Subject' } }), { status: 200 })
       );
 
     render(<TemplateEditor />, { wrapper: wrapper() });
-    // Auto-selects first template
-    await waitFor(() => screen.getByDisplayValue('Welcome to Encounter!'));
+    await waitFor(() => screen.getByDisplayValue(/A message from NWKS Men/));
 
-    const subjectInput = screen.getByDisplayValue('Welcome to Encounter!') as HTMLInputElement;
+    const subjectInput = screen.getByLabelText(/subject line/i) as HTMLInputElement;
     await userEvent.clear(subjectInput);
     await userEvent.type(subjectInput, 'Updated Subject');
 
-    await userEvent.click(screen.getByRole('button', { name: /save template/i }));
-
+    await userEvent.click(screen.getByRole('button', { name: /save changes/i }));
     await waitFor(() => expect(screen.getByText(/saved\./i)).toBeInTheDocument());
 
     const calls = fetchMock.mock.calls as [string, RequestInit][];
-    const patchCall = calls.find(([url, init]) => init?.method === 'PATCH');
+    const patchCall = calls.find(([, init]) => init?.method === 'PATCH');
     expect(patchCall).toBeDefined();
     expect(patchCall![0]).toMatch(/\/api\/admin\/templates\/1/);
     const body = JSON.parse(patchCall![1].body as string);
     expect(body.subject).toBe('Updated Subject');
+    // The locked branded wrapper survives the round-trip.
+    expect(body.body_html).toContain('#6E765F');
+    expect(body.body_html).toContain('EDITABLE_START');
+  });
+
+  it('creates a new template via POST when "Save as new template" is used', async () => {
+    const fetchMock = vi.spyOn(global, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true, templates: [GENERAL] }), { status: 200 })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true, template: { ...SAVED, name: 'My New Email' } }), { status: 201 })
+      );
+
+    render(<TemplateEditor />, { wrapper: wrapper() });
+    await waitFor(() => screen.getByDisplayValue(/A message from NWKS Men/));
+
+    await userEvent.click(screen.getByRole('button', { name: /save as new template/i }));
+    const nameInput = screen.getByLabelText(/new template name/i);
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, 'My New Email');
+    await userEvent.click(screen.getByRole('button', { name: /^create$/i }));
+
+    await waitFor(() => {
+      const calls = fetchMock.mock.calls as [string, RequestInit][];
+      const postCall = calls.find(([, init]) => init?.method === 'POST');
+      expect(postCall).toBeDefined();
+      const body = JSON.parse(postCall![1].body as string);
+      expect(body.name).toBe('My New Email');
+    });
+  });
+
+  it('does not offer delete for the general template', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ ok: true, templates: [GENERAL] }), { status: 200 })
+    );
+    render(<TemplateEditor />, { wrapper: wrapper() });
+    await waitFor(() => screen.getByDisplayValue(/A message from NWKS Men/));
+    expect(screen.queryByRole('button', { name: /^delete$/i })).not.toBeInTheDocument();
   });
 
   it('refetches templates when program changes', async () => {

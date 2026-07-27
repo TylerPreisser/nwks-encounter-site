@@ -118,13 +118,18 @@ function CollapsibleRow({ field, index, themeAccent, autoExpand, onPatch, onDele
 
   const isEmailConfirm = field.name === 'email_confirm';
 
-  // Sync state when field prop changes (e.g. after reload)
+  // Initialise editing state from props ONCE per field identity. We intentionally
+  // do NOT re-sync on every field.* change: the row's local state is authoritative
+  // while the user edits, and re-syncing from an async save response would clobber
+  // whatever they've typed since. A genuinely different field (new id in this slot)
+  // still re-initialises correctly.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     setLabel(field.label);
     setType(field.type as FieldType);
     setOptions(parseOptions(field.options));
     setRequired(field.required === 1);
-  }, [field.id, field.label, field.type, field.options, field.required]);
+  }, [field.id]);
 
   const doPatch = useCallback(async (patch: Partial<Omit<FormField, 'id'>>) => {
     setSaveStatus('saving');
@@ -441,8 +446,14 @@ export default function FormsEditor() {
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const [newlyAddedId, setNewlyAddedId] = useState<number | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  // load() has two modes:
+  //   - full (default): shows the loading spinner — used for the initial load and
+  //     when switching program. This unmounts the field list, which is fine here.
+  //   - silent: refetches in the background WITHOUT flipping `loading`, so the
+  //     field rows are reconciled by key and keep their expanded/focus state.
+  //     Used after add/delete/reorder so the page never "reloads" under the user.
+  const load = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const res = await apiFetch<{
@@ -454,18 +465,36 @@ export default function FormsEditor() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load fields');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [program]);
 
   useEffect(() => { void load(); }, [load]);
 
+  // Merge a saved patch into local state in place (no refetch). Normalises the
+  // `options` array back to the JSON string the FormField shape uses so the
+  // collapsed-row preview stays in sync without ever remounting the editor.
+  function mergePatch(list: FormField[], id: number, patch: Partial<Omit<FormField, 'id'>>): FormField[] {
+    return list.map((f) => {
+      if (f.id !== id) return f;
+      const merged = { ...f, ...patch } as FormField;
+      const rawOptions = (patch as { options?: unknown }).options;
+      if (rawOptions !== undefined) {
+        merged.options = rawOptions == null ? null : JSON.stringify(rawOptions);
+      }
+      return merged;
+    });
+  }
+
+  // Autosave path — the one the user hits constantly. It must NOT refetch or
+  // toggle loading; that was collapsing every open question mid-edit.
   async function handlePatch(id: number, patch: Partial<Omit<FormField, 'id'>>) {
     await apiFetch<{ ok: boolean }>(`/admin/form-fields/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(patch),
     });
-    await load();
+    setAttendeeFields((prev) => mergePatch(prev, id, patch));
+    setServerFields((prev) => mergePatch(prev, id, patch));
   }
 
   function handleDelete(id: number) {
@@ -476,7 +505,7 @@ export default function FormsEditor() {
     if (deleteTarget == null) return;
     await apiFetch<{ ok: boolean }>(`/admin/form-fields/${deleteTarget}`, { method: 'DELETE' });
     setDeleteTarget(null);
-    await load();
+    await load({ silent: true });
   }
 
   async function handleReorder(role: 'attendee' | 'server', orderedIds: number[]) {
@@ -484,7 +513,7 @@ export default function FormsEditor() {
       method: 'POST',
       body: JSON.stringify({ role, ordered_ids: orderedIds }),
     });
-    await load();
+    await load({ silent: true });
   }
 
   async function handleAdd(role: 'attendee' | 'server') {
@@ -498,7 +527,7 @@ export default function FormsEditor() {
       setNewlyAddedId(res.field.id);
       setTimeout(() => setNewlyAddedId(null), 100);
     }
-    await load();
+    await load({ silent: true });
   }
 
   return (

@@ -8,7 +8,7 @@ NWKS.content = NWKS.content || {};
    blocks[] items may be: a plain string (paragraph), { list:[...] } (bullet list), or
    { link:{label,href} } (inline call-to-action) — rendered by src/js/worlds.js. */
 NWKS.content.women = {
-  eventName: "Northwest Kansas Women’s Encounter",
+  eventName: "NWKS Women’s Encounter",
   dates: 'July 17 – 19, 2026',
   logo: 'source-womens-logo-1024x1024.jpg',
   tagline: 'It is for freedom that Christ has set us free.',

@@ -126,12 +126,16 @@ describe('Nav — SVG icons, no emoji', () => {
     expect(screen.queryByText(/^Events$/)).not.toBeInTheDocument();
   });
 
-  it('nav shows Dashboard, Registrations, Email, Gallery, Testimonies', () => {
+  it('nav shows Dashboard, Registrations, Email, Testimonies', () => {
     renderNav();
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
     expect(screen.getByText('Registrations')).toBeInTheDocument();
     expect(screen.getByText('Email')).toBeInTheDocument();
-    expect(screen.getByText('Gallery')).toBeInTheDocument();
     expect(screen.getByText('Testimonies & Teachings')).toBeInTheDocument();
+  });
+
+  it('nav no longer shows the removed Gallery tab', () => {
+    renderNav();
+    expect(screen.queryByText('Gallery')).not.toBeInTheDocument();
   });
 });

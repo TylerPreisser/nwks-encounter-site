@@ -94,7 +94,7 @@ describe('Admin Templates API', () => {
     expect(programs).not.toContain('women');
     expect(programs).not.toContain('shared');
     // Exactly 3 program-specific rows
-    expect(body.templates.length).toBe(3);
+    expect(body.templates.length).toBe(1);
   });
 
   it('GET /api/admin/templates for women returns only women templates (no mens, no shared)', async () => {
@@ -106,7 +106,7 @@ describe('Admin Templates API', () => {
     expect(programs.every((p) => p === 'women')).toBe(true);
     expect(programs).not.toContain('mens');
     expect(programs).not.toContain('shared');
-    expect(body.templates.length).toBe(3);
+    expect(body.templates.length).toBe(1);
   });
 
   it('GET /api/admin/templates response includes expected fields on each template', async () => {
@@ -128,7 +128,7 @@ describe('Admin Templates API', () => {
 
   it('GET /api/admin/templates/:id returns the template for the correct program', async () => {
     const row = await testEnv.DB.prepare(
-      `SELECT id FROM email_templates WHERE program='mens' AND key='welcome'`
+      `SELECT id FROM email_templates WHERE program='mens' AND key='general'`
     ).first<{ id: number }>();
     const id = row!.id;
 
@@ -138,12 +138,12 @@ describe('Admin Templates API', () => {
     expect(body.ok).toBe(true);
     expect(body.template.id).toBe(id);
     expect(body.template.program).toBe('mens');
-    expect(body.template.key).toBe('welcome');
+    expect(body.template.key).toBe('general');
   });
 
-  it('GET /api/admin/templates/:id returns a program-specific reminder template', async () => {
+  it('GET /api/admin/templates/:id returns the general template', async () => {
     const row = await testEnv.DB.prepare(
-      `SELECT id FROM email_templates WHERE program='mens' AND key='reminder'`
+      `SELECT id FROM email_templates WHERE program='mens' AND key='general'`
     ).first<{ id: number }>();
     const id = row!.id;
 
@@ -152,7 +152,7 @@ describe('Admin Templates API', () => {
     const body = await res.json<{ ok: boolean; template: { program: string; key: string } }>();
     expect(body.ok).toBe(true);
     expect(body.template.program).toBe('mens');
-    expect(body.template.key).toBe('reminder');
+    expect(body.template.key).toBe('general');
   });
 
   it('GET /api/admin/templates/:id returns 404 for unknown id', async () => {
@@ -163,7 +163,7 @@ describe('Admin Templates API', () => {
   it("GET /api/admin/templates/:id returns 403 when accessing another program's template", async () => {
     // A mens template should not be accessible when requesting with program=women
     const row = await testEnv.DB.prepare(
-      `SELECT id FROM email_templates WHERE program='mens' AND key='welcome'`
+      `SELECT id FROM email_templates WHERE program='mens' AND key='general'`
     ).first<{ id: number }>();
     const id = row!.id;
 
@@ -175,7 +175,7 @@ describe('Admin Templates API', () => {
 
   it('PATCH /api/admin/templates/:id updates subject and bumps updated_at', async () => {
     const row = await testEnv.DB.prepare(
-      `SELECT id, updated_at FROM email_templates WHERE program='mens' AND key='welcome'`
+      `SELECT id, updated_at FROM email_templates WHERE program='mens' AND key='general'`
     ).first<{ id: number; updated_at: string }>();
     const id = row!.id;
     const originalUpdatedAt = row!.updated_at;
@@ -196,7 +196,7 @@ describe('Admin Templates API', () => {
 
   it('PATCH /api/admin/templates/:id persists changes (reads back from DB)', async () => {
     const row = await testEnv.DB.prepare(
-      `SELECT id FROM email_templates WHERE program='mens' AND key='welcome'`
+      `SELECT id FROM email_templates WHERE program='mens' AND key='general'`
     ).first<{ id: number }>();
     const id = row!.id;
 
@@ -218,7 +218,7 @@ describe('Admin Templates API', () => {
 
   it('PATCH /api/admin/templates/:id updates variables as JSON array', async () => {
     const row = await testEnv.DB.prepare(
-      `SELECT id FROM email_templates WHERE program='mens' AND key='welcome'`
+      `SELECT id FROM email_templates WHERE program='mens' AND key='general'`
     ).first<{ id: number }>();
     const id = row!.id;
 
@@ -237,7 +237,7 @@ describe('Admin Templates API', () => {
 
   it('PATCH /api/admin/templates/:id works on any program-specific template (mens/reminder)', async () => {
     const row = await testEnv.DB.prepare(
-      `SELECT id FROM email_templates WHERE program='mens' AND key='reminder'`
+      `SELECT id FROM email_templates WHERE program='mens' AND key='general'`
     ).first<{ id: number }>();
     const id = row!.id;
 
@@ -254,7 +254,7 @@ describe('Admin Templates API', () => {
 
   it('PATCH /api/admin/templates/:id returns 400 with no updatable fields', async () => {
     const row = await testEnv.DB.prepare(
-      `SELECT id FROM email_templates WHERE program='mens' AND key='welcome'`
+      `SELECT id FROM email_templates WHERE program='mens' AND key='general'`
     ).first<{ id: number }>();
     const id = row!.id;
 
@@ -277,7 +277,7 @@ describe('Admin Templates API', () => {
 
   it("PATCH /api/admin/templates/:id returns 403 for another program's template", async () => {
     const wRow = await testEnv.DB.prepare(
-      `SELECT id FROM email_templates WHERE program='women' AND key='welcome'`
+      `SELECT id FROM email_templates WHERE program='women' AND key='general'`
     ).first<{ id: number }>();
     const id = wRow!.id;
 
@@ -286,5 +286,78 @@ describe('Admin Templates API', () => {
       testEnv
     );
     expect(res.status).toBe(403);
+  });
+
+  // ── POST (save-as-new) ──────────────────────────────────────────────────────
+
+  it('POST /api/admin/templates creates a new template with a unique derived key', async () => {
+    const res = await app.fetch(
+      makeReq('POST', '/api/admin/templates', cookie, 'mens', {
+        name: 'One Week Reminder',
+        subject: 'A week to go',
+        body_html: '<body><!--EDITABLE_START--><p>Hi</p><!--EDITABLE_END--></body>',
+        body_text: 'Hi',
+        variables: ['first_name'],
+      }),
+      testEnv
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json<{ ok: boolean; template: { id: number; program: string; key: string; name: string } }>();
+    expect(body.ok).toBe(true);
+    expect(body.template.program).toBe('mens');
+    expect(body.template.name).toBe('One Week Reminder');
+    expect(body.template.key).toBe('one_week_reminder');
+    // It now appears in the list (general + the new one).
+    const list = await app.fetch(makeReq('GET', '/api/admin/templates', cookie, 'mens'), testEnv);
+    const listBody = await list.json<{ templates: Array<{ key: string }> }>();
+    expect(listBody.templates.length).toBe(2);
+  });
+
+  it('POST /api/admin/templates requires a name and body_html', async () => {
+    const res = await app.fetch(
+      makeReq('POST', '/api/admin/templates', cookie, 'mens', { subject: 'x' }),
+      testEnv
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /api/admin/templates never collides with the reserved general key', async () => {
+    const res = await app.fetch(
+      makeReq('POST', '/api/admin/templates', cookie, 'mens', {
+        name: 'general',
+        body_html: '<body><!--EDITABLE_START--><p>Hi</p><!--EDITABLE_END--></body>',
+      }),
+      testEnv
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json<{ template: { key: string } }>();
+    expect(body.template.key).not.toBe('general');
+  });
+
+  // ── DELETE ──────────────────────────────────────────────────────────────────
+
+  it('DELETE /api/admin/templates/:id removes a saved template', async () => {
+    const created = await app.fetch(
+      makeReq('POST', '/api/admin/templates', cookie, 'mens', {
+        name: 'Temp',
+        body_html: '<body><!--EDITABLE_START--><p>x</p><!--EDITABLE_END--></body>',
+      }),
+      testEnv
+    );
+    const { template } = await created.json<{ template: { id: number } }>();
+    const res = await app.fetch(makeReq('DELETE', `/api/admin/templates/${template.id}`, cookie, 'mens'), testEnv);
+    expect(res.status).toBe(200);
+    const gone = await testEnv.DB.prepare(`SELECT id FROM email_templates WHERE id = ?`).bind(template.id).first();
+    expect(gone).toBeNull();
+  });
+
+  it('DELETE /api/admin/templates/:id refuses to delete the general template', async () => {
+    const row = await testEnv.DB.prepare(
+      `SELECT id FROM email_templates WHERE program='mens' AND key='general'`
+    ).first<{ id: number }>();
+    const res = await app.fetch(makeReq('DELETE', `/api/admin/templates/${row!.id}`, cookie, 'mens'), testEnv);
+    expect(res.status).toBe(400);
+    const still = await testEnv.DB.prepare(`SELECT id FROM email_templates WHERE id = ?`).bind(row!.id).first();
+    expect(still).not.toBeNull();
   });
 });

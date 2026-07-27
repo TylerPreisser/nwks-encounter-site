@@ -15,6 +15,21 @@ window.NWKS = window.NWKS || {};
   var intro = document.getElementById('intro');
   if (intro && intro.parentNode) intro.parentNode.removeChild(intro);
 
+  // Soft exit transition: fade/lift the current page out, then navigate. The
+  // incoming page plays its own entrance (see styles/page-transitions.css), so
+  // the two read as one hand-off. Honours prefers-reduced-motion and always
+  // navigates even if the animation never fires (setTimeout fallback).
+  function prefersReduced() {
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+  function navigateWithExit(url) {
+    if (prefersReduced()) { location.href = url; return; }
+    document.body.classList.add('is-leaving');
+    var went = false;
+    var go = function () { if (went) return; went = true; location.href = url; };
+    setTimeout(go, 300);
+  }
+
   var door = new URLSearchParams(location.search).get('door');
   door = (door === 'men' || door === 'women') ? door : null;
 
@@ -35,7 +50,7 @@ window.NWKS = window.NWKS || {};
       if (enterBtn) {
         enterBtn.addEventListener('click', function (e) {
           e.stopPropagation();
-          location.href = '?door=' + d;
+          navigateWithExit('?door=' + d);
         });
       }
     });
@@ -46,7 +61,7 @@ window.NWKS = window.NWKS || {};
     var backBtn = e.target && e.target.closest ? e.target.closest('[data-back]') : null;
     if (backBtn) {
       e.preventDefault();
-      location.href = location.pathname; // drops ?door -> fresh gateway load (correct chrome)
+      navigateWithExit(location.pathname); // drops ?door -> fresh gateway load (correct chrome)
     }
   });
 })();

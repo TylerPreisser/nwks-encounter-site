@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { apiFetch } from '@/api';
 import { useProgram } from '@/App';
 import StatCard from '@/components/StatCard';
@@ -9,6 +10,7 @@ interface Stats {
   server_count: number;
   first_timers: number;
   email_sent_count: number;
+  inbox_count: number;
   by_launch_location: Array<{ location: string; count: number }>;
   by_shirt_size: Array<{ size: string; count: number }>;
   recent_registrations: Array<{
@@ -61,6 +63,37 @@ export default function DashboardPage() {
 
       {/* ── Upcoming Encounter quick-edit tile ────────────────── */}
       <UpcomingEncounterTile />
+
+      {/* ── Mailbox monitor ───────────────────────────────────── */}
+      <Link
+        to="/testimonies"
+        aria-label={`Inbox: ${stats.inbox_count} email${stats.inbox_count === 1 ? '' : 's'} needing a response`}
+        className="flex items-center gap-4 rounded-2xl border px-5 py-4 shadow-sm transition-colors"
+        style={{
+          background: stats.inbox_count > 0 ? 'var(--color-primary)' : 'var(--color-surface)',
+          borderColor: stats.inbox_count > 0 ? 'var(--color-primary)' : '#e5e7eb',
+          color: stats.inbox_count > 0 ? '#fff' : '#374151',
+        }}
+      >
+        <span className="text-2xl" aria-hidden="true">📬</span>
+        <div className="flex-1">
+          <div className="text-sm font-semibold">Inbox</div>
+          <div className="text-xs opacity-80">
+            {stats.inbox_count > 0
+              ? `${stats.inbox_count} email${stats.inbox_count === 1 ? '' : 's'} need a response`
+              : 'All caught up — no emails waiting'}
+          </div>
+        </div>
+        <span
+          className="inline-flex items-center justify-center min-w-[2rem] h-8 px-2 rounded-full text-sm font-bold"
+          style={{
+            background: stats.inbox_count > 0 ? 'rgba(255,255,255,0.22)' : '#f3f4f6',
+            color: stats.inbox_count > 0 ? '#fff' : '#6b7280',
+          }}
+        >
+          {stats.inbox_count}
+        </span>
+      </Link>
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

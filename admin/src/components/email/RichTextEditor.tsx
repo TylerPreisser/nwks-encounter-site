@@ -123,6 +123,7 @@ export function sanitizeHtml(raw: string): string {
     li: [],
     br: [],
     a: ['href'],
+    img: ['src', 'alt', 'width', 'style'],
   };
 
   html = html.replace(/<(\/?)([\w-]+)([^>]*)>/gi, (match, slash, tag, attrs) => {
@@ -344,6 +345,51 @@ function AtMenu({ anchorRect, onInsert, onClose }: AtMenuProps) {
   );
 }
 
+// ── Image handling ────────────────────────────────────────────────────────────
+
+/**
+ * Read an image File, downscale it to fit `maxW` px wide (email-friendly), and
+ * return a JPEG/PNG data-URI. Downscaling keeps message size reasonable so the
+ * email doesn't balloon. Returns null for non-images or on failure.
+ */
+export function imageFileToDataUrl(file: File, maxW = 560): Promise<string | null> {
+  return new Promise((resolve) => {
+    if (!file.type.startsWith('image/')) return resolve(null);
+    const reader = new FileReader();
+    reader.onerror = () => resolve(null);
+    reader.onload = () => {
+      const src = reader.result as string;
+      const img = new Image();
+      img.onerror = () => resolve(src); // fall back to raw data-URI if decode fails
+      img.onload = () => {
+        try {
+          const scale = img.width > maxW ? maxW / img.width : 1;
+          const w = Math.round(img.width * scale);
+          const h = Math.round(img.height * scale);
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return resolve(src);
+          ctx.drawImage(img, 0, 0, w, h);
+          // PNGs (logos/graphics) keep transparency; photos → JPEG for size.
+          const isPng = file.type === 'image/png';
+          resolve(canvas.toDataURL(isPng ? 'image/png' : 'image/jpeg', 0.82));
+        } catch {
+          resolve(src);
+        }
+      };
+      img.src = src;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/** Build the <img> HTML inserted into the email body. */
+function imgHtml(dataUrl: string): string {
+  return `<img src="${dataUrl}" alt="" width="520" style="max-width:100%;height:auto;border-radius:6px;display:block;margin:12px 0;" />`;
+}
+
 // ── RichTextEditor ────────────────────────────────────────────────────────────
 
 export interface RichTextEditorProps {
@@ -366,6 +412,7 @@ export function RichTextEditor({
   eventSample,
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   // We track the serialised form ({{tokens}}) as the canonical value.
   const lastTokensRef = useRef<string>('');
   // Track active format states for toolbar
@@ -451,6 +498,63 @@ export function RichTextEditor({
     emit();
   }
 
+  /** Insert an <img> at the caret from a downscaled data-URI. */
+  function insertImageHtml(dataUrl: string) {
+    const el = editorRef.current;
+    if (!el) return;
+    el.focus();
+    const html = imgHtml(dataUrl);
+    try {
+      const supported = document.execCommand('insertHTML', false, html + '<p><br></p>');
+      if (!supported) throw new Error('not supported');
+    } catch {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      if (tmp.firstChild) el.appendChild(tmp.firstChild);
+    }
+    emit();
+  }
+
+  /** Downscale + insert a batch of image files (from picker, drop, or paste). */
+  async function handleImageFiles(files: FileList | File[]) {
+    const list = Array.from(files).filter(f => f.type.startsWith('image/'));
+    for (const file of list) {
+      const dataUrl = await imageFileToDataUrl(file);
+      if (dataUrl) insertImageHtml(dataUrl);
+    }
+  }
+
+  function handlePickerChange(e: React.ChangeEvent<HTMLInputElement>) {
+    if (e.target.files && e.target.files.length > 0) {
+      void handleImageFiles(e.target.files);
+    }
+    e.target.value = '';
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    const files = e.dataTransfer?.files;
+    if (files && Array.from(files).some(f => f.type.startsWith('image/'))) {
+      e.preventDefault();
+      void handleImageFiles(files);
+    }
+  }
+
+  function handlePaste(e: React.ClipboardEvent<HTMLDivElement>) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const imageFiles: File[] = [];
+    for (const item of Array.from(items)) {
+      if (item.kind === 'file' && item.type.startsWith('image/')) {
+        const f = item.getAsFile();
+        if (f) imageFiles.push(f);
+      }
+    }
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      void handleImageFiles(imageFiles);
+    }
+  }
+
   /** Handle @ / / keyboard trigger to open the field menu. */
   function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     if (e.key === '@' || e.key === '/') {
@@ -530,6 +634,22 @@ export function RichTextEditor({
         <ToolbarBtn title="Insert link" onClick={insertLink}>
           Link
         </ToolbarBtn>
+        <ToolbarBtn
+          title="Insert photo"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          📷 Photo
+        </ToolbarBtn>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          aria-label="Upload photo"
+          data-testid="photo-input"
+          onChange={handlePickerChange}
+        />
         <ToolbarBtn title="Clear formatting" onClick={() => execCmd('removeFormat')}>
           Tx
         </ToolbarBtn>
@@ -556,6 +676,9 @@ export function RichTextEditor({
         onKeyUp={updateToolbarState}
         onMouseUp={updateToolbarState}
         onClick={() => setAtMenuAnchor(null)}
+        onPaste={handlePaste}
+        onDrop={handleDrop}
+        onDragOver={(e) => e.preventDefault()}
       />
 
       {/* @ trigger menu (rendered as fixed overlay) */}

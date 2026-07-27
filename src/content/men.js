@@ -8,7 +8,7 @@ NWKS.content = NWKS.content || {};
    blocks[] items may be: a plain string (paragraph), { list:[...] } (bullet list), or
    { link:{label,href} } (inline call-to-action) — rendered by src/js/worlds.js. */
 NWKS.content.men = {
-  eventName: "Northwest Men’s Encounter",
+  eventName: "NWKS Men’s Encounter",
   dates: 'August 6 – 8, 2026',
   logo: 'men-logo-300x300-1.jpg',
   tagline: 'It is for freedom that Christ has set us free.',

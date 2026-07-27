@@ -16,7 +16,6 @@ import PersonPage from './pages/PersonPage';
 import Events from './pages/Events';
 import { EmailPage } from './pages/Email';
 import Assistant from './pages/Assistant';
-import Gallery from './pages/Gallery';
 import Testimonies from './pages/Testimonies';
 import AppShell from './components/AppShell';
 import FormsEditor from './pages/FormsEditor';
@@ -107,7 +106,8 @@ export default function App() {
             <Route path="/email" element={<EmailPage />} />
             {/* Assistant route disabled — component preserved for re-activation */}
             <Route path="/assistant" element={<Navigate to="/" replace />} />
-            <Route path="/gallery" element={<Gallery />} />
+            {/* Gallery removed — photos now live directly inside emails */}
+            <Route path="/gallery" element={<Navigate to="/" replace />} />
             <Route path="/testimonies" element={<Testimonies />} />
             <Route path="/forms" element={<FormsEditor />} />
             <Route path="/page-details" element={<PageDetails />} />

@@ -299,7 +299,7 @@ describe('PageDetails page', () => {
     render(<PageDetails />, { wrapper: wrapper() });
 
     await waitFor(() =>
-      expect(screen.getByText(/public-facing/i)).toBeInTheDocument()
+      expect(screen.getByText(/live public/i)).toBeInTheDocument()
     );
   });
 

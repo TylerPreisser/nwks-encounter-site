@@ -1,7 +1,9 @@
 // functions/_api/__tests__/templates.test.ts
-// Asserts that 0013_templates_simple.sql correctly seeds the email_templates table.
-// 6 rows total: mens + women x welcome/reminder/packing_list.
-// No shared rows. Each template carries ONLY its program's logo.
+// Asserts that after all migrations (0015_templates_general.sql last) the
+// email_templates table holds ONE editable "general" template per program:
+//   mens/general  + women/general
+// Each carries its program's logo, the branded olive/yellow wrapper, an editable
+// message region, NWKS branding and a contact email.
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { env } from 'cloudflare:test';
@@ -21,54 +23,39 @@ type TemplateRow = {
 const MENS_LOGO  = 'email-assets/men-logo-300x300-1.jpg';
 const WOMENS_LOGO = 'email-assets/source-womens-logo-1024x1024.jpg';
 
-describe('email_templates seed (0013_templates_simple.sql)', () => {
+describe('email_templates seed (0015_templates_general.sql)', () => {
   beforeEach(async () => {
     await applyMigrations(env as unknown as { DB: D1Database });
   });
 
   // ── Row count ────────────────────────────────────────────────────────────────
 
-  it('seeds exactly 6 rows (3 per program, no shared)', async () => {
+  it('seeds exactly 2 rows (one general template per program)', async () => {
     const { results } = await (env as any).DB
       .prepare('SELECT COUNT(*) AS n FROM email_templates')
       .all<{ n: number }>();
-    expect(results[0].n).toBe(6);
+    expect(results[0].n).toBe(2);
   });
 
-  it('has 0 shared rows', async () => {
-    const { results } = await (env as any).DB
-      .prepare(`SELECT COUNT(*) AS n FROM email_templates WHERE program = 'shared'`)
-      .all<{ n: number }>();
-    expect(results[0].n).toBe(0);
+  it('has 0 shared rows and 1 row per program', async () => {
+    const rows = await (env as any).DB
+      .prepare(`SELECT program, COUNT(*) AS n FROM email_templates GROUP BY program`)
+      .all<{ program: string; n: number }>();
+    const byProgram = Object.fromEntries(rows.results.map((r: any) => [r.program, r.n]));
+    expect(byProgram['shared']).toBeUndefined();
+    expect(byProgram['mens']).toBe(1);
+    expect(byProgram['women']).toBe(1);
   });
 
-  it('has exactly 3 mens rows', async () => {
-    const { results } = await (env as any).DB
-      .prepare(`SELECT COUNT(*) AS n FROM email_templates WHERE program = 'mens'`)
-      .all<{ n: number }>();
-    expect(results[0].n).toBe(3);
-  });
-
-  it('has exactly 3 women rows', async () => {
-    const { results } = await (env as any).DB
-      .prepare(`SELECT COUNT(*) AS n FROM email_templates WHERE program = 'women'`)
-      .all<{ n: number }>();
-    expect(results[0].n).toBe(3);
-  });
-
-  // ── Per-key existence ────────────────────────────────────────────────────────
+  // ── The general template exists per program ──────────────────────────────────
 
   it.each([
-    ['mens',  'welcome'],
-    ['mens',  'reminder'],
-    ['mens',  'packing_list'],
-    ['women', 'welcome'],
-    ['women', 'reminder'],
-    ['women', 'packing_list'],
-  ])('%s/%s exists with non-empty subject, body_html, body_text', async (program, key) => {
+    ['mens'],
+    ['women'],
+  ])('%s/general exists with non-empty subject, body_html, body_text', async (program) => {
     const row = await (env as any).DB
-      .prepare(`SELECT * FROM email_templates WHERE program = ? AND key = ?`)
-      .bind(program, key)
+      .prepare(`SELECT * FROM email_templates WHERE program = ? AND key = 'general'`)
+      .bind(program)
       .first<TemplateRow>();
     expect(row).not.toBeNull();
     expect(row!.subject.length).toBeGreaterThan(0);
@@ -79,79 +66,56 @@ describe('email_templates seed (0013_templates_simple.sql)', () => {
     expect(vars).toContain('first_name');
   });
 
-  // ── Logo correctness — each template has ONLY its program's logo ─────────────
+  // ── Branding: olive/yellow wrapper + editable region + NWKS + contact ─────────
 
-  it.each([
-    ['mens',  'welcome'],
-    ['mens',  'reminder'],
-    ['mens',  'packing_list'],
-  ])('mens/%s body_html contains the men\'s logo and NOT the women\'s logo', async (_prog, key) => {
+  it('mens/general uses the exact logo olive + yellow and carries an editable region', async () => {
     const row = await (env as any).DB
-      .prepare(`SELECT body_html FROM email_templates WHERE program = 'mens' AND key = ?`)
-      .bind(key)
-      .first<{ body_html: string }>();
+      .prepare(`SELECT body_html, body_text FROM email_templates WHERE program = 'mens' AND key = 'general'`)
+      .first<{ body_html: string; body_text: string }>();
     expect(row).not.toBeNull();
+    // Exact logo colors
+    expect(row!.body_html).toContain('#6E765F'); // olive bands
+    expect(row!.body_html).toContain('#FFEB00'); // yellow text
+    // Locked wrapper + editable message markers
+    expect(row!.body_html).toContain('EDITABLE_START');
+    expect(row!.body_html).toContain('EDITABLE_END');
+    // NWKS branding + contact email
+    expect(row!.body_html).toContain('NWKS Men');
+    expect(row!.body_html).toContain('nwksmensencounter@gmail.com');
+    // Correct logo, not the women's
     expect(row!.body_html).toContain(MENS_LOGO);
     expect(row!.body_html).not.toContain(WOMENS_LOGO);
   });
 
-  it.each([
-    ['women', 'welcome'],
-    ['women', 'reminder'],
-    ['women', 'packing_list'],
-  ])('women/%s body_html contains the women\'s logo and NOT the men\'s logo', async (_prog, key) => {
+  it('women/general is branded with NWKS + the women\'s logo and contact', async () => {
     const row = await (env as any).DB
-      .prepare(`SELECT body_html FROM email_templates WHERE program = 'women' AND key = ?`)
-      .bind(key)
+      .prepare(`SELECT body_html FROM email_templates WHERE program = 'women' AND key = 'general'`)
       .first<{ body_html: string }>();
     expect(row).not.toBeNull();
+    expect(row!.body_html).toContain('EDITABLE_START');
+    expect(row!.body_html).toContain('NWKS Women');
+    expect(row!.body_html).toContain('nwkswomensencounter@gmail.com');
     expect(row!.body_html).toContain(WOMENS_LOGO);
     expect(row!.body_html).not.toContain(MENS_LOGO);
   });
 
-  // ── Minimal / Placeholder bodies ─────────────────────────────────────────────
-
-  it.each([
-    ['mens',  'welcome'],
-    ['mens',  'reminder'],
-    ['mens',  'packing_list'],
-    ['women', 'welcome'],
-    ['women', 'reminder'],
-    ['women', 'packing_list'],
-  ])('%s/%s body contains "Placeholder" and no merge-field date awkwardness', async (program, key) => {
-    const row = await (env as any).DB
-      .prepare(`SELECT body_html, body_text FROM email_templates WHERE program = ? AND key = ?`)
-      .bind(program, key)
-      .first<{ body_html: string; body_text: string }>();
-    expect(row).not.toBeNull();
-    expect(row!.body_html).toContain('Placeholder');
-    expect(row!.body_text).toContain('Placeholder');
-    // No awkward literal parenthesis + date fields
-    expect(row!.body_html).not.toContain('{{start_date}}');
-    expect(row!.body_html).not.toContain('{{end_date}}');
+  it('general templates keep the {{first_name}} merge field and no bare date fields', async () => {
+    const rows = await (env as any).DB
+      .prepare(`SELECT body_html FROM email_templates WHERE key = 'general'`)
+      .all<{ body_html: string }>();
+    for (const r of rows.results as Array<{ body_html: string }>) {
+      expect(r.body_html).toContain('{{first_name}}');
+      expect(r.body_html).not.toContain('{{start_date}}');
+      expect(r.body_html).not.toContain('{{end_date}}');
+    }
   });
 
   // ── updated_at populated ─────────────────────────────────────────────────────
 
-  it('all 6 rows have a non-null updated_at', async () => {
+  it('all rows have a non-null updated_at', async () => {
     const { results } = await (env as any).DB
       .prepare(`SELECT updated_at FROM email_templates WHERE updated_at IS NOT NULL`)
       .all<{ updated_at: string }>();
-    expect(results.length).toBe(6);
-  });
-
-  // ── Idempotency guard ────────────────────────────────────────────────────────
-
-  it('INSERT OR IGNORE prevents duplicates (mens/welcome)', async () => {
-    await (env as any).DB
-      .prepare(`INSERT OR IGNORE INTO email_templates
-        (program, key, name, subject, body_html, body_text, variables, updated_at)
-        VALUES ('mens', 'welcome', 'Dup', 'Dup', '<p>dup</p>', 'dup',
-          '["first_name"]', '2026-07-24T00:00:00.000Z')`)
-      .run();
-    const { results } = await (env as any).DB
-      .prepare(`SELECT COUNT(*) AS n FROM email_templates WHERE program='mens' AND key='welcome'`)
-      .all<{ n: number }>();
-    expect(results[0].n).toBe(1);
+    expect(results.length).toBe(2);
   });
 });

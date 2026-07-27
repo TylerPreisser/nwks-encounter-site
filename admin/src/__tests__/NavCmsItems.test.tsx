@@ -58,10 +58,10 @@ describe('Nav — CMS items', () => {
     expect(link!.getAttribute('href')).toBe('/page-details');
   });
 
-  it('nav has SVG icons for all 8 items (including the 2 new ones)', () => {
+  it('nav has SVG icons for all items (Gallery removed → 7)', () => {
     const { container } = renderNav();
     const nav = container.querySelector('nav');
     const svgs = nav!.querySelectorAll('svg');
-    expect(svgs.length).toBeGreaterThanOrEqual(8);
+    expect(svgs.length).toBeGreaterThanOrEqual(7);
   });
 });
