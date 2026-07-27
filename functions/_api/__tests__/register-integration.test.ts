@@ -193,7 +193,7 @@ describe('POST /api/register/:program/:role — integration', () => {
     expect(logRows.results.length).toBeGreaterThan(0);
     const log = logRows.results[0];
     expect(log.program).toBe('mens');
-    expect(log.template_key).toBe('welcome');
+    expect(log.template_key).toBe('confirmation');
     expect(log.type).toBe('transactional');
     expect(log.to_email).toBe('john.doe@example.com');
   });
@@ -211,7 +211,7 @@ describe('POST /api/register/:program/:role — integration', () => {
 
     const log = await (env.DB as D1Database)
       .prepare('SELECT subject FROM email_log WHERE person_id = ? AND template_key = ?')
-      .bind(body.person_id, 'welcome')
+      .bind(body.person_id, 'confirmation')
       .first<{ subject: string }>();
 
     expect(log).toBeTruthy();
@@ -514,7 +514,7 @@ describe('POST /api/register/:program/:role — integration', () => {
     expect(res.status).toBe(422);
   });
 
-  // ── Edge case: email_log has type='transactional' and template_key='welcome' ─
+  // ── Edge case: email_log has type='transactional' and template_key='confirmation' ─
   it('writes email_log row on successful registration', async () => {
     await seedCurrentEvent(env.DB as D1Database, 'mens');
     await app.fetch(new Request('http://localhost/api/register/mens/attendee', {
@@ -523,7 +523,7 @@ describe('POST /api/register/:program/:role — integration', () => {
       body: JSON.stringify(VALID_MENS_ATTENDEE),
     }), testEnv);
     const log = await (env.DB as D1Database)
-      .prepare("SELECT * FROM email_log WHERE type='transactional' AND template_key='welcome'")
+      .prepare("SELECT * FROM email_log WHERE type='transactional' AND template_key='confirmation'")
       .first<{ id: number; status: string }>();
     expect(log).not.toBeNull();
   });

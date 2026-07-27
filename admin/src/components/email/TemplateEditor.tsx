@@ -161,32 +161,43 @@ export function TemplateEditor() {
   );
 
   const isGeneral = selected?.key === 'general';
+  const AUTOMATED_KEYS = new Set(['confirmation']);
+  const isAutomated = selected ? AUTOMATED_KEYS.has(selected.key) : false;
+  const automated = templates.filter(t => AUTOMATED_KEYS.has(t.key));
+  const manual = templates.filter(t => !AUTOMATED_KEYS.has(t.key));
+
+  const renderItem = (t: Template) => (
+    <li key={t.id}>
+      <button
+        onClick={() => selectTemplate(t)}
+        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+          selected?.id === t.id ? 'font-semibold' : 'hover:bg-gray-100'
+        }`}
+        style={selected?.id === t.id ? { background: 'var(--color-primary)', color: '#fff' } : undefined}
+      >
+        {t.name}
+        {t.key === 'general' && <span className="block text-[11px] opacity-70">Start here — your general template</span>}
+        {AUTOMATED_KEYS.has(t.key) && <span className="block text-[11px] opacity-70">Sent automatically on registration</span>}
+      </button>
+    </li>
+  );
 
   return (
     <div className="grid grid-cols-12 gap-6">
       {/* ── Template library ─────────────────────────────────────── */}
-      <aside className="col-span-3">
-        <h3 className="font-semibold text-gray-700 mb-2 text-xs uppercase tracking-wide">Your templates</h3>
-        <ul className="space-y-1">
-          {templates.map(t => (
-            <li key={t.id}>
-              <button
-                onClick={() => selectTemplate(t)}
-                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                  selected?.id === t.id ? 'font-semibold' : 'hover:bg-gray-100'
-                }`}
-                style={selected?.id === t.id
-                  ? { background: 'var(--color-primary)', color: '#fff' }
-                  : undefined}
-              >
-                {t.name}
-                {t.key === 'general' && (
-                  <span className="block text-[11px] opacity-70">General template</span>
-                )}
-              </button>
-            </li>
-          ))}
-        </ul>
+      <aside className="col-span-3 space-y-5">
+        {automated.length > 0 && (
+          <div>
+            <h3 className="font-semibold text-gray-500 mb-2 text-xs uppercase tracking-wide flex items-center gap-1.5">
+              <span aria-hidden="true">⚙️</span> Automated emails
+            </h3>
+            <ul className="space-y-1">{automated.map(renderItem)}</ul>
+          </div>
+        )}
+        <div>
+          <h3 className="font-semibold text-gray-500 mb-2 text-xs uppercase tracking-wide">Your templates</h3>
+          <ul className="space-y-1">{manual.map(renderItem)}</ul>
+        </div>
       </aside>
 
       {/* ── Editor ────────────────────────────────────────────────── */}
@@ -194,6 +205,12 @@ export function TemplateEditor() {
         {!selected && <p className="text-gray-400 text-sm mt-8">No template selected.</p>}
         {selected && (
           <>
+            {isAutomated && (
+              <div className="text-xs rounded-lg px-3 py-2 bg-amber-50 border border-amber-200 text-amber-800">
+                This email is sent <strong>automatically</strong> when someone registers.
+                Edit the wording below — the green header &amp; footer stay branded.
+              </div>
+            )}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Template name</label>
               <input
@@ -220,6 +237,7 @@ export function TemplateEditor() {
                 value={editable}
                 onChange={(html, text) => { setEditable(html); setEditableText(text); }}
                 label="Email message body"
+                showPreview={false}
               />
               <p className="text-[11px] text-gray-400 mt-1">
                 The green header &amp; footer are locked to keep every email on-brand.
@@ -243,7 +261,7 @@ export function TemplateEditor() {
               >
                 Save as new template
               </button>
-              {selected && !isGeneral && (
+              {selected && !isGeneral && !isAutomated && (
                 <button
                   onClick={deleteSelected}
                   disabled={saving}

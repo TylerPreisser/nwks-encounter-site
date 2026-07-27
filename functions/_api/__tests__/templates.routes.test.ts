@@ -94,7 +94,7 @@ describe('Admin Templates API', () => {
     expect(programs).not.toContain('women');
     expect(programs).not.toContain('shared');
     // Exactly 3 program-specific rows
-    expect(body.templates.length).toBe(1);
+    expect(body.templates.length).toBe(2); // general + confirmation
   });
 
   it('GET /api/admin/templates for women returns only women templates (no mens, no shared)', async () => {
@@ -106,7 +106,7 @@ describe('Admin Templates API', () => {
     expect(programs.every((p) => p === 'women')).toBe(true);
     expect(programs).not.toContain('mens');
     expect(programs).not.toContain('shared');
-    expect(body.templates.length).toBe(1);
+    expect(body.templates.length).toBe(2); // general + confirmation
   });
 
   it('GET /api/admin/templates response includes expected fields on each template', async () => {
@@ -310,7 +310,7 @@ describe('Admin Templates API', () => {
     // It now appears in the list (general + the new one).
     const list = await app.fetch(makeReq('GET', '/api/admin/templates', cookie, 'mens'), testEnv);
     const listBody = await list.json<{ templates: Array<{ key: string }> }>();
-    expect(listBody.templates.length).toBe(2);
+    expect(listBody.templates.length).toBe(3); // general + confirmation + the new one
   });
 
   it('POST /api/admin/templates requires a name and body_html', async () => {

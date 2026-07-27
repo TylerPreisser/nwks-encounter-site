@@ -471,9 +471,14 @@ registerRouter.post('/:program/:role', async (c) => {
   // Recompute rollup counts (times_attended / times_served)
   await recomputeRollups(c.env, person_id);
 
-  // Send welcome email (EMAIL_ENABLED='false' in test → writes log row, no network call)
+  // Send the confirmation email (EMAIL_ENABLED='false' in test → writes log row, no network call).
+  // Prefer the office-editable "confirmation" template from the DB (Email Center →
+  // Automated Emails); fall back to the inline template if it's missing.
   if (fields.email) {
-    const tpl      = welcomeTemplate(program, role);
+    const dbTpl = await c.env.DB.prepare(
+      `SELECT subject, body_html, body_text FROM email_templates WHERE program = ? AND key = 'confirmation'`
+    ).bind(program).first<{ subject: string; body_html: string; body_text: string }>();
+    const tpl = dbTpl ?? welcomeTemplate(program, role);
     const rendered = renderTemplate(tpl, {
       first_name: fields.first_name,
       last_name:  fields.last_name ?? '',
@@ -488,7 +493,7 @@ registerRouter.post('/:program/:role', async (c) => {
       text:        rendered.text,
       replyTo:     c.env.EMAIL_REPLY_TO || undefined,
       type:        'transactional',
-      templateKey: 'welcome',
+      templateKey: 'confirmation',
       personId:    person_id,
       program,
     });

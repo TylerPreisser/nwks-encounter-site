@@ -30,21 +30,42 @@ describe('email_templates seed (0015_templates_general.sql)', () => {
 
   // ── Row count ────────────────────────────────────────────────────────────────
 
-  it('seeds exactly 2 rows (one general template per program)', async () => {
+  it('seeds exactly 4 rows (general + confirmation per program)', async () => {
     const { results } = await (env as any).DB
       .prepare('SELECT COUNT(*) AS n FROM email_templates')
       .all<{ n: number }>();
-    expect(results[0].n).toBe(2);
+    expect(results[0].n).toBe(4);
   });
 
-  it('has 0 shared rows and 1 row per program', async () => {
+  it('has 0 shared rows and 2 rows per program (general + confirmation)', async () => {
     const rows = await (env as any).DB
       .prepare(`SELECT program, COUNT(*) AS n FROM email_templates GROUP BY program`)
       .all<{ program: string; n: number }>();
     const byProgram = Object.fromEntries(rows.results.map((r: any) => [r.program, r.n]));
     expect(byProgram['shared']).toBeUndefined();
-    expect(byProgram['mens']).toBe(1);
-    expect(byProgram['women']).toBe(1);
+    expect(byProgram['mens']).toBe(2);
+    expect(byProgram['women']).toBe(2);
+  });
+
+  it('has an editable confirmation template per program (no "Northwest Kansas")', async () => {
+    for (const program of ['mens', 'women']) {
+      const row = await (env as any).DB
+        .prepare(`SELECT subject, body_html FROM email_templates WHERE program = ? AND key = 'confirmation'`)
+        .bind(program).first<{ subject: string; body_html: string }>();
+      expect(row).not.toBeNull();
+      expect(row!.subject).toContain('registered');
+      expect(row!.body_html).toContain('EDITABLE_START');
+      expect(row!.body_html).not.toContain('Northwest Kansas');
+    }
+  });
+
+  it('general templates no longer contain "Northwest Kansas"', async () => {
+    const rows = await (env as any).DB
+      .prepare(`SELECT body_html FROM email_templates WHERE key = 'general'`)
+      .all<{ body_html: string }>();
+    for (const r of rows.results as Array<{ body_html: string }>) {
+      expect(r.body_html).not.toContain('Northwest Kansas');
+    }
   });
 
   // ── The general template exists per program ──────────────────────────────────
@@ -116,6 +137,6 @@ describe('email_templates seed (0015_templates_general.sql)', () => {
     const { results } = await (env as any).DB
       .prepare(`SELECT updated_at FROM email_templates WHERE updated_at IS NOT NULL`)
       .all<{ updated_at: string }>();
-    expect(results.length).toBe(2);
+    expect(results.length).toBe(4);
   });
 });

@@ -402,6 +402,8 @@ export interface RichTextEditorProps {
   label?: string;
   /** Optional live event data for the preview card token resolution. */
   eventSample?: EventSample | null;
+  /** Show the built-in preview card. Off when a fuller preview lives elsewhere. */
+  showPreview?: boolean;
 }
 
 export function RichTextEditor({
@@ -410,6 +412,7 @@ export function RichTextEditor({
   placeholder = 'Start typing…',
   label = 'Email body',
   eventSample,
+  showPreview = true,
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -691,6 +694,7 @@ export function RichTextEditor({
       )}
 
       {/* Live preview — tokens resolved to real/sample values */}
+      {showPreview && (
       <div className="border-t border-gray-200 bg-gray-50 px-3 py-2">
         <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1.5">Preview</p>
         <div
@@ -705,6 +709,7 @@ export function RichTextEditor({
           }}
         />
       </div>
+      )}
     </div>
   );
 }
