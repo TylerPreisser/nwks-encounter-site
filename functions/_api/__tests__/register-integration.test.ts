@@ -565,3 +565,52 @@ describe('POST /api/register/:program/:role — integration', () => {
     expect(res.status).toBe(409);
   });
 });
+
+// ── Attendee cap (attendee_limit) enforcement ─────────────────────────────────
+describe('Attendee cap enforcement', () => {
+  beforeEach(async () => {
+    await applyMigrations(env as any);
+  });
+
+  async function setCap(eventId: number, limit: number, msg = 'This Encounter is full.') {
+    await (env.DB as D1Database)
+      .prepare(`UPDATE events SET attendee_limit = ?, attendee_full_message = ? WHERE id = ?`)
+      .bind(limit, msg, eventId).run();
+  }
+
+  it('rejects an attendee once the cap is reached (409, full:true, custom message)', async () => {
+    const eventId = await seedCurrentEvent(env.DB as D1Database, 'mens');
+    await setCap(eventId, 1, 'Encounter is FULL');
+
+    const r1 = await app.fetch(makeRequest('/api/register/mens/attendee', VALID_MENS_ATTENDEE, '10.0.0.1'), testEnv);
+    expect(r1.status).toBe(200);
+
+    const second = { ...VALID_MENS_ATTENDEE, first_name: 'Second', last_name: 'Person', email: 'second@example.com' };
+    const r2 = await app.fetch(makeRequest('/api/register/mens/attendee', second, '10.0.0.2'), testEnv);
+    expect(r2.status).toBe(409);
+    const body = await r2.json<{ ok: boolean; full?: boolean; error: string }>();
+    expect(body.ok).toBe(false);
+    expect(body.full).toBe(true);
+    expect(body.error).toBe('Encounter is FULL');
+  });
+
+  it('does NOT cap servers (limit=0 blocks attendees but a server still registers)', async () => {
+    const eventId = await seedCurrentEvent(env.DB as D1Database, 'mens');
+    await setCap(eventId, 0);
+
+    const rs = await app.fetch(makeRequest('/api/register/mens/server', VALID_MENS_SERVER, '10.0.0.3'), testEnv);
+    expect(rs.status).toBe(200);
+
+    const ra = await app.fetch(makeRequest('/api/register/mens/attendee', VALID_MENS_ATTENDEE, '10.0.0.4'), testEnv);
+    expect(ra.status).toBe(409);
+  });
+
+  it('no cap (attendee_limit NULL) lets attendees register freely', async () => {
+    await seedCurrentEvent(env.DB as D1Database, 'mens'); // limit stays NULL
+    const r1 = await app.fetch(makeRequest('/api/register/mens/attendee', VALID_MENS_ATTENDEE, '10.0.0.5'), testEnv);
+    expect(r1.status).toBe(200);
+    const second = { ...VALID_MENS_ATTENDEE, first_name: 'Second', email: 'second2@example.com' };
+    const r2 = await app.fetch(makeRequest('/api/register/mens/attendee', second, '10.0.0.6'), testEnv);
+    expect(r2.status).toBe(200);
+  });
+});

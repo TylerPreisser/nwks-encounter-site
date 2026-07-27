@@ -16,7 +16,7 @@
 
 import { scrypt, randomBytes, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
 const scryptAsync = promisify(scrypt);
 
@@ -89,14 +89,19 @@ const safeEmail = email.replace(/'/g, "''");
 const safeName  = name.replace(/'/g, "''");
 const safeHash  = hash.replace(/'/g, "''");
 
-const sql = `INSERT INTO admin_users (email, name, password_hash, role, created_at) VALUES ('${safeEmail}', '${safeName}', '${safeHash}', 'admin', '${now}');`;
+// INSERT OR REPLACE so re-seeding the same email updates the password instead
+// of failing on the UNIQUE(email) constraint.
+const sql = `INSERT OR REPLACE INTO admin_users (email, name, password_hash, role, created_at) VALUES ('${safeEmail}', '${safeName}', '${safeHash}', 'admin', '${now}');`;
 
 const dbFlag = remote ? '--remote' : '--local';
-const cmd = `npx wrangler d1 execute nwks-encounter ${dbFlag} --command "${sql.replace(/"/g, '\\"')}"`;
 
+// IMPORTANT: pass the SQL as an argv element via execFileSync (NOT a shell string).
+// The scrypt hash contains '$' (scrypt$salt$hash); a shell command string expands
+// $salt/$hash to empty, truncating the stored hash to "scrypt" so login always
+// fails. execFileSync with an args array never invokes a shell, so '$' is literal.
 console.log(`[seed-admin] Creating admin user: ${email} (${name})...`);
 try {
-  execSync(cmd, { stdio: 'inherit' });
+  execFileSync('npx', ['wrangler', 'd1', 'execute', 'nwks-encounter', dbFlag, '--command', sql], { stdio: 'inherit' });
   console.log(`[seed-admin] Done. Admin user created: ${email}`);
 } catch {
   console.error('[seed-admin] Failed to insert row. Check wrangler output above.');

@@ -314,4 +314,47 @@ describe('resolveSegment', () => {
     expect(r.launch_location).toBe('Oakley');
     expect(r.times_attended).toBe(2);
   });
+
+  // ── New: multi-launch-point selection (OR) ──────────────────────────────────
+  it('filters by launch_locations[] (any of several launch points)', async () => {
+    const eventId = await seedEvent({ program: 'mens' });
+    const a = await seedPerson({ program: 'mens', firstName: 'A', email: 'a@x.com' });
+    const b = await seedPerson({ program: 'mens', firstName: 'B', email: 'b@x.com' });
+    const c = await seedPerson({ program: 'mens', firstName: 'C', email: 'c@x.com' });
+    await seedRegistration({ program: 'mens', eventId, personId: a, role: 'attendee', launchLocation: 'Hays', email: 'a@x.com' });
+    await seedRegistration({ program: 'mens', eventId, personId: b, role: 'attendee', launchLocation: 'Norton', email: 'b@x.com' });
+    await seedRegistration({ program: 'mens', eventId, personId: c, role: 'attendee', launchLocation: 'Colby', email: 'c@x.com' });
+
+    const result = await resolveSegment(testEnv, 'mens', { launch_locations: ['Hays', 'Colby'] });
+    const locs = result.map((r) => r.launch_location).sort();
+    expect(locs).toEqual(['Colby', 'Hays']);
+    expect(result.find((r) => r.launch_location === 'Norton')).toBeUndefined();
+  });
+
+  it('launch_locations[] takes precedence over single launch_location', async () => {
+    const eventId = await seedEvent({ program: 'mens' });
+    const a = await seedPerson({ program: 'mens', firstName: 'A', email: 'a@x.com' });
+    const b = await seedPerson({ program: 'mens', firstName: 'B', email: 'b@x.com' });
+    await seedRegistration({ program: 'mens', eventId, personId: a, role: 'attendee', launchLocation: 'Hays', email: 'a@x.com' });
+    await seedRegistration({ program: 'mens', eventId, personId: b, role: 'attendee', launchLocation: 'Norton', email: 'b@x.com' });
+
+    const result = await resolveSegment(testEnv, 'mens', { launch_location: 'Norton', launch_locations: ['Hays'] });
+    expect(result).toHaveLength(1);
+    expect(result[0].launch_location).toBe('Hays');
+  });
+
+  // ── New: send to specific individuals (person_ids) ──────────────────────────
+  it('filters by person_ids[] (individual send)', async () => {
+    const eventId = await seedEvent({ program: 'mens' });
+    const a = await seedPerson({ program: 'mens', firstName: 'A', email: 'a@x.com' });
+    const b = await seedPerson({ program: 'mens', firstName: 'B', email: 'b@x.com' });
+    const c = await seedPerson({ program: 'mens', firstName: 'C', email: 'c@x.com' });
+    await seedRegistration({ program: 'mens', eventId, personId: a, role: 'attendee', email: 'a@x.com' });
+    await seedRegistration({ program: 'mens', eventId, personId: b, role: 'server', email: 'b@x.com' });
+    await seedRegistration({ program: 'mens', eventId, personId: c, role: 'attendee', email: 'c@x.com' });
+
+    const result = await resolveSegment(testEnv, 'mens', { person_ids: [b] });
+    expect(result).toHaveLength(1);
+    expect(result[0].person_id).toBe(b);
+  });
 });

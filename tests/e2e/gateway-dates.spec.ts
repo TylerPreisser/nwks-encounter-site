@@ -11,9 +11,10 @@ import { test, expect } from 'playwright/test';
 test.describe('Gateway date display', () => {
   test('Men\'s date is visible and matches expected text', async ({ page }) => {
     await page.goto('/');
-    // Wait for the animation to finish revealing content (up to 4 seconds)
+    // Wait for the animation to finish revealing content. The men's half's
+    // reveal can take longer than the women's, so allow up to 10s.
     const mensDates = page.locator('[data-nwks-date="mens"]');
-    await expect(mensDates).toBeVisible({ timeout: 4000 });
+    await expect(mensDates).toBeVisible({ timeout: 10_000 });
     // The text should be a non-empty date string — either the hard-coded fallback
     // or the API value (both are "August 6 – 8, 2026" after seed).
     await expect(mensDates).not.toBeEmpty();

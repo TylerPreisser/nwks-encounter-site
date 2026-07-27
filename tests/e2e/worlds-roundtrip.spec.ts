@@ -209,8 +209,9 @@ test.describe('Cross-origin worlds → backend registration round-trip', () => {
       { timeout: 15_000 }
     );
 
-    // Find and click the submit button
-    const submitBtn = page.locator('button[type="submit"], button.nwks-submit');
+    // Find and click the submit button. The form page now has BOTH an attendee
+    // and a server panel (server hidden), so scope to the visible submit.
+    const submitBtn = page.locator('button[type="submit"]:visible');
     await expect(submitBtn).toBeVisible({ timeout: 3000 });
     await submitBtn.click();
 
