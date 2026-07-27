@@ -71,29 +71,82 @@ export default function PageDetails() {
   const [dirty, setDirty] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(false);
-  const [ver, setVer] = useState(0);         // bump = remount body (structural edits)
+  const [ver, setVer] = useState(0);         // bump = remount page (structural / undo / redo)
   const [focusKey, setFocusKey] = useState<string | null>(null);
+  const [linkOpen, setLinkOpen] = useState(false);
+
+  // Undo/redo history. docRef is the authoritative current doc (all mutations go
+  // through edit/struct/undo/redo/load), so we never call setState inside an updater.
+  const docRef = useRef<Doc | null>(null);
+  const past = useRef<Doc[]>([]);
+  const future = useRef<Doc[]>([]);
+  const lastSnap = useRef(0);
+  const [, forceHist] = useState(0);
 
   useEffect(() => {
     let off = false;
     setLoading(true); setError(null); setDirty(false); setPublished(false);
     apiFetch<{ ok: boolean; doc: Doc | null }>('/admin/page-document')
-      .then((r) => { if (!off) { setDoc(r.doc ?? null); setVer((v) => v + 1); } })
+      .then((r) => {
+        if (off) return;
+        docRef.current = r.doc ?? null; past.current = []; future.current = [];
+        setDoc(r.doc ?? null); setVer((v) => v + 1);
+      })
       .catch((e: Error) => { if (!off) setError(e.message); })
       .finally(() => { if (!off) setLoading(false); });
     return () => { off = true; };
   }, [program]);
 
+  // Snapshot the pre-edit doc onto the undo stack. Rapid typing coalesces into
+  // one undo step (>600ms gap); structural edits always push their own step.
+  const snapshot = useCallback((prev: Doc, force: boolean) => {
+    const now = Date.now();
+    if (force || now - lastSnap.current > 600) {
+      past.current.push(structuredClone(prev));
+      if (past.current.length > 200) past.current.shift();
+      future.current = [];
+      lastSnap.current = now;
+      forceHist((n) => n + 1);
+    }
+  }, []);
+
   // Text edit — no remount (caret-safe).
   const edit = useCallback((fn: (d: Doc) => void) => {
-    setDoc((p) => { if (!p) return p; const n = structuredClone(p); fn(n); return n; });
-    setDirty(true); setPublished(false);
-  }, []);
-  // Structural edit — remounts body; optionally focuses a field afterwards.
+    const prev = docRef.current; if (!prev) return;
+    snapshot(prev, false);
+    const n = structuredClone(prev); fn(n); docRef.current = n;
+    setDoc(n); setDirty(true); setPublished(false);
+  }, [snapshot]);
+  // Structural edit — remounts the page; optionally focuses a field afterwards.
   const struct = useCallback((fn: (d: Doc) => void, focus?: string) => {
-    setDoc((p) => { if (!p) return p; const n = structuredClone(p); fn(n); return n; });
-    setDirty(true); setPublished(false); setVer((v) => v + 1); setFocusKey(focus ?? null);
+    const prev = docRef.current; if (!prev) return;
+    snapshot(prev, true);
+    const n = structuredClone(prev); fn(n); docRef.current = n;
+    setDoc(n); setDirty(true); setPublished(false); setVer((v) => v + 1); setFocusKey(focus ?? null);
+  }, [snapshot]);
+
+  const undo = useCallback(() => {
+    if (!past.current.length || !docRef.current) return;
+    future.current.push(structuredClone(docRef.current));
+    const prev = past.current.pop()!; docRef.current = prev;
+    setDoc(prev); setVer((v) => v + 1); setFocusKey(null); setDirty(true); setPublished(false);
+    forceHist((n) => n + 1);
   }, []);
+  const redo = useCallback(() => {
+    if (!future.current.length || !docRef.current) return;
+    past.current.push(structuredClone(docRef.current));
+    const next = future.current.pop()!; docRef.current = next;
+    setDoc(next); setVer((v) => v + 1); setFocusKey(null); setDirty(true); setPublished(false);
+    forceHist((n) => n + 1);
+  }, []);
+
+  // Cmd/Ctrl+Z = undo, Cmd+Shift+Z / Ctrl+Y = redo (overrides per-field native undo).
+  const onKeyDownRoot = useCallback((e: React.KeyboardEvent) => {
+    const mod = e.metaKey || e.ctrlKey;
+    if (!mod) return;
+    if (e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
+    else if (e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
+  }, [undo, redo]);
 
   async function publish() {
     if (!doc) return;
@@ -113,15 +166,23 @@ export default function PageDetails() {
   const programLabel = program === 'mens' ? "Men's" : "Women's";
   const fk = (k: string) => (focusKey === k);
 
+  const canUndo = past.current.length > 0;
+  const canRedo = future.current.length > 0;
+
   return (
-    <div className="pe-root max-w-4xl mx-auto pb-24">
+    <div className="pe-root max-w-4xl mx-auto pb-24" onKeyDown={onKeyDownRoot}>
       {/* Toolbar */}
       <div className="sticky top-0 z-20 -mx-6 px-6 py-3 mb-5 bg-white/95 backdrop-blur border-b flex items-center gap-3">
         <div>
           <h1 className="text-lg font-bold" style={{ color: theme.primary }}>Web Page Details</h1>
           <p className="text-xs text-gray-500">This is your live {programLabel} Encounter page — click any text to change it.</p>
         </div>
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-2">
+          <button type="button" onClick={undo} disabled={!canUndo} data-testid="undo-btn" title="Undo (⌘Z)"
+            aria-label="Undo" className="px-2.5 py-2 text-sm rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40">↶ Undo</button>
+          <button type="button" onClick={redo} disabled={!canRedo} data-testid="redo-btn" title="Redo (⇧⌘Z)"
+            aria-label="Redo" className="px-2.5 py-2 text-sm rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40">↷ Redo</button>
+          <span className="w-px h-6 bg-gray-200 mx-1" />
           {error && <span className="text-red-600 text-xs" role="alert">{error}</span>}
           {published && !dirty && <span className="text-green-600 text-xs">Published ✓</span>}
           {dirty && <span className="text-amber-600 text-xs">Unsaved changes</span>}
@@ -133,8 +194,8 @@ export default function PageDetails() {
         </div>
       </div>
 
-      {/* The page — rendered with the real site styles */}
-      <div className={`pe-page pe-page--${door}`} data-testid="page-editor">
+      {/* The page — rendered with the real site styles (keyed by ver → undo/structural remount) */}
+      <div className={`pe-page pe-page--${door}`} data-testid="page-editor" key={ver}>
         {/* Hero */}
         <div className="pe-hero">
           <div className="pe-logo" style={{ backgroundImage: `url(${theme.logoSrc})` }} role="img" aria-label={`${programLabel} Encounter logo`} />
@@ -147,18 +208,28 @@ export default function PageDetails() {
           <Editable tag="p" className="pe-dates" text={doc.dates} ariaLabel="Dates"
             onText={(v) => edit((d) => { d.dates = v; })} />
           {doc.register && doc.register.length > 0 && (
-            <>
+            <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
               <Editable tag="span" className="pe-cta" text={doc.register[0].label} ariaLabel="Register button label"
                 onText={(v) => edit((d) => { d.register![0].label = v; })} />
-              <Editable tag="div" className="pe-dates" text={doc.register[0].href}
-                ariaLabel="Register button link" ph="Register link URL"
-                onText={(v) => edit((d) => { d.register![0].href = v; })} />
-            </>
+              <button type="button" className="pe-add" onClick={() => setLinkOpen((o) => !o)}>
+                {linkOpen ? 'Hide link' : '🔗 Edit button link'}
+              </button>
+              {linkOpen && (
+                <input
+                  type="text" aria-label="Register button link" value={doc.register[0].href}
+                  onChange={(e) => edit((d) => { d.register![0].href = e.target.value; })}
+                  placeholder="https://…"
+                  style={{ width: 'min(420px, 90%)', fontSize: 12, padding: '6px 10px', borderRadius: 6,
+                    border: '1px solid rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.92)',
+                    color: '#222', fontFamily: 'system-ui, sans-serif' }}
+                />
+              )}
+            </div>
           )}
         </div>
 
-        {/* Body (remounts on structural change → correct text everywhere) */}
-        <div className="pe-body" key={ver}>
+        {/* Body (page is keyed by ver → structural/undo remount correct text everywhere) */}
+        <div className="pe-body">
           {doc.sections.map((section, si) => (
             <section className="pe-section pe-row" data-testid={`section-${si}`} key={si}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>

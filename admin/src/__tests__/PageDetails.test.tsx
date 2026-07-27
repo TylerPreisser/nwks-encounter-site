@@ -89,6 +89,18 @@ describe('PageDetails inline editor (contentEditable, real styling)', () => {
     await waitFor(() => expect(screen.getAllByLabelText(/^List item/i).length).toBe(before + 1));
   });
 
+  it('undo reverts a text edit', async () => {
+    mockPageDoc();
+    render(<PageDetails />, { wrapper: wrapper() });
+    await waitFor(() => screen.getByLabelText('Event name'));
+    const title = screen.getByLabelText('Event name');
+    title.textContent = 'Changed name';
+    fireEvent.input(title);
+    await waitFor(() => expect(screen.getByTestId('undo-btn')).not.toBeDisabled());
+    fireEvent.click(screen.getByTestId('undo-btn'));
+    await waitFor(() => expect(screen.getByLabelText('Event name').textContent).toBe("NWKS Men's Encounter"));
+  });
+
   it('renders with the real page classes (men theme)', async () => {
     mockPageDoc();
     render(<PageDetails />, { wrapper: wrapper() });
