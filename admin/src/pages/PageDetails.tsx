@@ -73,7 +73,6 @@ export default function PageDetails() {
   const [published, setPublished] = useState(false);
   const [ver, setVer] = useState(0);         // bump = remount page (structural / undo / redo)
   const [focusKey, setFocusKey] = useState<string | null>(null);
-  const [linkOpen, setLinkOpen] = useState(false);
 
   // Undo/redo history. docRef is the authoritative current doc (all mutations go
   // through edit/struct/undo/redo/load), so we never call setState inside an updater.
@@ -208,22 +207,12 @@ export default function PageDetails() {
           <Editable tag="p" className="pe-dates" text={doc.dates} ariaLabel="Dates"
             onText={(v) => edit((d) => { d.dates = v; })} />
           {doc.register && doc.register.length > 0 && (
-            <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+            <div style={{ marginTop: 6 }}>
               <Editable tag="span" className="pe-cta" text={doc.register[0].label} ariaLabel="Register button label"
                 onText={(v) => edit((d) => { d.register![0].label = v; })} />
-              <button type="button" className="pe-add" onClick={() => setLinkOpen((o) => !o)}>
-                {linkOpen ? 'Hide link' : '🔗 Edit button link'}
-              </button>
-              {linkOpen && (
-                <input
-                  type="text" aria-label="Register button link" value={doc.register[0].href}
-                  onChange={(e) => edit((d) => { d.register![0].href = e.target.value; })}
-                  placeholder="https://…"
-                  style={{ width: 'min(420px, 90%)', fontSize: 12, padding: '6px 10px', borderRadius: 6,
-                    border: '1px solid rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.92)',
-                    color: '#222', fontFamily: 'system-ui, sans-serif' }}
-                />
-              )}
+              <p className="pe-dates" style={{ marginTop: 8, fontSize: '0.62rem', opacity: 0.55 }}>
+                Links to your built-in registration form
+              </p>
             </div>
           )}
         </div>

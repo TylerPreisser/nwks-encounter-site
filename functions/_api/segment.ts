@@ -8,6 +8,10 @@ export interface Segment {
   event_id?: number;
   role?: 'attendee' | 'server';
   launch_location?: string;
+  /** One or more launch points (OR'd). Takes precedence over launch_location. */
+  launch_locations?: string[];
+  /** Send to specific people only (by person id) — used for individual sends. */
+  person_ids?: number[];
   first_timers_only?: boolean;
   status?: string;
 }
@@ -46,9 +50,17 @@ export async function resolveSegment(
     bindings.push(segment.role);
   }
 
-  if (segment.launch_location) {
+  if (segment.launch_locations && segment.launch_locations.length > 0) {
+    clauses.push(`r.launch_location IN (${segment.launch_locations.map(() => '?').join(',')})`);
+    bindings.push(...segment.launch_locations);
+  } else if (segment.launch_location) {
     clauses.push(`r.launch_location = ?`);
     bindings.push(segment.launch_location);
+  }
+
+  if (segment.person_ids && segment.person_ids.length > 0) {
+    clauses.push(`p.id IN (${segment.person_ids.map(() => '?').join(',')})`);
+    bindings.push(...segment.person_ids);
   }
 
   const regStatus = segment.status ?? 'registered';

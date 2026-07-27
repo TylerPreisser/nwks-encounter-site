@@ -36,7 +36,7 @@ const EMAIL_BG: Record<'mens' | 'women', string> = { mens: '#f2efe6', women: '#f
 const AUTOMATED_KEYS = new Set(['confirmation']);
 const LAUNCH_LOCATIONS = ['Colby', 'Gove', 'Hays', 'Hoxie', 'Norton', 'Plainville', 'Sterling', 'WaKeeney'];
 
-interface Segment { role?: 'attendee' | 'server' | ''; launch_location?: string; }
+interface Segment { role?: 'attendee' | 'server' | ''; launch_location?: string; launch_locations?: string[]; person_ids?: number[]; }
 interface Campaign {
   id: number; subject: string; status: string; recipient_count: number;
   created_at: string; sent_at: string | null;
@@ -62,11 +62,22 @@ export function TemplateEditor() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Send + history
-  const [segment, setSegment] = useState<Segment>({ role: '', launch_location: '' });
+  const [sendMode, setSendMode] = useState<'group' | 'individual'>('group');
+  const [role, setRole] = useState<'' | 'attendee' | 'server'>('');
+  const [launchSel, setLaunchSel] = useState<string[]>([]);
+  const [personQuery, setPersonQuery] = useState('');
+  const [personResults, setPersonResults] = useState<Array<{ person_id: number; name: string; email: string; role: string }>>([]);
+  const [selectedPerson, setSelectedPerson] = useState<{ person_id: number; name: string; email: string } | null>(null);
   const [recipientCount, setRecipientCount] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
   const [sendMsg, setSendMsg] = useState('');
   const [history, setHistory] = useState<Campaign[]>([]);
+  const savedRangeRef = useRef<Range | null>(null);
+
+  function buildSegment(): Segment {
+    if (sendMode === 'individual') return { person_ids: selectedPerson ? [selectedPerson.person_id] : [-1] };
+    return { role: role || undefined, launch_locations: launchSel.length ? launchSel : undefined };
+  }
 
   const loadTemplates = useCallback(() => {
     fetch(`/api/admin/templates?program=${program}`, { credentials: 'include' })
@@ -107,20 +118,41 @@ export function TemplateEditor() {
     msg.setAttribute('contenteditable', 'true');
     msg.style.outline = 'none';
     const onInput = () => { messageRef.current = chipsToTokens(msg.innerHTML); setDirty(true); setSaved(false); };
+    // Remember where the caret is so toolbar inserts land there, not at the start.
+    const capture = () => {
+      const s = window.getSelection();
+      if (s && s.rangeCount > 0 && msg.contains(s.anchorNode)) savedRangeRef.current = s.getRangeAt(0).cloneRange();
+    };
     msg.addEventListener('input', onInput);
-    return () => msg.removeEventListener('input', onInput);
+    msg.addEventListener('keyup', capture);
+    msg.addEventListener('mouseup', capture);
+    msg.addEventListener('blur', capture);
+    return () => {
+      msg.removeEventListener('input', onInput);
+      msg.removeEventListener('keyup', capture);
+      msg.removeEventListener('mouseup', capture);
+      msg.removeEventListener('blur', capture);
+    };
   }, [selected?.id]);
 
+  function restoreRange() {
+    const el = msgRef.current; if (!el) return;
+    el.focus();
+    const r = savedRangeRef.current;
+    if (r && el.contains(r.commonAncestorContainer)) {
+      const s = window.getSelection(); s?.removeAllRanges(); s?.addRange(r);
+    }
+  }
   function sync() { if (msgRef.current) messageRef.current = chipsToTokens(msgRef.current.innerHTML); setDirty(true); setSaved(false); }
-  function exec(cmd: string, val?: string) { msgRef.current?.focus(); document.execCommand(cmd, false, val); sync(); }
-  function insertToken(tok: string) { msgRef.current?.focus(); document.execCommand('insertHTML', false, tokenizeToChips(tok) + '&#8203;'); sync(); }
+  function exec(cmd: string, val?: string) { restoreRange(); document.execCommand(cmd, false, val); sync(); }
+  function insertToken(tok: string) { restoreRange(); document.execCommand('insertHTML', false, tokenizeToChips(tok) + '&#8203;'); sync(); }
   async function onPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files; if (!files) return;
     for (const f of Array.from(files)) {
       if (!f.type.startsWith('image/')) continue;
       const dataUrl = await imageFileToDataUrl(f);
       if (!dataUrl) continue;
-      msgRef.current?.focus();
+      restoreRange();
       document.execCommand('insertHTML', false,
         `<img src="${dataUrl}" alt="" width="520" style="max-width:100%;height:auto;border-radius:6px;display:block;margin:12px 0;" />`);
       sync();
@@ -188,16 +220,38 @@ export function TemplateEditor() {
     } finally { setSaving(false); }
   }
 
-  // Live recipient count as the segment changes.
+  // Live recipient count as the selection changes.
   useEffect(() => {
     let off = false;
+    if (sendMode === 'individual') { setRecipientCount(selectedPerson ? 1 : 0); return; }
     fetch(`/api/admin/campaigns/preview?program=${program}`, {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ segment: { role: segment.role || undefined, launch_location: segment.launch_location || undefined } }),
+      body: JSON.stringify({ segment: buildSegment() }),
     }).then((r) => r.json()).then((d) => { if (!off) setRecipientCount(typeof d.recipient_count === 'number' ? d.recipient_count : null); })
       .catch(() => { if (!off) setRecipientCount(null); });
     return () => { off = true; };
-  }, [program, segment.role, segment.launch_location]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [program, sendMode, role, launchSel, selectedPerson]);
+
+  // Search registrants for an individual send (debounced).
+  useEffect(() => {
+    if (sendMode !== 'individual') return;
+    const q = personQuery.trim();
+    if (q.length < 2) { setPersonResults([]); return; }
+    const t = setTimeout(() => {
+      fetch(`/api/admin/registrations?program=${program}&q=${encodeURIComponent(q)}`, { credentials: 'include' })
+        .then((r) => r.json()).then((d) => {
+          const rows: any[] = Array.isArray(d.rows) ? d.rows : [];
+          const seen = new Set<number>(); const out: Array<{ person_id: number; name: string; email: string; role: string }> = [];
+          for (const row of rows) {
+            const pid = row.person_id; if (!pid || seen.has(pid) || !row.email) continue; seen.add(pid);
+            out.push({ person_id: pid, name: `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim(), email: row.email, role: row.role });
+          }
+          setPersonResults(out.slice(0, 8));
+        }).catch(() => setPersonResults([]));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [sendMode, personQuery, program]);
 
   const loadHistory = useCallback(() => {
     fetch(`/api/admin/campaigns?program=${program}`, { credentials: 'include' })
@@ -207,9 +261,10 @@ export function TemplateEditor() {
 
   async function sendNow() {
     if (!selected) return;
+    if (sendMode === 'individual' && !selectedPerson) { setSendMsg('Pick a person first.'); return; }
     setSending(true); setSendMsg('');
     try {
-      const seg = { role: segment.role || undefined, launch_location: segment.launch_location || undefined };
+      const seg = buildSegment();
       const draft = await fetch(`/api/admin/campaigns?program=${program}`, {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subject, body_html: currentBodyHtml(), body_text: currentBodyText(), segment: seg }),
@@ -269,6 +324,28 @@ export function TemplateEditor() {
         <div>
           <h3 className="font-semibold text-gray-500 mb-2 text-xs uppercase tracking-wide">Your templates</h3>
           <ul className="space-y-1">{manual.map(renderItem)}</ul>
+        </div>
+        <div>
+          <h3 className="font-semibold text-gray-500 mb-2 text-xs uppercase tracking-wide flex items-center gap-1.5">
+            <span aria-hidden="true">📨</span> Sent history
+          </h3>
+          {history.length === 0 ? (
+            <p className="text-xs text-gray-400 px-1">No emails sent yet.</p>
+          ) : (
+            <ul className="space-y-1">
+              {history.map((c) => (
+                <li key={c.id}>
+                  <button onClick={() => useAsTemplate(c.id)} title="Click to reuse this as a new template"
+                    className="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-gray-100">
+                    <span className="block truncate text-gray-800">{c.subject || '(no subject)'}</span>
+                    <span className="block text-[11px] text-gray-400">
+                      {c.status} · {c.recipient_count} · {new Date(c.created_at).toLocaleDateString()}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </aside>
 
@@ -347,64 +424,99 @@ export function TemplateEditor() {
               </div>
             )}
 
-            {/* ── Send this email ─────────────────────────────────────── */}
+            {/* ── Send this email (professional panel) ────────────────── */}
             {!isAutomated && (
-              <div className="rounded-lg border border-gray-200 p-4 mt-3">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Send this email</h3>
-                <div className="flex flex-wrap items-end gap-3">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Who</label>
-                    <select aria-label="Recipient role" value={segment.role}
-                      onChange={(e) => setSegment((s) => ({ ...s, role: e.target.value as Segment['role'] }))}
-                      className="border rounded px-2 py-1.5 text-sm bg-white">
-                      <option value="">Everyone (attendees + servers)</option>
-                      <option value="attendee">Attendees only</option>
-                      <option value="server">Servers only</option>
-                    </select>
+              <div className="rounded-xl border border-gray-200 bg-white shadow-sm p-5 mt-3">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-gray-800">Send this email</h3>
+                  <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden text-xs font-medium">
+                    {(['group', 'individual'] as const).map((m) => (
+                      <button key={m} onClick={() => setSendMode(m)}
+                        className="px-3 py-1.5 transition-colors"
+                        style={sendMode === m ? { background: 'var(--color-primary)', color: '#fff' } : { color: '#6b7280' }}>
+                        {m === 'group' ? 'A group' : 'One person'}
+                      </button>
+                    ))}
                   </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Launch point</label>
-                    <select aria-label="Launch location" value={segment.launch_location}
-                      onChange={(e) => setSegment((s) => ({ ...s, launch_location: e.target.value }))}
-                      className="border rounded px-2 py-1.5 text-sm bg-white">
-                      <option value="">All launch points</option>
-                      {LAUNCH_LOCATIONS.map((l) => <option key={l} value={l}>{l}</option>)}
-                    </select>
+                </div>
+
+                {sendMode === 'group' ? (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1.5">Who</label>
+                      <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden text-sm" role="group" aria-label="Recipient role">
+                        {[{ v: '', l: 'Everyone' }, { v: 'attendee', l: 'Attendees' }, { v: 'server', l: 'Servers' }].map((o) => (
+                          <button key={o.v} onClick={() => setRole(o.v as typeof role)}
+                            className="px-4 py-1.5 transition-colors border-r border-gray-200 last:border-r-0"
+                            style={role === o.v ? { background: 'var(--color-primary)', color: '#fff' } : { color: '#374151' }}>
+                            {o.l}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                        Launch points <span className="text-gray-400 font-normal">— pick any, or leave empty for all</span>
+                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {LAUNCH_LOCATIONS.map((l) => {
+                          const on = launchSel.includes(l);
+                          return (
+                            <button key={l} aria-pressed={on}
+                              onClick={() => setLaunchSel((s) => on ? s.filter((x) => x !== l) : [...s, l])}
+                              className="px-3 py-1.5 rounded-full text-sm border transition-colors"
+                              style={on ? { background: 'var(--color-primary)', color: '#fff', borderColor: 'var(--color-primary)' } : { color: '#4b5563', borderColor: '#e5e7eb' }}>
+                              {l}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-sm text-gray-600 pb-1.5">
-                    <span className="font-semibold text-gray-800">{recipientCount ?? '—'}</span> recipient{recipientCount === 1 ? '' : 's'}
+                ) : (
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-gray-500">Find a person</label>
+                    {selectedPerson ? (
+                      <div className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                        <span className="font-medium text-gray-800">{selectedPerson.name}</span>
+                        <span className="text-gray-400">{selectedPerson.email}</span>
+                        <button onClick={() => { setSelectedPerson(null); setPersonQuery(''); }} className="ml-auto text-xs text-gray-400 hover:text-gray-600">Change</button>
+                      </div>
+                    ) : (
+                      <>
+                        <input value={personQuery} onChange={(e) => setPersonQuery(e.target.value)} aria-label="Search person"
+                          placeholder="Search by name or email…" className="w-full border rounded-lg px-3 py-2 text-sm" />
+                        {personResults.length > 0 && (
+                          <ul className="border border-gray-100 rounded-lg divide-y divide-gray-50 max-h-52 overflow-auto">
+                            {personResults.map((p) => (
+                              <li key={p.person_id}>
+                                <button onClick={() => { setSelectedPerson({ person_id: p.person_id, name: p.name, email: p.email }); setPersonResults([]); }}
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">
+                                  <span className="font-medium text-gray-800">{p.name || '(no name)'}</span>
+                                  <span className="text-gray-400"> · {p.email}</span>
+                                  <span className="text-[11px] text-gray-400"> ({p.role})</span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3 mt-5 pt-4 border-t border-gray-100">
+                  <div className="text-sm text-gray-600">
+                    Sends to <span className="font-semibold text-gray-900">{recipientCount ?? '—'}</span> {recipientCount === 1 ? 'person' : 'people'}
                   </div>
                   <button onClick={sendNow} disabled={sending || !recipientCount}
-                    className="px-4 py-2 text-sm font-semibold text-white rounded-lg disabled:opacity-50" style={{ background: 'var(--color-primary)' }}>
+                    className="ml-auto px-5 py-2 text-sm font-semibold text-white rounded-lg disabled:opacity-50" style={{ background: 'var(--color-primary)' }}>
                     {sending ? 'Sending…' : 'Send now'}
                   </button>
-                  {sendMsg && <span className="text-sm text-gray-600 pb-1.5">{sendMsg}</span>}
+                  {sendMsg && <span className="text-sm text-gray-600">{sendMsg}</span>}
                 </div>
               </div>
             )}
-
-            {/* ── History ─────────────────────────────────────────────── */}
-            <div className="rounded-lg border border-gray-200 p-4 mt-3">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-semibold text-gray-700">History</h3>
-                <span className="text-xs text-gray-400">Reuse a past email as a new template</span>
-              </div>
-              {history.length === 0 ? (
-                <p className="text-sm text-gray-400">No emails sent yet.</p>
-              ) : (
-                <ul className="divide-y divide-gray-100">
-                  {history.map((c) => (
-                    <li key={c.id} className="flex items-center gap-3 py-2 text-sm">
-                      <span className="flex-1 truncate text-gray-800">{c.subject || '(no subject)'}</span>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{c.status}</span>
-                      <span className="text-xs text-gray-400 whitespace-nowrap">{c.recipient_count} · {new Date(c.created_at).toLocaleDateString()}</span>
-                      <button onClick={() => useAsTemplate(c.id)} className="text-xs px-2 py-1 rounded border whitespace-nowrap"
-                        style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}>Use as template</button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
           </>
         )}
       </section>
