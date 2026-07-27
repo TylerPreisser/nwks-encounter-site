@@ -504,6 +504,8 @@ registerRouter.post('/:program/:role', async (c) => {
       role_lower:   role === 'server' ? 'server' : 'attendee',
       // Correct indefinite article: "an attendee" (vowel) vs "a server".
       role_article: role === 'server' ? 'a' : 'an',
+      // Single clean phrase used in the confirmation: "an attendee" / "a server".
+      role_phrase:  role === 'server' ? 'a server' : 'an attendee',
     });
 
     await sendEmail(c.env, {

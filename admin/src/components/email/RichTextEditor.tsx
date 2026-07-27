@@ -10,10 +10,14 @@ export const FIELD_TOKENS: Array<{ label: string; token: string }> = [
   { label: 'Launch location',  token: '{{launch_location}}' },
 ];
 
-/** Map from raw token string → human label. */
-const TOKEN_LABELS: Record<string, string> = Object.fromEntries(
-  FIELD_TOKENS.map(f => [f.token, f.label])
-);
+/** Map from raw token string → human label. Includes a few auto-only tokens
+ * (used by the registration confirmation) so they render as clean pills without
+ * cluttering the "Insert field" menu. */
+const TOKEN_LABELS: Record<string, string> = {
+  ...Object.fromEntries(FIELD_TOKENS.map(f => [f.token, f.label])),
+  '{{role_phrase}}': 'their role',
+  '{{program}}': 'program',
+};
 
 /** Data attribute that marks a chip span in the DOM. */
 const CHIP_ATTR = 'data-token';
