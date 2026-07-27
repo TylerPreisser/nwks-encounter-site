@@ -705,13 +705,17 @@ describe('TemplateEditor', () => {
   });
 
   it('saves the selected template via PATCH', async () => {
-    const fetchMock = vi.spyOn(global, 'fetch')
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ok: true, templates: [GENERAL] }), { status: 200 })
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ok: true, template: { ...GENERAL, subject: 'Updated Subject' } }), { status: 200 })
-      );
+    const fetchMock = vi.spyOn(global, 'fetch').mockImplementation(async (input, init) => {
+      const url = typeof input === 'string' ? input : (input as Request).url;
+      const method = (init?.method ?? 'GET').toUpperCase();
+      if (url.includes('/admin/templates/') && method === 'PATCH')
+        return new Response(JSON.stringify({ ok: true, template: { ...GENERAL, subject: 'Updated Subject' } }), { status: 200 });
+      if (url.includes('/admin/templates') && method === 'GET')
+        return new Response(JSON.stringify({ ok: true, templates: [GENERAL] }), { status: 200 });
+      if (url.includes('/campaigns/preview'))
+        return new Response(JSON.stringify({ ok: true, recipient_count: 0, sample: [] }), { status: 200 });
+      return new Response(JSON.stringify({ ok: true, campaigns: [] }), { status: 200 });
+    });
 
     render(<TemplateEditor />, { wrapper: wrapper() });
     await waitFor(() => screen.getByDisplayValue(/A message from NWKS Men/));
@@ -735,13 +739,17 @@ describe('TemplateEditor', () => {
   });
 
   it('creates a new template via POST when "Save as new template" is used', async () => {
-    const fetchMock = vi.spyOn(global, 'fetch')
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ok: true, templates: [GENERAL] }), { status: 200 })
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ok: true, template: { ...SAVED, name: 'My New Email' } }), { status: 201 })
-      );
+    const fetchMock = vi.spyOn(global, 'fetch').mockImplementation(async (input, init) => {
+      const url = typeof input === 'string' ? input : (input as Request).url;
+      const method = (init?.method ?? 'GET').toUpperCase();
+      if (url.includes('/admin/templates') && method === 'POST')
+        return new Response(JSON.stringify({ ok: true, template: { ...SAVED, name: 'My New Email' } }), { status: 201 });
+      if (url.includes('/admin/templates') && method === 'GET')
+        return new Response(JSON.stringify({ ok: true, templates: [GENERAL] }), { status: 200 });
+      if (url.includes('/campaigns/preview'))
+        return new Response(JSON.stringify({ ok: true, recipient_count: 0, sample: [] }), { status: 200 });
+      return new Response(JSON.stringify({ ok: true, campaigns: [] }), { status: 200 });
+    });
 
     render(<TemplateEditor />, { wrapper: wrapper() });
     await waitFor(() => screen.getByDisplayValue(/A message from NWKS Men/));
@@ -754,7 +762,7 @@ describe('TemplateEditor', () => {
 
     await waitFor(() => {
       const calls = fetchMock.mock.calls as [string, RequestInit][];
-      const postCall = calls.find(([, init]) => init?.method === 'POST');
+      const postCall = calls.find(([url, init]) => init?.method === 'POST' && String(url).includes('/admin/templates'));
       expect(postCall).toBeDefined();
       const body = JSON.parse(postCall![1].body as string);
       expect(body.name).toBe('My New Email');
@@ -774,6 +782,9 @@ describe('TemplateEditor', () => {
     const fetchMock = vi.spyOn(global, 'fetch').mockImplementation(async () =>
       new Response(JSON.stringify({ ok: true, templates: [] }), { status: 200 })
     );
+    const hasTemplatesFetch = (prog: string) =>
+      (fetchMock.mock.calls as Array<[unknown]>).some(([u]) =>
+        String(u).includes('/admin/templates') && String(u).includes(`program=${prog}`));
 
     const { rerender } = render(
       <MemoryRouter>
@@ -782,7 +793,7 @@ describe('TemplateEditor', () => {
         </ProgramContext.Provider>
       </MemoryRouter>
     );
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(hasTemplatesFetch('mens')).toBe(true));
 
     rerender(
       <MemoryRouter>
@@ -791,7 +802,6 @@ describe('TemplateEditor', () => {
         </ProgramContext.Provider>
       </MemoryRouter>
     );
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    expect((fetchMock.mock.calls[1] as [string])[0]).toContain('program=women');
+    await waitFor(() => expect(hasTemplatesFetch('women')).toBe(true));
   });
 });

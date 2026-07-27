@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useProgram } from '@/App';
-import { imageFileToDataUrl, FIELD_TOKENS } from './RichTextEditor';
+import { imageFileToDataUrl, FIELD_TOKENS, tokenizeToChips, chipsToTokens } from './RichTextEditor';
 
 interface Template {
   id: number; program: string; key: string; name: string;
@@ -34,6 +34,13 @@ function reassemble(split: Split, editable: string): string {
 // inject the HTML into a div, so we set it on the frame instead).
 const EMAIL_BG: Record<'mens' | 'women', string> = { mens: '#f2efe6', women: '#fdf5f7' };
 const AUTOMATED_KEYS = new Set(['confirmation']);
+const LAUNCH_LOCATIONS = ['Colby', 'Gove', 'Hays', 'Hoxie', 'Norton', 'Plainville', 'Sterling', 'WaKeeney'];
+
+interface Segment { role?: 'attendee' | 'server' | ''; launch_location?: string; }
+interface Campaign {
+  id: number; subject: string; status: string; recipient_count: number;
+  created_at: string; sent_at: string | null;
+}
 
 export function TemplateEditor() {
   const { program } = useProgram();
@@ -53,6 +60,13 @@ export function TemplateEditor() {
   const splitRef = useRef<Split>({ before: '', editable: '', after: '', hasMarkers: false });
   const messageRef = useRef<string>('');
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Send + history
+  const [segment, setSegment] = useState<Segment>({ role: '', launch_location: '' });
+  const [recipientCount, setRecipientCount] = useState<number | null>(null);
+  const [sending, setSending] = useState(false);
+  const [sendMsg, setSendMsg] = useState('');
+  const [history, setHistory] = useState<Campaign[]>([]);
 
   const loadTemplates = useCallback(() => {
     fetch(`/api/admin/templates?program=${program}`, { credentials: 'include' })
@@ -80,22 +94,26 @@ export function TemplateEditor() {
     const sp = splitTemplate(selected.body_html);
     splitRef.current = sp;
     messageRef.current = sp.editable;
+    // Merge fields like {{first_name}} render as friendly, non-editable pills
+    // (e.g. "First name") so the office never sees raw {{code}}. Converted back
+    // to tokens on read.
+    const editableChips = tokenizeToChips(sp.editable);
     frame.innerHTML = sp.hasMarkers
-      ? `${sp.before}<div data-pe-msg>${sp.editable}</div>${sp.after}`
-      : `<div data-pe-msg>${sp.editable}</div>`;
+      ? `${sp.before}<div data-pe-msg>${editableChips}</div>${sp.after}`
+      : `<div data-pe-msg>${editableChips}</div>`;
     const msg = frame.querySelector('[data-pe-msg]') as HTMLElement | null;
     msgRef.current = msg;
     if (!msg) return;
     msg.setAttribute('contenteditable', 'true');
     msg.style.outline = 'none';
-    const onInput = () => { messageRef.current = msg.innerHTML; setDirty(true); setSaved(false); };
+    const onInput = () => { messageRef.current = chipsToTokens(msg.innerHTML); setDirty(true); setSaved(false); };
     msg.addEventListener('input', onInput);
     return () => msg.removeEventListener('input', onInput);
   }, [selected?.id]);
 
-  function sync() { if (msgRef.current) messageRef.current = msgRef.current.innerHTML; setDirty(true); setSaved(false); }
+  function sync() { if (msgRef.current) messageRef.current = chipsToTokens(msgRef.current.innerHTML); setDirty(true); setSaved(false); }
   function exec(cmd: string, val?: string) { msgRef.current?.focus(); document.execCommand(cmd, false, val); sync(); }
-  function insertToken(tok: string) { msgRef.current?.focus(); document.execCommand('insertText', false, tok); sync(); }
+  function insertToken(tok: string) { msgRef.current?.focus(); document.execCommand('insertHTML', false, tokenizeToChips(tok) + '&#8203;'); sync(); }
   async function onPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files; if (!files) return;
     for (const f of Array.from(files)) {
@@ -168,6 +186,55 @@ export function TemplateEditor() {
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'unknown error');
     } finally { setSaving(false); }
+  }
+
+  // Live recipient count as the segment changes.
+  useEffect(() => {
+    let off = false;
+    fetch(`/api/admin/campaigns/preview?program=${program}`, {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ segment: { role: segment.role || undefined, launch_location: segment.launch_location || undefined } }),
+    }).then((r) => r.json()).then((d) => { if (!off) setRecipientCount(typeof d.recipient_count === 'number' ? d.recipient_count : null); })
+      .catch(() => { if (!off) setRecipientCount(null); });
+    return () => { off = true; };
+  }, [program, segment.role, segment.launch_location]);
+
+  const loadHistory = useCallback(() => {
+    fetch(`/api/admin/campaigns?program=${program}`, { credentials: 'include' })
+      .then((r) => r.json()).then((d) => setHistory(Array.isArray(d.campaigns) ? d.campaigns : [])).catch(() => {});
+  }, [program]);
+  useEffect(loadHistory, [program]);
+
+  async function sendNow() {
+    if (!selected) return;
+    setSending(true); setSendMsg('');
+    try {
+      const seg = { role: segment.role || undefined, launch_location: segment.launch_location || undefined };
+      const draft = await fetch(`/api/admin/campaigns?program=${program}`, {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject, body_html: currentBodyHtml(), body_text: currentBodyText(), segment: seg }),
+      }).then((r) => r.json());
+      if (!draft.ok || !draft.campaign?.id) throw new Error(draft.error ?? 'could not create the send');
+      const sent = await fetch(`/api/admin/campaigns/${draft.campaign.id}/send?program=${program}`, {
+        method: 'POST', credentials: 'include',
+      }).then((r) => r.json());
+      if (!sent.ok) throw new Error(sent.error ?? 'send failed');
+      setSendMsg(`Sent to ${sent.sent ?? recipientCount ?? ''} recipient(s).`);
+      loadHistory();
+    } catch (e) { setSendMsg(e instanceof Error ? e.message : 'send failed'); }
+    finally { setSending(false); }
+  }
+
+  async function useAsTemplate(id: number) {
+    try {
+      const d = await fetch(`/api/admin/campaigns/${id}?program=${program}`, { credentials: 'include' }).then((r) => r.json());
+      const camp = d.campaign; if (!camp) return;
+      const res = await fetch(`/api/admin/templates?program=${program}`, {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: `${camp.subject || 'Saved email'} (from history)`, subject: camp.subject, body_html: camp.body_html, body_text: camp.body_text ?? '', variables: ['first_name'] }),
+      }).then((r) => r.json());
+      if (res.ok && res.template) { setTemplates((prev) => [...prev, res.template]); selectTemplate(res.template); }
+    } catch { /* ignore */ }
   }
 
   const isGeneral = selected?.key === 'general';
@@ -279,6 +346,65 @@ export function TemplateEditor() {
                 <button onClick={() => setSaveAsOpen(false)} className="px-3 py-2 text-sm rounded-lg text-gray-500 hover:bg-gray-100">Cancel</button>
               </div>
             )}
+
+            {/* ── Send this email ─────────────────────────────────────── */}
+            {!isAutomated && (
+              <div className="rounded-lg border border-gray-200 p-4 mt-3">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">Send this email</h3>
+                <div className="flex flex-wrap items-end gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Who</label>
+                    <select aria-label="Recipient role" value={segment.role}
+                      onChange={(e) => setSegment((s) => ({ ...s, role: e.target.value as Segment['role'] }))}
+                      className="border rounded px-2 py-1.5 text-sm bg-white">
+                      <option value="">Everyone (attendees + servers)</option>
+                      <option value="attendee">Attendees only</option>
+                      <option value="server">Servers only</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Launch point</label>
+                    <select aria-label="Launch location" value={segment.launch_location}
+                      onChange={(e) => setSegment((s) => ({ ...s, launch_location: e.target.value }))}
+                      className="border rounded px-2 py-1.5 text-sm bg-white">
+                      <option value="">All launch points</option>
+                      {LAUNCH_LOCATIONS.map((l) => <option key={l} value={l}>{l}</option>)}
+                    </select>
+                  </div>
+                  <div className="text-sm text-gray-600 pb-1.5">
+                    <span className="font-semibold text-gray-800">{recipientCount ?? '—'}</span> recipient{recipientCount === 1 ? '' : 's'}
+                  </div>
+                  <button onClick={sendNow} disabled={sending || !recipientCount}
+                    className="px-4 py-2 text-sm font-semibold text-white rounded-lg disabled:opacity-50" style={{ background: 'var(--color-primary)' }}>
+                    {sending ? 'Sending…' : 'Send now'}
+                  </button>
+                  {sendMsg && <span className="text-sm text-gray-600 pb-1.5">{sendMsg}</span>}
+                </div>
+              </div>
+            )}
+
+            {/* ── History ─────────────────────────────────────────────── */}
+            <div className="rounded-lg border border-gray-200 p-4 mt-3">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-gray-700">History</h3>
+                <span className="text-xs text-gray-400">Reuse a past email as a new template</span>
+              </div>
+              {history.length === 0 ? (
+                <p className="text-sm text-gray-400">No emails sent yet.</p>
+              ) : (
+                <ul className="divide-y divide-gray-100">
+                  {history.map((c) => (
+                    <li key={c.id} className="flex items-center gap-3 py-2 text-sm">
+                      <span className="flex-1 truncate text-gray-800">{c.subject || '(no subject)'}</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{c.status}</span>
+                      <span className="text-xs text-gray-400 whitespace-nowrap">{c.recipient_count} · {new Date(c.created_at).toLocaleDateString()}</span>
+                      <button onClick={() => useAsTemplate(c.id)} className="text-xs px-2 py-1 rounded border whitespace-nowrap"
+                        style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}>Use as template</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </>
         )}
       </section>
