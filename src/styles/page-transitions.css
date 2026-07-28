@@ -1,52 +1,30 @@
 /* page-transitions.css
-   Motion for the multi-page gateway/worlds site. Navigation is real page loads
-   (see app.js). Four coordinated behaviors:
-     1. Gateway load  — the two panels FADE in; the content on top SLIDES up.
-     2. Enter a door  — that door's color slides over the other half (JS cover),
-                        then the world page's content FADES in over the color.
-     3. Back to home  — world content fades out, the door color slides back to the
-                        middle (JS boot cover recedes to its half), then the home
-                        content fades in.
-     4. World -> form — the in-page form panel FADES in / out (no slide).
-   All motion is gated behind prefers-reduced-motion. */
+   Gateway <-> world transitions are IN-PAGE (see app.js) — one smooth timeline,
+   no reload. CSS here only handles the INITIAL load (first paint, before any
+   in-page swap); once app.js takes over it adds html.nwks-swapped and drives all
+   motion via inline transitions + a door-colored cover. */
 
 @media (prefers-reduced-motion: no-preference) {
-
-  /* ── 1. Gateway load: panels fade, content slides up ───────────────────────
-     (Skipped on a return — that path is driven by the receding cover below.) */
-  html:not([data-world]):not([data-return]) .stage {
-    animation: nwks-fade-in 620ms ease both;
+  /* Initial gateway load: panels fade in, the content on top slides up. */
+  html:not(.nwks-swapped):not([data-world]) .stage {
+    animation: nwks-fade-in 560ms ease both;
   }
-  html:not([data-world]):not([data-return]) .half__inner {
-    animation: nwks-content-up 640ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  html:not(.nwks-swapped):not([data-world]) .half__inner {
+    animation: nwks-content-up 620ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
   }
-  html:not([data-world]):not([data-return]) .half--men  .half__inner { animation-delay: 90ms; }
-  html:not([data-world]):not([data-return]) .half--women .half__inner { animation-delay: 170ms; }
+  html:not(.nwks-swapped):not([data-world]) .half--men  .half__inner { animation-delay: 80ms; }
+  html:not(.nwks-swapped):not([data-world]) .half--women .half__inner { animation-delay: 150ms; }
 
-  /* ── 2. World load: content fades in over the already-painted door color ────
-     Fast, single fade with NO stagger — it must resolve in almost instantly once
-     the slide-over has landed (the color is already there). */
-  html[data-world] .world:not([hidden]) { animation: nwks-fade-in 260ms ease both; }
+  /* Initial direct load of a world page (?door=…): content fades in over the color. */
+  html:not(.nwks-swapped)[data-world] .world:not([hidden]) { animation: nwks-fade-in 320ms ease both; }
 
-  /* ── 3. Return hold: keep home content hidden until the cover recedes ───────
-     app.js adds .content-ready once the door color has slid back to the middle. */
-  html[data-return] .half__inner { opacity: 0; }
-  html[data-return].content-ready .half__inner {
-    animation: nwks-content-up 560ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
-  }
-  html[data-return].content-ready .half--women .half__inner { animation-delay: 80ms; }
-
-  /* ── Exit fades ────────────────────────────────────────────────────────────
-     Back nav fades ONLY the world content out (the door-color bg stays), and app.js
-     waits for THIS fade to finish before navigating — so the slide-back on the
-     gateway happens strictly AFTER the content has faded (sequential, not at once). */
-  body.is-returning .world { animation: nwks-fade-out 300ms ease both; }
-  /* Generic soft exit (any other link that opts into it). */
-  body.is-leaving .stage, body.is-leaving .world { animation: nwks-fade-out 260ms ease both; }
-
-  /* ── 4. Form panel: fade in over the world, fade out on close ──────────────*/
-  .world-formpage:not([hidden]) { animation: nwks-fade-in 260ms ease both; }
+  /* Register form panel (same-page): fade in / out. */
+  .world-formpage:not([hidden]) { animation: nwks-fade-in 240ms ease both; }
   .world-formpage.is-closing { animation: nwks-fade-out 200ms ease both; }
+
+  /* Enter buttons get a subtle press cue. */
+  .enter { transition: transform 160ms ease; }
+  .enter:active { transform: scale(0.96); }
 
   @keyframes nwks-fade-in  { from { opacity: 0; } to { opacity: 1; } }
   @keyframes nwks-fade-out { from { opacity: 1; } to { opacity: 0; } }
@@ -54,36 +32,17 @@
     from { opacity: 0; transform: translateY(16px); }
     to   { opacity: 1; transform: none; }
   }
-
-  /* Enter buttons get a subtle press cue. */
-  .enter { transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease; }
-  .enter:active { transform: scale(0.96); }
 }
 
-/* ── Door cover ───────────────────────────────────────────────────────────────
-   A fixed, full-viewport panel painted the door's color. JS animates its
-   clip-path: on Enter it grows from the door's half to full (slides over the
-   other half); on return the boot cover recedes from full back to the door's
-   half, then fades out. Styling lives here; geometry is set inline by app.js. */
+/* Door cover — a fixed, full-viewport panel painted the door's color. app.js sets
+   the clip-path inline; this transition animates the slide/recede. */
 .nwks-door-cover {
   position: fixed; inset: 0; z-index: 900; pointer-events: none;
-  transition: clip-path 340ms cubic-bezier(0.65, 0, 0.35, 1), opacity 220ms ease;
-  will-change: clip-path, opacity;
+  transition: clip-path 320ms cubic-bezier(0.65, 0, 0.35, 1);
+  will-change: clip-path;
 }
 .nwks-door-cover--men   { background: #6E765F; }
 .nwks-door-cover--women { background: #FAF6F1; }
-
-/* Boot cover (return): painted from first paint by the inline head script so the
-   recede never flashes the full gateway. Hidden unless returning.
-   Start at an explicit FULL inset (not the default clip-path:none) so the recede
-   to the door's half actually interpolates — none -> inset() can't animate. */
-.nwks-door-cover--boot {
-  display: none;
-  clip-path: inset(0 0 0 0);
-  -webkit-clip-path: inset(0 0 0 0);
-}
-html[data-return="men"]   #nwks-return-cover { display: block; background: #6E765F; }
-html[data-return="women"] #nwks-return-cover { display: block; background: #FAF6F1; }
 
 @media (prefers-reduced-motion: reduce) {
   .nwks-door-cover { display: none !important; }
