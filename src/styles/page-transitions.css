@@ -78,8 +78,14 @@
 .nwks-door-cover--women { background: #FAF6F1; }
 
 /* Boot cover (return): painted from first paint by the inline head script so the
-   recede never flashes the full gateway. Hidden unless returning. */
-.nwks-door-cover--boot { display: none; }
+   recede never flashes the full gateway. Hidden unless returning.
+   Start at an explicit FULL inset (not the default clip-path:none) so the recede
+   to the door's half actually interpolates — none -> inset() can't animate. */
+.nwks-door-cover--boot {
+  display: none;
+  clip-path: inset(0 0 0 0);
+  -webkit-clip-path: inset(0 0 0 0);
+}
 html[data-return="men"]   #nwks-return-cover { display: block; background: #6E765F; }
 html[data-return="women"] #nwks-return-cover { display: block; background: #FAF6F1; }
 

@@ -47,9 +47,27 @@ test.describe('Worlds transitions', () => {
     // Lands back on the gateway, flagged as returning from men's.
     await page.waitForURL((u) => !u.search.includes('door='), { timeout: 10_000 });
     await expect(page.locator('html')).toHaveAttribute('data-return', 'men');
+
+    // The return cover must have an interpolatable inset clip-path (NOT 'none'),
+    // otherwise the recede snaps instead of animating (the bug being fixed).
+    const clip = await page.locator('#nwks-return-cover').evaluate((el) => {
+      const s = getComputedStyle(el);
+      return s.clipPath || (s as unknown as { webkitClipPath: string }).webkitClipPath;
+    });
+    expect(clip).toContain('inset');
+
     // The recede completes and releases the home content.
     await expect(page.locator('html.content-ready')).toHaveCount(1, { timeout: 5_000 });
     await expect(page.locator('.half--men')).toBeVisible();
+  });
+
+  test("women's page has NO server/email button — attendee CTA only", async ({ page }) => {
+    await page.goto('/?door=women', { waitUntil: 'load' });
+    await expect(page.locator('#world-women')).toBeVisible({ timeout: 10_000 });
+    // Exactly one hero CTA (attendee); no server / "Email Registration Questions".
+    await expect(page.locator('.world-cta')).toHaveCount(1);
+    await expect(page.getByText(/Email Registration Questions/i)).toHaveCount(0);
+    await expect(page.getByText(/Register as a Server/i)).toHaveCount(0);
   });
 
   test('world -> form: the register panel opens (fades in)', async ({ page }) => {

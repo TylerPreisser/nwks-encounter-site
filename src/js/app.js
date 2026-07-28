@@ -79,20 +79,25 @@ window.NWKS = window.NWKS || {};
       if (stage) stage.classList.add('world-open');
       document.body.setAttribute('data-view', door);
     };
-    var revealed = false;
-    var go = function () { if (revealed) return; revealed = true; reveal(); };
+    // Reveal immediately with the baked-in content so the world content fades in
+    // the instant the page lands (right after the slide-over) — no wait on the
+    // network. Live edits + cap-status are fetched in the background and re-rendered
+    // ONLY if they actually change the output (worlds.render is hash-guarded), so
+    // the common case never re-fades.
+    reveal();
     var base = (typeof window !== 'undefined' && window.NWKS_API_BASE) ? window.NWKS_API_BASE : '';
     if (base) {
-      var pending = 2;
-      var maybeGo = function () { pending -= 1; if (pending <= 0) go(); };
       var prog = door === 'men' ? 'mens' : 'women';
+      var refresh = function () {
+        if (NWKS.worlds && typeof NWKS.worlds.render === 'function') NWKS.worlds.render(door);
+      };
       fetch(base + '/api/public/page-document?program=' + door)
         .then(function (r) { return r.json(); })
         .then(function (d) {
           if (d && d.doc && NWKS.content) NWKS.content[door] = Object.assign({}, NWKS.content[door] || {}, d.doc);
         })
         .catch(function () {})
-        .then(maybeGo);
+        .then(refresh);
       fetch(base + '/api/public/events/current?program=' + prog)
         .then(function (r) { return r.json(); })
         .then(function (d) {
@@ -106,10 +111,7 @@ window.NWKS = window.NWKS || {};
           }
         })
         .catch(function () {})
-        .then(maybeGo);
-      setTimeout(go, 2000);
-    } else {
-      go();
+        .then(refresh);
     }
   } else {
     // ---- Gateway page ----

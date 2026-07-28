@@ -293,14 +293,17 @@ window.NWKS = window.NWKS || {};
       if (!worldEl) return;
       var content = (NWKS.content && NWKS.content[door]) || {};
 
-      // Idempotent: already built for this content — nothing to rebuild. Visibility
-      // is owned by the masked-swap harness (transition-core doSwap), NEVER here —
-      // revealing the world in render() is what caused the "instant jump then a
-      // pointless overlay" bug (render runs before the transition covers the screen).
-      // Ambient background is the one exception: it's restarted on every door-entry
-      // (its own lifecycle, torn down in close()) even when content is already built.
-      if (worldEl.dataset.builtFor === door) {
-        /* ambient background removed per operator */
+      // Hash-guard: skip the rebuild only when nothing that affects the output has
+      // changed since the last render (content + the derived attendee-cap state).
+      // This lets app.js reveal instantly with baked content, then re-render in the
+      // background ONLY if a live fetch actually changed something — no needless
+      // re-fade on the common (unchanged) path.
+      var regSt = (NWKS.regStatus && NWKS.regStatus[door]) || null;
+      var closedFlag = !!(regSt && (regSt.attendee_full || regSt.attendee_open === false));
+      var closedMsg = closedFlag && regSt ? (regSt.attendee_full_message || '') : '';
+      var hash;
+      try { hash = JSON.stringify([content, closedFlag, closedMsg]); } catch (e) { hash = null; }
+      if (worldEl.dataset.builtFor === door && hash !== null && worldEl.dataset.contentHash === hash) {
         return;
       }
 
@@ -333,8 +336,9 @@ window.NWKS = window.NWKS || {};
       // Uniform registration (both doors): the hero shows TWO CTAs — Attendee opens the
       // real native form, Server opens a panel (a real form when one exists, or a
       // "currently closed" notice — see src/content/forms.js + src/js/forms.js).
+      // Women's Encounter has NO server registration — attendee only (operator).
       var formSpecKeys = door === 'men' ? { attendee: 'menAttendee', server: 'menServer' }
-        : (door === 'women' ? { attendee: 'women', server: 'womenServer' } : null);
+        : (door === 'women' ? { attendee: 'women', server: null } : null);
       var hasNativeForm = !!(formSpecKeys && NWKS.forms && NWKS.forms.specs &&
         NWKS.forms.specs[formSpecKeys.attendee]);
       // Assigned below (after the world body is built) — both hero CTAs open panels
@@ -446,6 +450,7 @@ window.NWKS = window.NWKS || {};
       }
 
       worldEl.dataset.builtFor = door;
+      if (hash !== null) worldEl.dataset.contentHash = hash;
       // Do NOT reveal here — the masked-swap harness (transition-core doSwap) un-hides
       // the world at the covered midpoint so the swap is never visible.
     },

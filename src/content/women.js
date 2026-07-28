@@ -55,8 +55,7 @@ NWKS.content.women = {
     { name: 'Danielle Markley', phone: '785-639-2896', email: 'danielle@haysacademy.com' }
   ],
   register: [
-    { label: 'Register', href: 'https://forms.gle/KMz3phZ3fNg2nNx57' },
-    { label: 'Email Registration Questions', href: 'mailto:nwkswomensencounter@gmail.com' }
+    { label: 'Register', href: 'https://forms.gle/KMz3phZ3fNg2nNx57' }
   ],
   verse: '"It is for freedom that Christ has set us free." — Galatians 5:1'
 };
