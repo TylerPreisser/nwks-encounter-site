@@ -248,7 +248,13 @@ window.NWKS = window.NWKS || {};
     var backLabel = door === 'men' ? "Men's Encounter" : "Women's Encounter";
     var back = el('button', { className: 'world-formpage__back', text: '← Back to ' + backLabel });
     back.type = 'button';
-    back.addEventListener('click', function () { page.hidden = true; });
+    back.addEventListener('click', function () {
+      // Fade the form panel out (world -> form is a plain fade, no slide).
+      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduce) { page.hidden = true; return; }
+      page.classList.add('is-closing');
+      setTimeout(function () { page.hidden = true; page.classList.remove('is-closing'); }, 200);
+    });
     header.appendChild(back);
     page.appendChild(header);
 

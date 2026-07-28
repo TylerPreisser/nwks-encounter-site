@@ -16,9 +16,14 @@
 <link rel="stylesheet" href="styles/transitions-men.css">
 <link rel="stylesheet" href="styles/transitions-women.css">
 <link rel="stylesheet" href="styles/page-transitions.css">
-<script>(function(){var d=(new URLSearchParams(location.search)).get('door');if(d==='men'||d==='women')document.documentElement.setAttribute('data-world',d);})();</script>
+<script>(function(){var p=new URLSearchParams(location.search);var d=p.get('door');if(d==='men'||d==='women'){document.documentElement.setAttribute('data-world',d);}else{try{var f=sessionStorage.getItem('nwks-from');if(f==='men'||f==='women')document.documentElement.setAttribute('data-return',f);}catch(e){}}})();</script>
 </head>
 <body>
+
+<!-- Return cover: painted full door-color from first paint when arriving back
+     from a world (html[data-return]); app.js slides it back to the door's half
+     then fades it out. Invisible otherwise. -->
+<div class="nwks-door-cover nwks-door-cover--boot" id="nwks-return-cover" aria-hidden="true"></div>
 
 <div class="stage" id="stage">
   <h1 class="visually-hidden">NWKS Encounter</h1>

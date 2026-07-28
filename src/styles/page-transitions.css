@@ -1,56 +1,88 @@
 /* page-transitions.css
-   Clean cross-page motion for the multi-page gateway/worlds site.
-   Navigation is real page loads (see app.js), so we pair a soft EXIT fade on the
-   outgoing page with a gentle ENTRANCE on the incoming page — the two read as one
-   continuous transition. All motion is gated behind prefers-reduced-motion. */
+   Motion for the multi-page gateway/worlds site. Navigation is real page loads
+   (see app.js). Four coordinated behaviors:
+     1. Gateway load  — the two panels FADE in; the content on top SLIDES up.
+     2. Enter a door  — that door's color slides over the other half (JS cover),
+                        then the world page's content FADES in over the color.
+     3. Back to home  — world content fades out, the door color slides back to the
+                        middle (JS boot cover recedes to its half), then the home
+                        content fades in.
+     4. World -> form — the in-page form panel FADES in / out (no slide).
+   All motion is gated behind prefers-reduced-motion. */
 
 @media (prefers-reduced-motion: no-preference) {
 
-  /* ── Entrance ─────────────────────────────────────────────────────────────
-     Gateway (no ?door): the whole stage eases up + in.
-     World page (html[data-world]): the rendered world content rises into place. */
-  html:not([data-world]) .stage {
-    animation: nwks-page-in 640ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  /* ── 1. Gateway load: panels fade, content slides up ───────────────────────
+     (Skipped on a return — that path is driven by the receding cover below.) */
+  html:not([data-world]):not([data-return]) .stage {
+    animation: nwks-fade-in 620ms ease both;
   }
+  html:not([data-world]):not([data-return]) .half__inner {
+    animation: nwks-content-up 640ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+  html:not([data-world]):not([data-return]) .half--men  .half__inner { animation-delay: 90ms; }
+  html:not([data-world]):not([data-return]) .half--women .half__inner { animation-delay: 170ms; }
 
-  html[data-world] .world:not([hidden]) {
-    animation: nwks-world-in 720ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
-  }
-
-  /* Stagger the world's direct sections for a soft cascade, if present. */
-  html[data-world] .world:not([hidden]) > * {
-    animation: nwks-world-in 720ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
-  }
+  /* ── 2. World load: content fades in over the already-painted door color ────
+     (No slide — the color is already there; the content just resolves in.) */
+  html[data-world] .world:not([hidden]) { animation: nwks-fade-in 520ms ease both; }
+  html[data-world] .world:not([hidden]) > * { animation: nwks-fade-in 560ms ease both; }
   html[data-world] .world:not([hidden]) > *:nth-child(1) { animation-delay: 40ms; }
   html[data-world] .world:not([hidden]) > *:nth-child(2) { animation-delay: 90ms; }
   html[data-world] .world:not([hidden]) > *:nth-child(3) { animation-delay: 140ms; }
   html[data-world] .world:not([hidden]) > *:nth-child(4) { animation-delay: 190ms; }
   html[data-world] .world:not([hidden]) > *:nth-child(n+5) { animation-delay: 230ms; }
 
-  /* ── Exit ─────────────────────────────────────────────────────────────────
-     app.js adds body.is-leaving immediately before navigating; the visible page
-     fades/lifts out so the next page's entrance feels like a hand-off. */
-  body.is-leaving .stage,
-  body.is-leaving .world {
-    animation: nwks-page-out 300ms ease both;
+  /* ── 3. Return hold: keep home content hidden until the cover recedes ───────
+     app.js adds .content-ready once the door color has slid back to the middle. */
+  html[data-return] .half__inner { opacity: 0; }
+  html[data-return].content-ready .half__inner {
+    animation: nwks-content-up 560ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
   }
+  html[data-return].content-ready .half--women .half__inner { animation-delay: 80ms; }
 
-  @keyframes nwks-page-in {
-    from { opacity: 0; transform: translateY(10px) scale(0.992); }
+  /* ── Exit fades ────────────────────────────────────────────────────────────
+     Back nav fades ONLY the world content out (the door-color bg stays, so it
+     hands off seamlessly to the incoming full-color cover). */
+  body.is-returning .world { animation: nwks-fade-out 260ms ease both; }
+  /* Generic soft exit (any other link that opts into it). */
+  body.is-leaving .stage, body.is-leaving .world { animation: nwks-fade-out 260ms ease both; }
+
+  /* ── 4. Form panel: fade in over the world, fade out on close ──────────────*/
+  .world-formpage:not([hidden]) { animation: nwks-fade-in 260ms ease both; }
+  .world-formpage.is-closing { animation: nwks-fade-out 200ms ease both; }
+
+  @keyframes nwks-fade-in  { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes nwks-fade-out { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes nwks-content-up {
+    from { opacity: 0; transform: translateY(16px); }
     to   { opacity: 1; transform: none; }
   }
 
-  @keyframes nwks-world-in {
-    from { opacity: 0; transform: translateY(18px); }
-    to   { opacity: 1; transform: none; }
-  }
-
-  @keyframes nwks-page-out {
-    from { opacity: 1; transform: none; }
-    to   { opacity: 0; transform: translateY(-8px) scale(0.996); }
-  }
-
-  /* The Enter buttons get a subtle press-through cue on click. */
+  /* Enter buttons get a subtle press cue. */
   .enter { transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease; }
   .enter:active { transform: scale(0.96); }
+}
+
+/* ── Door cover ───────────────────────────────────────────────────────────────
+   A fixed, full-viewport panel painted the door's color. JS animates its
+   clip-path: on Enter it grows from the door's half to full (slides over the
+   other half); on return the boot cover recedes from full back to the door's
+   half, then fades out. Styling lives here; geometry is set inline by app.js. */
+.nwks-door-cover {
+  position: fixed; inset: 0; z-index: 900; pointer-events: none;
+  transition: clip-path 460ms cubic-bezier(0.7, 0, 0.3, 1), opacity 240ms ease;
+  will-change: clip-path, opacity;
+}
+.nwks-door-cover--men   { background: #6E765F; }
+.nwks-door-cover--women { background: #FAF6F1; }
+
+/* Boot cover (return): painted from first paint by the inline head script so the
+   recede never flashes the full gateway. Hidden unless returning. */
+.nwks-door-cover--boot { display: none; }
+html[data-return="men"]   #nwks-return-cover { display: block; background: #6E765F; }
+html[data-return="women"] #nwks-return-cover { display: block; background: #FAF6F1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .nwks-door-cover { display: none !important; }
 }
