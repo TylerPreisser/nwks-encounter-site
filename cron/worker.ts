@@ -8,7 +8,7 @@
 //   advanceCurrentEvents(env, todayYmd) — advance is_current when events end
 
 import type { Env } from '../functions/_api/app';
-import { sendCampaignById } from '../functions/_api/routes/campaigns';
+import { sendCampaignChunk, SEND_CHUNK_SIZE } from '../functions/_api/routes/campaigns';
 import { advanceCurrentEvents } from '../functions/_api/events-advance';
 
 interface DueCampaign {
@@ -18,8 +18,11 @@ interface DueCampaign {
 
 /**
  * Selects email_campaigns WHERE status='scheduled' AND scheduled_for <= nowIso,
- * delegates each to sendCampaignById (which handles CAS, sending, status update),
- * and returns how many were processed (not skipped by CAS).
+ * and drains each by sending ONE bounded chunk (SEND_CHUNK_SIZE recipients) via
+ * sendCampaignChunk. A campaign with more recipients re-queues itself (status back
+ * to 'scheduled', due now) so the next tick continues — no single invocation ever
+ * exceeds Cloudflare's CPU/subrequest budget. Returns how many campaigns advanced
+ * (a chunk sent or finalized), not skipped by CAS.
  */
 export async function sendDueCampaigns(
   env: Env,
@@ -35,12 +38,12 @@ export async function sendDueCampaigns(
 
   for (const campaign of due.results) {
     try {
-      const result = await sendCampaignById(env, campaign.id, campaign.program);
+      const result = await sendCampaignChunk(env, campaign.id, campaign.program, SEND_CHUNK_SIZE);
       if (!result.casRejected) {
         processed++;
       }
     } catch (err) {
-      // sendCampaignById [I1] already marks 'failed' on crash; log and continue.
+      // sendCampaignChunk [I1] already marks 'failed' on crash; log and continue.
       console.error(`[cron] campaign ${campaign.id} error:`, err);
     }
   }

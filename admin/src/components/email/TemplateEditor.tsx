@@ -274,7 +274,12 @@ export function TemplateEditor() {
         method: 'POST', credentials: 'include',
       }).then((r) => r.json());
       if (!sent.ok) throw new Error(sent.error ?? 'send failed');
-      setSendMsg(`Sent to ${sent.sent ?? recipientCount ?? ''} recipient(s).`);
+      if (sent.queued) {
+        // Large audience — handed off to the background sender so it can't time out.
+        setSendMsg(`Sending to ${sent.recipient_count ?? recipientCount ?? ''} recipient(s) in the background — this may take a few minutes. Track it in Sent history.`);
+      } else {
+        setSendMsg(`Sent to ${sent.sent ?? recipientCount ?? ''} recipient(s).`);
+      }
       loadHistory();
     } catch (e) { setSendMsg(e instanceof Error ? e.message : 'send failed'); }
     finally { setSending(false); }

@@ -8,7 +8,17 @@ import { nowIso } from '../db';
 import type { Program } from '../db';
 import { sendEmail, renderTemplate } from '../email';
 import { resolveSegment } from '../segment';
-import type { Segment } from '../segment';
+import type { Segment, Recipient } from '../segment';
+
+// When a campaign's resolved audience is larger than this, "Send now" hands the
+// send off to the background cron drain instead of sending synchronously, so the
+// request can never exceed Cloudflare's per-invocation CPU/subrequest limits.
+export const BACKGROUND_SEND_THRESHOLD = 800;
+
+// Max recipients a single cron tick sends per campaign. Keeps each Worker
+// invocation well under the subrequest ceiling; the campaign is re-queued and
+// drained across subsequent ticks until complete.
+export const SEND_CHUNK_SIZE = 200;
 
 export const campaignsRouter = new Hono<{ Bindings: Env; Variables: AppVariables }>();
 
@@ -106,10 +116,29 @@ campaignsRouter.post('/:id/send', async (c) => {
   // [C2] Atomic CAS inside sendCampaignById is the single guard against double-send.
   // We check existence first for a clean 404, but correctness comes from the CAS.
   const existing = await c.env.DB.prepare(
-    `SELECT id FROM email_campaigns WHERE id = ? AND program = ?`
-  ).bind(id, program).first<{ id: number }>();
+    `SELECT id, segment, status FROM email_campaigns WHERE id = ? AND program = ?`
+  ).bind(id, program).first<{ id: number; segment: string; status: string }>();
 
   if (!existing) return c.json({ ok: false, error: 'not found' }, 404);
+  if (existing.status === 'sent' || existing.status === 'sending') {
+    return c.json({ ok: false, error: 'already sent or send in progress' }, 409);
+  }
+
+  // Size the audience to decide synchronous vs. background send.
+  let segment: Segment = {};
+  try { segment = JSON.parse(existing.segment); } catch { /* empty */ }
+  const recipientCount = (await resolveSegment(c.env, program, segment)).length;
+
+  if (recipientCount > BACKGROUND_SEND_THRESHOLD) {
+    // Large audience — hand off to the cron drain (scheduled, due now). The cron
+    // sends it in bounded chunks so no request/invocation can ever time out.
+    // The status guard keeps this idempotent against a concurrent send.
+    await c.env.DB.prepare(
+      `UPDATE email_campaigns SET status='scheduled', scheduled_for=?, recipient_count=?
+       WHERE id=? AND program=? AND status NOT IN ('sent','sending')`
+    ).bind(nowIso(), recipientCount, id, program).run();
+    return c.json({ ok: true, queued: true, recipient_count: recipientCount });
+  }
 
   const result = await sendCampaignById(c.env, id, program);
 
@@ -155,9 +184,87 @@ campaignsRouter.post('/:id/schedule', async (c) => {
   return c.json({ ok: true, campaign: updated });
 });
 
+// ── Shared send internals ─────────────────────────────────────────────────────
+
+/** Full campaign row shape used by the send routines. */
+interface CampaignRow {
+  id: number; program: string; subject: string; body_html: string;
+  body_text: string; segment: string; status: string; template_key: string | null;
+}
+
+/** Event-derived template tokens plus the parsed segment for a campaign. */
+interface CampaignContext {
+  segment: Segment;
+  eventTitle: string;
+  startDate: string;
+  endDate: string;
+}
+
+/**
+ * Resolves the event tokens ({{event_title}}/{{start_date}}/{{end_date}}) for a
+ * campaign: an explicit segment.event_id wins, otherwise the program's current
+ * event. Also returns the parsed segment.
+ */
+async function loadCampaignContext(env: Env, campaign: CampaignRow): Promise<CampaignContext> {
+  let segment: Segment = {};
+  try { segment = JSON.parse(campaign.segment); } catch { /* empty */ }
+
+  let eventTitle = '';
+  let startDate = '';
+  let endDate = '';
+  const eventRow = segment.event_id != null
+    ? await env.DB.prepare(
+        `SELECT title, start_date, end_date FROM events WHERE id=?`
+      ).bind(segment.event_id).first<{ title: string | null; start_date: string | null; end_date: string | null }>()
+    : await env.DB.prepare(
+        `SELECT title, start_date, end_date FROM events WHERE program=? AND is_current=1 LIMIT 1`
+      ).bind(campaign.program).first<{ title: string | null; start_date: string | null; end_date: string | null }>();
+  if (eventRow) {
+    eventTitle = eventRow.title ?? '';
+    startDate = eventRow.start_date ?? '';
+    endDate = eventRow.end_date ?? '';
+  }
+
+  return { segment, eventTitle, startDate, endDate };
+}
+
+/** Renders + sends one recipient's email; sendEmail writes its own email_log row. */
+async function sendOne(
+  env: Env, campaign: CampaignRow, ctx: CampaignContext, recipient: Recipient
+): Promise<boolean> {
+  const rendered = renderTemplate(
+    { subject: campaign.subject, body_html: campaign.body_html, body_text: campaign.body_text },
+    {
+      first_name: recipient.first_name,
+      last_name: recipient.last_name,
+      event_title: ctx.eventTitle,
+      start_date: ctx.startDate,
+      end_date: ctx.endDate,
+      launch_location: recipient.launch_location ?? '',
+    }
+  );
+  const result = await sendEmail(env, {
+    to: recipient.email,
+    subject: rendered.subject,
+    html: rendered.html,
+    text: rendered.text,
+    campaignId: campaign.id,
+    personId: recipient.person_id,
+    templateKey: campaign.template_key ?? undefined,
+    type: 'broadcast',
+    program: campaign.program,
+  });
+  return result.ok;
+}
+
 // ── Shared send routine (Addendum A7) ─────────────────────────────────────────
 // Precondition: callers (cron Worker P4/T5, AI approve endpoint P5) MUST pass
 // the program they own so this routine enforces isolation before sending.
+//
+// Synchronous full send — used for small audiences (<= BACKGROUND_SEND_THRESHOLD)
+// and the AI-approve path. Large audiences are handed off to sendCampaignChunk
+// via the cron so a single request can never exceed Cloudflare's CPU/subrequest
+// limits.
 export async function sendCampaignById(
   env: Env,
   campaignId: number,
@@ -178,83 +285,20 @@ export async function sendCampaignById(
   // CAS claimed it — fetch full campaign row
   const campaign = await env.DB.prepare(
     `SELECT * FROM email_campaigns WHERE id = ? AND program = ?`
-  ).bind(campaignId, program).first<{
-    id: number; program: string; subject: string; body_html: string;
-    body_text: string; segment: string; status: string; template_key: string | null;
-  }>();
+  ).bind(campaignId, program).first<CampaignRow>();
 
   if (!campaign) return { sent: 0, failed: 0 };
 
-  let segment: Segment = {};
-  try { segment = JSON.parse(campaign.segment); } catch { /* empty */ }
-
-  // Enrich event tokens if segment specifies an event
-  let eventTitle = '';
-  let startDate = '';
-  let endDate = '';
-  if (segment.event_id != null) {
-    const eventRow = await env.DB.prepare(
-      `SELECT title, start_date, end_date FROM events WHERE id=?`
-    ).bind(segment.event_id).first<{
-      title: string | null; start_date: string | null; end_date: string | null;
-    }>();
-    if (eventRow) {
-      eventTitle = eventRow.title ?? '';
-      startDate = eventRow.start_date ?? '';
-      endDate = eventRow.end_date ?? '';
-    }
-  } else {
-    // Look up current event for the program
-    const currentEvent = await env.DB.prepare(
-      `SELECT title, start_date, end_date FROM events WHERE program=? AND is_current=1 LIMIT 1`
-    ).bind(campaign.program).first<{
-      title: string | null; start_date: string | null; end_date: string | null;
-    }>();
-    if (currentEvent) {
-      eventTitle = currentEvent.title ?? '';
-      startDate = currentEvent.start_date ?? '';
-      endDate = currentEvent.end_date ?? '';
-    }
-  }
-
-  const recipients = await resolveSegment(env, campaign.program as Program, segment);
-  const now = nowIso();
+  const ctx = await loadCampaignContext(env, campaign);
+  const recipients = await resolveSegment(env, campaign.program as Program, ctx.segment);
   let sent = 0;
   let failed = 0;
 
   // [I1] Crash safety: wrap recipient loop; on unexpected throw → set 'failed' so not stuck 'sending'
   try {
     for (const recipient of recipients) {
-      const rendered = renderTemplate(
-        { subject: campaign.subject, body_html: campaign.body_html, body_text: campaign.body_text },
-        {
-          first_name: recipient.first_name,
-          last_name: recipient.last_name,
-          event_title: eventTitle,
-          start_date: startDate,
-          end_date: endDate,
-          launch_location: recipient.launch_location ?? '',
-        }
-      );
-
-      const result = await sendEmail(env, {
-        to: recipient.email,
-        subject: rendered.subject,
-        html: rendered.html,
-        text: rendered.text,
-        campaignId,
-        personId: recipient.person_id,
-        templateKey: campaign.template_key ?? undefined,
-        type: 'broadcast',
-        program: campaign.program,
-      });
-
-      // sendEmail already writes the email_log row; track success/failure
-      if (result.ok) {
-        sent++;
-      } else {
-        failed++;
-      }
+      if (await sendOne(env, campaign, ctx, recipient)) sent++;
+      else failed++;
     }
   } catch (err: unknown) {
     // [I1] Unexpected crash: mark failed so it's not stuck at 'sending', then rethrow
@@ -274,4 +318,85 @@ export async function sendCampaignById(
   ).bind(terminalStatus, sentAt, sent + failed, campaignId).run();
 
   return { sent, failed };
+}
+
+// ── Resumable chunked send (large-audience background path) ────────────────────
+// Sends at most `limit` not-yet-attempted recipients for a campaign, then either
+// re-queues (status='scheduled', scheduled_for=now) if more remain, or finalizes
+// (status='sent'/'failed'). email_log(campaign_id, person_id) is the durable
+// cursor: every prior attempt (sent, skipped, or failed) is skipped, so progress
+// survives crashes and no single invocation exceeds the CPU/subrequest budget.
+// Called once per due campaign per cron tick — the cron interval drains the rest.
+export async function sendCampaignChunk(
+  env: Env,
+  campaignId: number,
+  program: string,
+  limit: number
+): Promise<{ sent: number; failed: number; remaining: number; casRejected?: boolean }> {
+  // Claim from 'scheduled' (queued) or 'sending' (crash-recovery re-claim). The
+  // email_log dedup below makes re-processing idempotent, so a rare overlapping
+  // tick cannot double-send an already-logged recipient.
+  const cas = await env.DB.prepare(
+    `UPDATE email_campaigns
+     SET status='sending'
+     WHERE id=? AND program=? AND status IN ('scheduled','sending')`
+  ).bind(campaignId, program).run();
+
+  if (cas.meta.changes === 0) {
+    return { sent: 0, failed: 0, remaining: 0, casRejected: true };
+  }
+
+  const campaign = await env.DB.prepare(
+    `SELECT * FROM email_campaigns WHERE id = ? AND program = ?`
+  ).bind(campaignId, program).first<CampaignRow>();
+  if (!campaign) return { sent: 0, failed: 0, remaining: 0 };
+
+  const ctx = await loadCampaignContext(env, campaign);
+  const recipients = await resolveSegment(env, campaign.program as Program, ctx.segment);
+
+  // Durable cursor: everyone already attempted for this campaign (any email_log row).
+  const logged = await env.DB.prepare(
+    `SELECT person_id FROM email_log WHERE campaign_id=? AND person_id IS NOT NULL`
+  ).bind(campaignId).all<{ person_id: number }>();
+  const attempted = new Set(logged.results.map((r) => r.person_id));
+
+  const pending = recipients.filter((r) => r.person_id == null || !attempted.has(r.person_id));
+  const batch = pending.slice(0, Math.max(0, limit));
+
+  let sent = 0;
+  let failed = 0;
+  try {
+    for (const recipient of batch) {
+      if (await sendOne(env, campaign, ctx, recipient)) sent++;
+      else failed++;
+    }
+  } catch (err: unknown) {
+    await env.DB.prepare(
+      `UPDATE email_campaigns SET status='failed', sent_at=?, recipient_count=? WHERE id=?`
+    ).bind(nowIso(), attempted.size + sent + failed, campaignId).run();
+    throw err;
+  }
+
+  const remaining = pending.length - batch.length;
+  if (remaining > 0) {
+    // More to drain — re-queue so the next cron tick continues.
+    await env.DB.prepare(
+      `UPDATE email_campaigns SET status='scheduled', scheduled_for=? WHERE id=?`
+    ).bind(nowIso(), campaignId).run();
+  } else {
+    // Audience fully drained — finalize using the whole campaign's email_log.
+    const agg = await env.DB.prepare(
+      `SELECT COUNT(*) AS total,
+              SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) AS failed
+       FROM email_log WHERE campaign_id=?`
+    ).bind(campaignId).first<{ total: number; failed: number }>();
+    const total = agg?.total ?? (sent + failed);
+    const failedTotal = agg?.failed ?? 0;
+    const terminalStatus = (total > 0 && total === failedTotal) ? 'failed' : 'sent';
+    await env.DB.prepare(
+      `UPDATE email_campaigns SET status=?, sent_at=?, recipient_count=? WHERE id=?`
+    ).bind(terminalStatus, nowIso(), total, campaignId).run();
+  }
+
+  return { sent, failed, remaining };
 }

@@ -3,11 +3,14 @@ main = "worker.ts"
 compatibility_date = "2026-07-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Cron Triggers — runs every 15 minutes.
+# Cron Triggers — runs every minute.
 # Cloudflare Pages does NOT support Cron Triggers, so scheduling uses this
 # separate small Worker that binds the same D1/KV and env vars.
+# Every minute so large "Send now" campaigns handed off to the background drain
+# (sendDueCampaigns -> sendCampaignChunk) finish in minutes, not hours: each tick
+# sends one bounded chunk per due campaign until the audience is fully drained.
 [triggers]
-crons = ["*/15 * * * *"]
+crons = ["* * * * *"]
 
 [[d1_databases]]
 binding = "DB"
