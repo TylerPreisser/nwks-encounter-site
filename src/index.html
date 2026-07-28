@@ -16,6 +16,10 @@
 <link rel="stylesheet" href="styles/transitions-men.css">
 <link rel="stylesheet" href="styles/transitions-women.css">
 <link rel="stylesheet" href="styles/page-transitions.css">
+<!-- Warm the world pages so Enter navigates from cache (no gap before the content
+     fades in). Same self-contained document, just a different ?door query. -->
+<link rel="prefetch" href="?door=men">
+<link rel="prefetch" href="?door=women">
 <script>(function(){var p=new URLSearchParams(location.search);var d=p.get('door');if(d==='men'||d==='women'){document.documentElement.setAttribute('data-world',d);}else{try{var f=sessionStorage.getItem('nwks-from');if(f==='men'||f==='women')document.documentElement.setAttribute('data-return',f);}catch(e){}}})();</script>
 </head>
 <body>

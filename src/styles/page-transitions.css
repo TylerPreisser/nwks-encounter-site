@@ -24,14 +24,9 @@
   html:not([data-world]):not([data-return]) .half--women .half__inner { animation-delay: 170ms; }
 
   /* ── 2. World load: content fades in over the already-painted door color ────
-     (No slide — the color is already there; the content just resolves in.) */
-  html[data-world] .world:not([hidden]) { animation: nwks-fade-in 520ms ease both; }
-  html[data-world] .world:not([hidden]) > * { animation: nwks-fade-in 560ms ease both; }
-  html[data-world] .world:not([hidden]) > *:nth-child(1) { animation-delay: 40ms; }
-  html[data-world] .world:not([hidden]) > *:nth-child(2) { animation-delay: 90ms; }
-  html[data-world] .world:not([hidden]) > *:nth-child(3) { animation-delay: 140ms; }
-  html[data-world] .world:not([hidden]) > *:nth-child(4) { animation-delay: 190ms; }
-  html[data-world] .world:not([hidden]) > *:nth-child(n+5) { animation-delay: 230ms; }
+     Fast, single fade with NO stagger — it must resolve in almost instantly once
+     the slide-over has landed (the color is already there). */
+  html[data-world] .world:not([hidden]) { animation: nwks-fade-in 260ms ease both; }
 
   /* ── 3. Return hold: keep home content hidden until the cover recedes ───────
      app.js adds .content-ready once the door color has slid back to the middle. */
@@ -42,9 +37,10 @@
   html[data-return].content-ready .half--women .half__inner { animation-delay: 80ms; }
 
   /* ── Exit fades ────────────────────────────────────────────────────────────
-     Back nav fades ONLY the world content out (the door-color bg stays, so it
-     hands off seamlessly to the incoming full-color cover). */
-  body.is-returning .world { animation: nwks-fade-out 260ms ease both; }
+     Back nav fades ONLY the world content out (the door-color bg stays), and app.js
+     waits for THIS fade to finish before navigating — so the slide-back on the
+     gateway happens strictly AFTER the content has faded (sequential, not at once). */
+  body.is-returning .world { animation: nwks-fade-out 300ms ease both; }
   /* Generic soft exit (any other link that opts into it). */
   body.is-leaving .stage, body.is-leaving .world { animation: nwks-fade-out 260ms ease both; }
 
@@ -71,7 +67,7 @@
    half, then fades out. Styling lives here; geometry is set inline by app.js. */
 .nwks-door-cover {
   position: fixed; inset: 0; z-index: 900; pointer-events: none;
-  transition: clip-path 460ms cubic-bezier(0.7, 0, 0.3, 1), opacity 240ms ease;
+  transition: clip-path 340ms cubic-bezier(0.65, 0, 0.35, 1), opacity 220ms ease;
   will-change: clip-path, opacity;
 }
 .nwks-door-cover--men   { background: #6E765F; }

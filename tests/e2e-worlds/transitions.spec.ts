@@ -78,4 +78,19 @@ test.describe('Worlds transitions', () => {
     await expect(page.locator('.world-formpage')).toBeVisible({ timeout: 5_000 });
     await expect(page.locator('.world-formpage')).not.toHaveAttribute('hidden', /.*/);
   });
+
+  test('back to main still reverses AFTER opening + closing the register form', async ({ page }) => {
+    await page.goto('/?door=men', { waitUntil: 'load' });
+    // Open the register form panel.
+    await page.locator('.world-cta').first().click();
+    await expect(page.locator('.world-formpage')).toBeVisible({ timeout: 5_000 });
+    // Close it (form -> world).
+    await page.locator('.world-formpage__back').click();
+    await expect(page.locator('.world-formpage')).toBeHidden({ timeout: 5_000 });
+    // Now Back to main page must still trigger the reverse.
+    await page.locator('[data-back]').click();
+    await page.waitForURL((u) => !u.search.includes('door='), { timeout: 10_000 });
+    await expect(page.locator('html')).toHaveAttribute('data-return', 'men');
+    await expect(page.locator('html.content-ready')).toHaveCount(1, { timeout: 5_000 });
+  });
 });

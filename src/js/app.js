@@ -51,18 +51,25 @@ window.NWKS = window.NWKS || {};
     cover.addEventListener('transitionend', function (e) {
       if (e.propertyName === 'clip-path') go();
     });
-    setTimeout(go, 640);                     // fallback if transitionend is missed
+    setTimeout(go, 480);                     // fallback if transitionend is missed
   }
 
-  // ── Back to the gateway from a world: fade the world content out, flag which
-  //    door we came from (the head script paints the matching cover), navigate.
+  // ── Back to the gateway from a world: fade the world CONTENT out, and only THEN
+  //    navigate — so the gateway's slide-back happens strictly after the fade
+  //    (fade, then slide — never both at once). Flags which door we came from.
   function goBack() {
     var url = location.pathname;             // drops ?door
     if (prefersReduced()) { location.href = url; return; }
     document.body.classList.add('is-returning');
     var went = false;
     var go = function () { if (went) return; went = true; location.href = url; };
-    setTimeout(go, 300);
+    var world = document.querySelector('.world:not([hidden])');
+    if (world) {
+      world.addEventListener('animationend', function (e) {
+        if (e.target === world) go();        // ignore bubbled child animationend
+      });
+    }
+    setTimeout(go, 420);                     // fallback (the fade-out is 300ms)
   }
 
   var door = new URLSearchParams(location.search).get('door');
@@ -89,6 +96,9 @@ window.NWKS = window.NWKS || {};
     if (base) {
       var prog = door === 'men' ? 'mens' : 'women';
       var refresh = function () {
+        // Don't rebuild the world out from under an open register form panel.
+        var wEl = document.getElementById('world-' + door);
+        if (wEl && wEl.querySelector('.world-formpage:not([hidden])')) return;
         if (NWKS.worlds && typeof NWKS.worlds.render === 'function') NWKS.worlds.render(door);
       };
       fetch(base + '/api/public/page-document?program=' + door)
@@ -122,7 +132,6 @@ window.NWKS = window.NWKS || {};
     try { sessionStorage.removeItem('nwks-from'); } catch (e) {}
     if (ret && cover && !prefersReduced()) {
       void cover.offsetWidth;
-      setClip(cover, halfInset(ret));        // recede full -> the door's half (the middle)
       var settled = false;
       var settle = function () {
         if (settled) return; settled = true;
@@ -133,6 +142,9 @@ window.NWKS = window.NWKS || {};
       cover.addEventListener('transitionend', function (e) {
         if (e.propertyName === 'clip-path') settle();
       });
+      // Hold the full color for a beat (the content just faded out on the world),
+      // THEN slide it back to the middle — so the reverse reads fade, then slide.
+      setTimeout(function () { setClip(cover, halfInset(ret)); }, 120);
       setTimeout(settle, 700);
     } else if (ret) {
       // Reduced motion / no cover — just clean up so content shows normally.
