@@ -11,6 +11,9 @@ import Nav from '../components/Nav';
 
 vi.mock('../api', () => ({
   apiFetch: vi.fn(),
+  // The year switcher loads encounters via this; keep it out of the apiFetch
+  // call sequence the tests assert on.
+  listEncounters: vi.fn().mockResolvedValue([]),
 }));
 
 import { apiFetch } from '../api';

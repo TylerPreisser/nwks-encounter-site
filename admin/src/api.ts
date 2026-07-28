@@ -36,6 +36,22 @@ export async function apiFetchRaw(path: string, init?: RequestInit): Promise<Res
   return fetch(url, { credentials: 'include', ...init });
 }
 
+export interface EncounterSummary {
+  id: number;
+  year: number;
+  is_current: number;
+}
+
+/**
+ * Lists the program's encounters (for the year switcher). Separate from apiFetch
+ * so it can be mocked independently in tests without disturbing a page's own
+ * apiFetch call sequence.
+ */
+export async function listEncounters(): Promise<EncounterSummary[]> {
+  const d = await apiFetch<{ events: EncounterSummary[] }>('/admin/events');
+  return d.events ?? [];
+}
+
 /* ── AI / Assistant API helpers ─────────────────────────────────────── */
 export const ai = {
   createThread: (program: string, title?: string) =>

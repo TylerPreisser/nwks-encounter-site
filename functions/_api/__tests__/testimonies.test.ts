@@ -1343,3 +1343,48 @@ describe('ingest: auto-advance rules', () => {
     expect(count?.n).toBe(2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Encounter tagging — event_id stamped on create + year-navigation filter
+// ---------------------------------------------------------------------------
+
+describe('Testimony encounter tagging (event_id)', () => {
+  let cookie: string;
+  let currentEventId: number;
+
+  beforeEach(async () => {
+    await applyMigrations(env as any);
+    await seedAdmin();
+    cookie = await getAuthCookie();
+    await testEnv.DB.prepare('DELETE FROM events').run();
+    const now = nowIso();
+    const { meta } = await testEnv.DB.prepare(
+      `INSERT INTO events (program, year, launch_locations, attendee_registration_open, server_registration_open, is_current, created_at, updated_at)
+       VALUES ('mens', 2026, '[]', 1, 1, 1, ?, ?)`
+    ).bind(now, now).run();
+    currentEventId = meta.last_row_id as number;
+  });
+
+  it('stamps the current encounter event_id on create and filters the board by it', async () => {
+    const res = await app.fetch(
+      makeReq('POST', '/api/admin/testimonies', cookie, 'mens', { type: 'testimony', title: 'Tagged' }),
+      testEnv
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json<{ testimony: { id: number; event_id: number } }>();
+    expect(body.testimony.event_id).toBe(currentEventId);
+
+    const getBoard = (eventId: number) => app.fetch(
+      new Request(`http://localhost/api/admin/testimonies?program=mens&event_id=${eventId}`, { headers: { Cookie: cookie } }),
+      testEnv
+    );
+
+    // Filter by the current encounter → present
+    const inBody = await (await getBoard(currentEventId)).json<{ testimonies: Array<{ id: number }> }>();
+    expect(inBody.testimonies.some((t) => t.id === body.testimony.id)).toBe(true);
+
+    // Filter by a different encounter → absent (year navigation scopes the board)
+    const otherBody = await (await getBoard(999999)).json<{ testimonies: Array<{ id: number }> }>();
+    expect(otherBody.testimonies.some((t) => t.id === body.testimony.id)).toBe(false);
+  });
+});

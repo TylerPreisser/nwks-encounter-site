@@ -33,6 +33,14 @@ interface EventFormState {
   attendee_full_message: string;
 }
 
+interface RolloverPreview {
+  current: NwksEvent | null;
+  registered_count: number;
+  board_count: number;
+  ended: boolean;
+  suggested_year: number;
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -73,6 +81,16 @@ export default function Events() {
   const [formOpen, setFormOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Rollover ("Start Next Encounter")
+  const [preview, setPreview] = useState<RolloverPreview | null>(null);
+  const [rolloverOpen, setRolloverOpen] = useState(false);
+  const [rolloverForm, setRolloverForm] = useState<EventFormState>(emptyForm());
+  const [confirmYear, setConfirmYear] = useState('');
+  const [force, setForce] = useState(false);
+  const [rollingOver, setRollingOver] = useState(false);
+  const [rolloverError, setRolloverError] = useState<string | null>(null);
+  const [rolloverDone, setRolloverDone] = useState<string | null>(null);
 
   const loadEvents = useCallback(async () => {
     setLoading(true);
@@ -176,6 +194,68 @@ export default function Events() {
     }
   }
 
+  async function openRollover() {
+    // Fetch the finishing-encounter counts on demand (kept off the load path so
+    // it doesn't interfere with the main events list fetch).
+    let pv: RolloverPreview | null = null;
+    try {
+      pv = await apiFetch<RolloverPreview>('/admin/events/rollover/preview');
+      setPreview(pv);
+    } catch { setPreview(null); }
+    const sy = pv?.suggested_year
+      ?? (currentEvent ? currentEvent.year + 1 : new Date().getFullYear() + 1);
+    setRolloverForm({ ...emptyForm(), year: String(sy) });
+    setConfirmYear('');
+    setForce(false);
+    setRolloverError(null);
+    setRolloverDone(null);
+    setRolloverOpen(true);
+  }
+
+  async function handleRollover(e: React.FormEvent) {
+    e.preventDefault();
+    setRollingOver(true);
+    setRolloverError(null);
+
+    const payload = {
+      year: Number(rolloverForm.year),
+      title: rolloverForm.title || undefined,
+      start_date: rolloverForm.start_date || undefined,
+      end_date: rolloverForm.end_date || undefined,
+      launch_locations: rolloverForm.launch_locations
+        ? rolloverForm.launch_locations.split(',').map((s) => s.trim()).filter(Boolean)
+        : [],
+      attendee_registration_open: rolloverForm.attendee_registration_open,
+      server_registration_open: rolloverForm.server_registration_open,
+      attendee_limit: rolloverForm.attendee_limit.trim() === '' ? null : Number(rolloverForm.attendee_limit),
+      attendee_full_message: rolloverForm.attendee_full_message.trim() || null,
+      confirm_year: Number(confirmYear),
+      force,
+    };
+
+    try {
+      const res = await apiFetch<{ ok: boolean; archived_count: number; new_event: NwksEvent }>(
+        '/admin/events/rollover',
+        { method: 'POST', body: JSON.stringify(payload) },
+      );
+      setRolloverOpen(false);
+      setRolloverDone(
+        `Archived ${res.archived_count} board item(s) to ${preview?.current?.year ?? 'last year'}. ` +
+        `${res.new_event.year} is now the current encounter.`,
+      );
+      await loadEvents();
+    } catch (err: unknown) {
+      setRolloverError(err instanceof Error ? err.message : 'Rollover failed');
+    } finally {
+      setRollingOver(false);
+    }
+  }
+
+  const programLabel = program === 'mens' ? "Men's" : "Women's";
+  const confirmOk = confirmYear.trim() !== '' && Number(confirmYear) === Number(rolloverForm.year);
+  const currentEvent = events.find((e) => e.is_current) ?? null;
+  const currentEnded = !currentEvent?.end_date || currentEvent.end_date < new Date().toISOString().slice(0, 10);
+
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
@@ -189,13 +269,24 @@ export default function Events() {
         <h1 className="text-2xl font-bold" style={{ color: 'var(--color-primary)' }}>
           Events
         </h1>
-        <button
-          onClick={openCreate}
-          className="px-4 py-2 rounded-lg text-sm font-semibold text-white"
-          style={{ background: 'var(--color-secondary)' }}
-        >
-          + New Event
-        </button>
+        <div className="flex gap-2">
+          {currentEvent && (
+            <button
+              onClick={openRollover}
+              className="px-4 py-2 rounded-lg text-sm font-semibold text-white"
+              style={{ background: 'var(--color-primary)' }}
+            >
+              Start Next Encounter →
+            </button>
+          )}
+          <button
+            onClick={openCreate}
+            className="px-4 py-2 rounded-lg text-sm font-semibold text-white"
+            style={{ background: 'var(--color-secondary)' }}
+          >
+            + New Event
+          </button>
+        </div>
       </div>
 
       {/* Error banner */}
@@ -203,6 +294,161 @@ export default function Events() {
         <div role="alert" className="p-3 bg-red-50 border border-red-200 text-red-700 rounded">
           {error}
         </div>
+      )}
+
+      {/* Rollover success banner */}
+      {rolloverDone && (
+        <div role="status" className="p-3 bg-green-50 border border-green-300 text-green-800 rounded">
+          {rolloverDone}
+        </div>
+      )}
+
+      {/* Rollover panel — "Start Next Encounter" */}
+      {rolloverOpen && currentEvent && (
+        <form
+          onSubmit={handleRollover}
+          aria-label="Start Next Encounter"
+          className="p-4 border-2 rounded-lg space-y-4"
+          style={{ borderColor: 'var(--color-primary)' }}
+        >
+          <h2 className="text-lg font-semibold" style={{ color: 'var(--color-primary)' }}>
+            Start Next {programLabel} Encounter
+          </h2>
+
+          <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-900">
+            <p className="font-semibold">This will archive {programLabel} {currentEvent.year}:</p>
+            <ul className="mt-1 list-disc list-inside space-y-0.5">
+              <li>{preview?.registered_count ?? '…'} registration(s) — kept in {currentEvent.year}'s history, still editable</li>
+              <li>{preview?.board_count ?? '…'} testimony/teaching board item(s) — archived; the new board starts empty</li>
+            </ul>
+            {!currentEnded && (
+              <p className="mt-2 font-medium text-amber-800">
+                ⚠ This encounter hasn't ended yet (ends {currentEvent.end_date ?? 'no end date set'}).
+              </p>
+            )}
+          </div>
+
+          {rolloverError && <p role="alert" className="text-red-600 text-sm">{rolloverError}</p>}
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col text-sm font-medium gap-1">
+              Year *
+              <input
+                type="number" required min={2020} max={2100}
+                value={rolloverForm.year}
+                onChange={(e) => setRolloverForm({ ...rolloverForm, year: e.target.value })}
+                className="border rounded px-2 py-1"
+                aria-label="Next year"
+              />
+            </label>
+            <label className="flex flex-col text-sm font-medium gap-1">
+              Title
+              <input
+                type="text"
+                value={rolloverForm.title}
+                onChange={(e) => setRolloverForm({ ...rolloverForm, title: e.target.value })}
+                placeholder={`${programLabel} Encounter ${rolloverForm.year}`}
+                className="border rounded px-2 py-1"
+              />
+            </label>
+            <label className="flex flex-col text-sm font-medium gap-1">
+              Start Date
+              <input
+                type="date"
+                value={rolloverForm.start_date}
+                onChange={(e) => setRolloverForm({ ...rolloverForm, start_date: e.target.value })}
+                className="border rounded px-2 py-1"
+              />
+            </label>
+            <label className="flex flex-col text-sm font-medium gap-1">
+              End Date
+              <input
+                type="date"
+                value={rolloverForm.end_date}
+                onChange={(e) => setRolloverForm({ ...rolloverForm, end_date: e.target.value })}
+                className="border rounded px-2 py-1"
+              />
+            </label>
+          </div>
+
+          <label className="flex flex-col text-sm font-medium gap-1">
+            Launch Locations (comma-separated)
+            <input
+              type="text"
+              value={rolloverForm.launch_locations}
+              onChange={(e) => setRolloverForm({ ...rolloverForm, launch_locations: e.target.value })}
+              placeholder="Colby, Hays, Dodge City"
+              className="border rounded px-2 py-1"
+            />
+          </label>
+
+          <div className="flex flex-wrap gap-6">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={rolloverForm.attendee_registration_open}
+                onChange={(e) => setRolloverForm({ ...rolloverForm, attendee_registration_open: e.target.checked })}
+              />
+              Attendee registration open
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={rolloverForm.server_registration_open}
+                onChange={(e) => setRolloverForm({ ...rolloverForm, server_registration_open: e.target.checked })}
+              />
+              Server registration open
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              Max attendees
+              <input
+                type="number" min="0" inputMode="numeric"
+                value={rolloverForm.attendee_limit}
+                onChange={(e) => setRolloverForm({ ...rolloverForm, attendee_limit: e.target.value })}
+                placeholder="no cap"
+                className="border rounded px-2 py-1 w-24"
+                aria-label="Attendee limit"
+              />
+            </label>
+          </div>
+
+          {!currentEnded && (
+            <label className="flex items-center gap-2 text-sm text-amber-800">
+              <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} />
+              Roll over anyway, even though this encounter hasn't ended
+            </label>
+          )}
+
+          <label className="flex flex-col text-sm font-medium gap-1">
+            Type <strong>{rolloverForm.year}</strong> to confirm
+            <input
+              type="text"
+              value={confirmYear}
+              onChange={(e) => setConfirmYear(e.target.value)}
+              className="border rounded px-2 py-1 w-40"
+              aria-label="Confirm year"
+              placeholder={rolloverForm.year}
+            />
+          </label>
+
+          <div className="flex gap-3 pt-1">
+            <button
+              type="submit"
+              disabled={rollingOver || !confirmOk || (!currentEnded && !force)}
+              className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
+              style={{ background: 'var(--color-primary)' }}
+            >
+              {rollingOver ? 'Rolling over…' : 'Archive & Start Next Encounter'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setRolloverOpen(false)}
+              className="px-4 py-2 border rounded-lg text-sm hover:bg-gray-100"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
       )}
 
       {/* Needs-next-event nudge */}

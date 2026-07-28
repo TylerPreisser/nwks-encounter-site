@@ -5,6 +5,13 @@ import { MemoryRouter } from 'react-router-dom';
 import { ProgramContext } from '../App';
 import RegistrationsPage from '../pages/RegistrationsPage';
 
+// Keep apiFetch/apiFetchRaw real (they drive the assertions via global.fetch),
+// but stub the year switcher's encounter load so it doesn't add a fetch call.
+vi.mock('../api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../api')>()),
+  listEncounters: vi.fn().mockResolvedValue([]),
+}));
+
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 

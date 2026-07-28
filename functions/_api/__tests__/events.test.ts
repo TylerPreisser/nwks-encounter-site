@@ -261,3 +261,134 @@ describe('Admin Events API', () => {
     expect(res.status).toBe(400);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Encounter rollover — "Start Next Encounter" (archive board + open next)
+// ---------------------------------------------------------------------------
+
+describe('Encounter rollover', () => {
+  let cookie: string;
+
+  beforeEach(async () => {
+    await applyMigrations(env as any);
+    await seedAdmin();
+    cookie = await getAuthCookie();
+    await testEnv.DB.prepare('DELETE FROM events').run();
+  });
+
+  /** Insert a current men's 2026 encounter with the given end_date; returns id. */
+  async function insertCurrentMens(endDate: string): Promise<number> {
+    const now = new Date().toISOString();
+    const { meta } = await testEnv.DB.prepare(
+      `INSERT INTO events (program, year, title, start_date, end_date, launch_locations,
+         attendee_registration_open, server_registration_open, is_current, created_at, updated_at)
+       VALUES ('mens', 2026, 'Men 2026', '2026-08-06', ?, '["Colby"]', 1, 1, 1, ?, ?)`
+    ).bind(endDate, now, now).run();
+    return meta.last_row_id as number;
+  }
+
+  async function insertTestimony(eventId: number, status: string): Promise<void> {
+    const now = new Date().toISOString();
+    await testEnv.DB.prepare(
+      `INSERT INTO testimonies (type, program, from_email, from_name, status, event_id, created_at)
+       VALUES ('testimony', 'mens', 't@x.com', 'T', ?, ?, ?)`
+    ).bind(status, eventId, now).run();
+  }
+
+  it('archives the board, creates + activates the next encounter in one step', async () => {
+    const oldId = await insertCurrentMens('2020-08-08'); // ended long ago
+    await insertTestimony(oldId, 'approved');
+    await insertTestimony(oldId, 'draft_1_review');
+
+    const res = await app.fetch(makeReq('POST', '/api/admin/events/rollover', cookie, 'mens', {
+      year: 2027, start_date: '2027-08-05', end_date: '2027-08-07',
+      launch_locations: ['Colby', 'Hays'], attendee_limit: 120, confirm_year: 2027,
+    }), testEnv);
+    expect(res.status).toBe(201);
+    const body = await res.json<{ ok: boolean; archived_count: number; new_event: Record<string, number>; previous_event: Record<string, number> }>();
+    expect(body.ok).toBe(true);
+    expect(body.archived_count).toBe(2);
+    expect(body.new_event.year).toBe(2027);
+    expect(body.new_event.is_current).toBe(1);
+    expect(body.new_event.attendee_limit).toBe(120);
+    expect(body.previous_event.is_current).toBe(0);
+
+    const arch = await testEnv.DB.prepare(
+      `SELECT COUNT(*) n FROM testimonies WHERE event_id=? AND status='archived'`
+    ).bind(oldId).first<{ n: number }>();
+    expect(arch?.n).toBe(2);
+
+    const fresh = await testEnv.DB.prepare(
+      `SELECT COUNT(*) n FROM testimonies WHERE event_id=? AND status!='archived'`
+    ).bind(body.new_event.id).first<{ n: number }>();
+    expect(fresh?.n).toBe(0);
+
+    const cur = await testEnv.DB.prepare(
+      `SELECT COUNT(*) n FROM events WHERE program='mens' AND is_current=1`
+    ).first<{ n: number }>();
+    expect(cur?.n).toBe(1);
+  });
+
+  it('refuses rollover when the current encounter has not ended', async () => {
+    await insertCurrentMens('2099-08-08');
+    const res = await app.fetch(makeReq('POST', '/api/admin/events/rollover', cookie, 'mens', {
+      year: 2100, start_date: '2100-08-05', end_date: '2100-08-07', confirm_year: 2100,
+    }), testEnv);
+    expect(res.status).toBe(409);
+  });
+
+  it('force=true overrides the not-ended guard', async () => {
+    await insertCurrentMens('2099-08-08');
+    const res = await app.fetch(makeReq('POST', '/api/admin/events/rollover', cookie, 'mens', {
+      year: 2098, start_date: '2098-08-05', end_date: '2098-08-07', confirm_year: 2098, force: true,
+    }), testEnv);
+    expect(res.status).toBe(201);
+  });
+
+  it('rejects when confirm_year does not match year', async () => {
+    await insertCurrentMens('2020-08-08');
+    const res = await app.fetch(makeReq('POST', '/api/admin/events/rollover', cookie, 'mens', {
+      year: 2027, confirm_year: 2026, start_date: '2027-08-05', end_date: '2027-08-07',
+    }), testEnv);
+    expect(res.status).toBe(400);
+  });
+
+  it('409 when there is no current encounter', async () => {
+    const res = await app.fetch(makeReq('POST', '/api/admin/events/rollover', cookie, 'mens', {
+      year: 2027, confirm_year: 2027, start_date: '2027-08-05', end_date: '2027-08-07',
+    }), testEnv);
+    expect(res.status).toBe(409);
+  });
+
+  it('409 when the target year already exists', async () => {
+    await insertCurrentMens('2020-08-08');
+    const now = new Date().toISOString();
+    await testEnv.DB.prepare(
+      `INSERT INTO events (program, year, launch_locations, attendee_registration_open, server_registration_open, is_current, created_at, updated_at)
+       VALUES ('mens', 2027, '[]', 1, 1, 0, ?, ?)`
+    ).bind(now, now).run();
+    const res = await app.fetch(makeReq('POST', '/api/admin/events/rollover', cookie, 'mens', {
+      year: 2027, confirm_year: 2027, start_date: '2027-08-05', end_date: '2027-08-07',
+    }), testEnv);
+    expect(res.status).toBe(409);
+  });
+
+  it('preview returns the current encounter, counts, ended flag, suggested year', async () => {
+    const oldId = await insertCurrentMens('2020-08-08');
+    await insertTestimony(oldId, 'approved');
+    const res = await app.fetch(makeReq('GET', '/api/admin/events/rollover/preview', cookie, 'mens'), testEnv);
+    expect(res.status).toBe(200);
+    const body = await res.json<{ current: { id: number }; board_count: number; ended: boolean; suggested_year: number }>();
+    expect(body.current.id).toBe(oldId);
+    expect(body.board_count).toBe(1);
+    expect(body.ended).toBe(true);
+    expect(body.suggested_year).toBe(2027);
+  });
+
+  it('preview returns current=null when no current encounter exists', async () => {
+    const res = await app.fetch(makeReq('GET', '/api/admin/events/rollover/preview', cookie, 'mens'), testEnv);
+    expect(res.status).toBe(200);
+    const body = await res.json<{ current: unknown }>();
+    expect(body.current).toBeNull();
+  });
+});

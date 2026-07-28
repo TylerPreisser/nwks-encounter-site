@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { apiFetch } from '@/api';
 import { useProgram } from '@/App';
 import { THEMES } from '@/theme';
+import { EncounterYearSelect } from '@/components/EncounterYearSelect';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -589,6 +590,7 @@ export default function Testimonies() {
   const [listRefresh, setListRefresh] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [eventId, setEventId] = useState<number | null>(null);
 
   // Native HTML5 drag state
   const draggingIdRef = useRef<number | null>(null);
@@ -605,6 +607,7 @@ export default function Testimonies() {
     try {
       const params = new URLSearchParams();
       if (filterType !== 'all') params.set('type', filterType);
+      if (eventId != null) params.set('event_id', String(eventId));
 
       const res = await apiFetch<{ ok: boolean; testimonies: TestimonyRow[] }>(
         `/admin/testimonies?${params}`
@@ -617,12 +620,12 @@ export default function Testimonies() {
     } finally {
       if (mountedRef.current) setLoading(false);
     }
-  }, [program, filterType, listRefresh]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [program, filterType, listRefresh, eventId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchList(); }, [fetchList]);
 
-  // Refetch when program changes
-  useEffect(() => { setItems([]); }, [program]);
+  // Reset the encounter filter when program changes (re-defaults to current).
+  useEffect(() => { setItems([]); setEventId(null); }, [program]);
 
   async function handleStatusChange(id: number, status: BoardStatus) {
     // Optimistic update
@@ -738,6 +741,14 @@ export default function Testimonies() {
             </button>
           ))}
         </div>
+
+        {/* Encounter year switcher */}
+        <EncounterYearSelect
+          key={program}
+          value={eventId}
+          onChange={(id, isCurrent) => { setEventId(id); setShowArchived(!isCurrent); }}
+          className="rounded-md border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-2 bg-white"
+        />
 
         {/* Hidden status filter buttons (API compat + tests) */}
         {hiddenStatusBtns}

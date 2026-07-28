@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { apiFetch, apiFetchRaw } from '@/api';
 import { useProgram } from '@/App';
 import RegistrationTable, { type RegistrationRow } from '@/components/RegistrationTable';
+import { EncounterYearSelect } from '@/components/EncounterYearSelect';
 
 export default function RegistrationsPage() {
   const { program } = useProgram();
@@ -10,8 +11,12 @@ export default function RegistrationsPage() {
   const [page, setPage] = useState(1);
   const [q, setQ] = useState('');
   const [role, setRole] = useState('');
+  const [eventId, setEventId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+
+  // Reset the encounter filter when the program switches (re-defaults to current).
+  useEffect(() => { setEventId(null); setPage(1); }, [program]);
 
   const fetchRows = useCallback(async () => {
     setLoading(true);
@@ -19,6 +24,7 @@ export default function RegistrationsPage() {
       const params = new URLSearchParams({ page: String(page) });
       if (q) params.set('q', q);
       if (role) params.set('role', role);
+      if (eventId != null) params.set('event_id', String(eventId));
       const res = await apiFetch<{ ok: boolean; rows: RegistrationRow[]; total: number }>(
         `/admin/registrations?${params}`
       );
@@ -27,7 +33,7 @@ export default function RegistrationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [program, page, q, role]);
+  }, [program, page, q, role, eventId]);
 
   useEffect(() => { fetchRows(); }, [fetchRows]);
 
@@ -36,6 +42,7 @@ export default function RegistrationsPage() {
     try {
       const params = new URLSearchParams();
       if (role) params.set('role', role);
+      if (eventId != null) params.set('event_id', String(eventId));
       const res = await apiFetchRaw(`/admin/registrations/export.csv?${params}`);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -71,7 +78,14 @@ export default function RegistrationsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-3 flex-wrap">
+      <div className="flex gap-3 flex-wrap items-center">
+        <label htmlFor="year-filter" className="text-sm text-gray-500">Encounter</label>
+        <EncounterYearSelect
+          key={program}
+          value={eventId}
+          onChange={(id) => { setEventId(id); setPage(1); }}
+          includeAll
+        />
         <input
           type="search"
           placeholder="Search name or email…"

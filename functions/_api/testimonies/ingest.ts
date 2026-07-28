@@ -291,12 +291,23 @@ export async function storeTestimony(
   // (something arrived and needs review, regardless of match)
   const status = 'draft_1_review';
 
+  // Stamp the current encounter for this program so inbound items land on this
+  // year's board (and archive with it on rollover). Unmatched program → NULL.
+  let eventId: number | null = null;
+  if (match.program) {
+    const ev = await db
+      .prepare(`SELECT id FROM events WHERE program = ? AND is_current = 1`)
+      .bind(match.program)
+      .first<{ id: number }>();
+    eventId = ev?.id ?? null;
+  }
+
   const { meta } = await db
     .prepare(
       `INSERT INTO testimonies
          (type, person_id, program, from_email, from_name, subject,
-          body_text, body_html, match_confidence, status, received_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          body_text, body_html, match_confidence, status, received_at, event_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       type,
@@ -310,6 +321,7 @@ export async function storeTestimony(
       match.confidence,
       status,
       parsed.received_at ?? null,
+      eventId,
       now
     )
     .run();

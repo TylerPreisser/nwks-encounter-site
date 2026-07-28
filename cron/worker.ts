@@ -9,7 +9,7 @@
 
 import type { Env } from '../functions/_api/app';
 import { sendCampaignChunk, SEND_CHUNK_SIZE } from '../functions/_api/routes/campaigns';
-import { advanceCurrentEvents } from '../functions/_api/events-advance';
+import { needsNextEvent, PROGRAMS } from '../functions/_api/events-advance';
 
 interface DueCampaign {
   id: number;
@@ -56,13 +56,12 @@ export default {
     const nowIso = new Date().toISOString();
     const todayYmd = nowIso.slice(0, 10);
 
-    // 1. Auto-advance events whose end_date has passed
-    const { results: advanceResults } = await advanceCurrentEvents(env, todayYmd);
-    for (const r of advanceResults) {
-      if (r.advanced) {
-        console.log(`[cron] ${r.program}: advanced current event ${r.fromEventId} → ${r.toEventId}`);
-      } else if (r.needs_next_event) {
-        console.warn(`[cron] ${r.program}: current event ended — no future event exists. Create the next event.`);
+    // 1. Advisory only — advancement is MANUAL via the admin "Start Next
+    //    Encounter" rollover button. Just warn when an encounter has ended so
+    //    the admin knows to roll it over (protects the post-encounter email tail).
+    for (const program of PROGRAMS) {
+      if (await needsNextEvent(env.DB, program, todayYmd)) {
+        console.warn(`[cron] ${program}: current encounter has ended — use "Start Next Encounter" to roll over.`);
       }
     }
 

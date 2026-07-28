@@ -76,6 +76,7 @@ testimoniesRouter.get('/', async (c) => {
   const type = c.req.query('type') ?? null;
   const assigned = c.req.query('assigned') ?? null;
   const fulfilled = c.req.query('fulfilled') ?? null;
+  const eventId = c.req.query('event_id') ?? null;
 
   const conditions: string[] = [];
   const bindings: (string | null)[] = [];
@@ -85,6 +86,12 @@ testimoniesRouter.get('/', async (c) => {
   } else {
     conditions.push('(t.program = ? OR t.program IS NULL)');
     bindings.push(program);
+  }
+
+  // Year navigation: scope the board to one encounter (past or current).
+  if (eventId && /^\d+$/.test(eventId)) {
+    conditions.push('t.event_id = ?');
+    bindings.push(eventId);
   }
 
   if (status && isValidStatus(status)) {
@@ -186,11 +193,21 @@ testimoniesRouter.post('/', async (c) => {
   const title = body.title?.trim() ?? null;
   const topic = body.topic?.trim() || null;
 
+  // Stamp the current encounter so the item lives on this year's board and
+  // archives with it on rollover. Unassigned (program-NULL) items stay NULL.
+  let eventId: number | null = null;
+  if (itemProgram) {
+    const ev = await c.env.DB.prepare(
+      `SELECT id FROM events WHERE program = ? AND is_current = 1`
+    ).bind(itemProgram).first<{ id: number }>();
+    eventId = ev?.id ?? null;
+  }
+
   const { meta } = await c.env.DB.prepare(
     `INSERT INTO testimonies
        (type, person_id, program, title, topic, from_email, from_name,
-        status, assigned_at, created_at)
-     VALUES (?, ?, ?, ?, ?, '', '', ?, ?, ?)`
+        status, assigned_at, event_id, created_at)
+     VALUES (?, ?, ?, ?, ?, '', '', ?, ?, ?, ?)`
   ).bind(
     type,
     personId,
@@ -199,6 +216,7 @@ testimoniesRouter.post('/', async (c) => {
     topic,
     status,
     personId ? now : null,
+    eventId,
     now
   ).run();
 

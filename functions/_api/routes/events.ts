@@ -78,6 +78,145 @@ eventsRouter.post('/', async (c) => {
   }
 });
 
+// GET /api/admin/events/rollover/preview
+// Feeds the "Start Next Encounter" button: the current encounter, its counts,
+// whether it has ended, and a suggested next year.
+eventsRouter.get('/rollover/preview', async (c) => {
+  const program = c.get('program') as Program;
+  const current = await c.env.DB.prepare(
+    `SELECT * FROM events WHERE program = ? AND is_current = 1`
+  ).bind(program).first<{ id: number; year: number; end_date: string | null }>();
+
+  if (!current) return c.json({ ok: true, current: null });
+
+  const reg = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM registrations WHERE event_id = ? AND status = 'registered'`
+  ).bind(current.id).first<{ n: number }>();
+  const board = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM testimonies WHERE event_id = ? AND status != 'archived'`
+  ).bind(current.id).first<{ n: number }>();
+
+  const todayYmd = new Date().toISOString().slice(0, 10);
+  const ended = !current.end_date || current.end_date < todayYmd;
+
+  return c.json({
+    ok: true,
+    current,
+    registered_count: reg?.n ?? 0,
+    board_count: board?.n ?? 0,
+    ended,
+    suggested_year: current.year + 1,
+  });
+});
+
+// POST /api/admin/events/rollover
+// The "Start Next Encounter" action (per program). ONE atomic step:
+//   1. archive this encounter's board (clean sweep -> that year's history),
+//   2. create the next encounter from the submitted form,
+//   3. make the next encounter current (old one deactivated).
+// Guards: current must exist; must have ended (unless force); confirm_year must
+// match year (typed confirmation). Registrations stay put — already year-tagged.
+eventsRouter.post('/rollover', async (c) => {
+  const program = c.get('program') as Program;
+  const body = await c.req.json<{
+    year: number;
+    title?: string;
+    start_date?: string;
+    end_date?: string;
+    launch_locations?: string[];
+    attendee_registration_open?: boolean;
+    server_registration_open?: boolean;
+    attendee_limit?: number | null | '';
+    attendee_full_message?: string | null;
+    confirm_year?: number;
+    force?: boolean;
+  }>();
+
+  const current = await c.env.DB.prepare(
+    `SELECT id, year, end_date FROM events WHERE program = ? AND is_current = 1`
+  ).bind(program).first<{ id: number; year: number; end_date: string | null }>();
+  if (!current) {
+    return c.json({ ok: false, error: 'No current encounter to roll over. Create or activate one first.' }, 409);
+  }
+
+  if (!body.year || typeof body.year !== 'number' || body.year < 2020 || body.year > 2100) {
+    return c.json({ ok: false, error: 'year must be a number between 2020 and 2100' }, 400);
+  }
+  if (body.start_date && !/^\d{4}-\d{2}-\d{2}$/.test(body.start_date)) {
+    return c.json({ ok: false, error: 'start_date must be YYYY-MM-DD' }, 400);
+  }
+  if (body.end_date && !/^\d{4}-\d{2}-\d{2}$/.test(body.end_date)) {
+    return c.json({ ok: false, error: 'end_date must be YYYY-MM-DD' }, 400);
+  }
+  if (body.launch_locations !== undefined && !Array.isArray(body.launch_locations)) {
+    return c.json({ ok: false, error: 'launch_locations must be an array of strings' }, 400);
+  }
+  if (body.confirm_year !== body.year) {
+    return c.json({ ok: false, error: 'confirm_year must match year to confirm the rollover' }, 400);
+  }
+
+  // Protect the post-encounter email window: don't roll over until it has ended.
+  const todayYmd = new Date().toISOString().slice(0, 10);
+  if (!body.force && current.end_date && current.end_date >= todayYmd) {
+    return c.json({ ok: false, error: 'current encounter has not ended yet', ended: false }, 409);
+  }
+
+  const archivable = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM testimonies WHERE event_id = ? AND status != 'archived'`
+  ).bind(current.id).first<{ n: number }>();
+
+  const now = nowIso();
+  const launchJson = JSON.stringify(body.launch_locations ?? []);
+  const attendeeOpen = body.attendee_registration_open !== false ? 1 : 0;
+  const serverOpen = body.server_registration_open !== false ? 1 : 0;
+  const attendeeLimit = body.attendee_limit === '' || body.attendee_limit == null ? null : Number(body.attendee_limit);
+  const fullMsg = body.attendee_full_message ?? null;
+
+  // Create the next encounter (is_current=0; the batch below flips it).
+  let newId: number;
+  try {
+    const res = await c.env.DB.prepare(
+      `INSERT INTO events
+         (program, year, title, start_date, end_date, launch_locations,
+          attendee_registration_open, server_registration_open,
+          attendee_limit, attendee_full_message, is_current, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`
+    ).bind(
+      program, body.year, body.title ?? null, body.start_date ?? null, body.end_date ?? null,
+      launchJson, attendeeOpen, serverOpen, attendeeLimit, fullMsg, now, now
+    ).run();
+    newId = res.meta.last_row_id as number;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('UNIQUE')) {
+      return c.json({ ok: false, error: `An encounter already exists for ${program} ${body.year}` }, 409);
+    }
+    throw err;
+  }
+
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      `UPDATE testimonies SET status = 'archived' WHERE event_id = ? AND status != 'archived'`
+    ).bind(current.id),
+    c.env.DB.prepare(
+      `UPDATE events SET is_current = 0, updated_at = ? WHERE program = ? AND is_current = 1`
+    ).bind(now, program),
+    c.env.DB.prepare(
+      `UPDATE events SET is_current = 1, updated_at = ? WHERE id = ?`
+    ).bind(now, newId),
+  ]);
+
+  const previous = await c.env.DB.prepare(`SELECT * FROM events WHERE id = ?`).bind(current.id).first();
+  const created = await c.env.DB.prepare(`SELECT * FROM events WHERE id = ?`).bind(newId).first();
+
+  return c.json({
+    ok: true,
+    archived_count: archivable?.n ?? 0,
+    previous_event: previous,
+    new_event: created,
+  }, 201);
+});
+
 // PATCH /api/admin/events/:id  — update mutable fields
 eventsRouter.patch('/:id', async (c) => {
   const program = c.get('program');
