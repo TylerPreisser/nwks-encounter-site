@@ -16,6 +16,7 @@ import { aiRouter } from './routes/ai';
 import { photosAdminRouter, photosPublicRouter } from './routes/photos';
 import { testimoniesRouter } from './routes/testimonies';
 import { contentAdminRouter, contentPublicRouter } from './routes/content';
+import { interestPublicRouter, interestAdminRouter } from './routes/interest';
 
 export interface Env {
   DB: D1Database;
@@ -45,6 +46,9 @@ app.get('/api/health', (c) => {
 app.use('/api/register/*', corsMiddleware);
 app.route('/api/register', registerRouter);
 
+// Express Interest (waitlist) — same CORS treatment as registration.
+app.route('/api/register', interestPublicRouter);
+
 // P3: public events endpoint (unauthenticated) — CORS applied before route handler
 app.use('/api/public/*', corsMiddleware);
 app.route('/api/public', publicRouter);
@@ -68,6 +72,9 @@ app.route('/api/admin/people', peopleRouter);
 
 // P3: admin events CRUD
 app.route('/api/admin/events', eventsRouter);
+
+// Express Interest queue (admin view)
+app.route('/api/admin/interest', interestAdminRouter);
 
 // P4: admin email templates CRUD
 app.route('/api/admin/templates', templatesRouter);

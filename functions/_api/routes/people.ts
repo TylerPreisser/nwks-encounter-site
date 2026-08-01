@@ -6,6 +6,7 @@ import { requireAuth, requireProgram } from '../auth';
 import { findPossibleDuplicates, recomputeRollups } from '../dedupe';
 import type { Person, Program } from '../db';
 import { nowIso } from '../db';
+import { withDisplayName } from '../seasons';
 
 export const peopleRouter = new Hono<{ Bindings: Env }>();
 
@@ -33,12 +34,12 @@ peopleRouter.get('/:id', async (c) => {
   };
 
   const historyResult = await c.env.DB.prepare(
-    `SELECT r.*, e.year, e.title, e.start_date, e.end_date
+    `SELECT r.*, e.year, e.season, e.title, e.start_date, e.end_date
      FROM registrations r
      JOIN events e ON e.id = r.event_id
      WHERE r.person_id = ? AND r.program = ?
-     ORDER BY e.start_date DESC`
-  ).bind(personId, program).all();
+     ORDER BY e.year DESC, CASE e.season WHEN 'fall' THEN 1 ELSE 0 END DESC`
+  ).bind(personId, program).all<{ year: number; season: string }>();
 
   const possibleDuplicates = await findPossibleDuplicates(c.env, personId);
 
@@ -46,7 +47,7 @@ peopleRouter.get('/:id', async (c) => {
     ok: true,
     person,
     badges,
-    history: historyResult.results,
+    history: historyResult.results.map(withDisplayName),
     possible_duplicates: possibleDuplicates,
   });
 });

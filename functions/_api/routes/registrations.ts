@@ -103,8 +103,18 @@ registrationsRouter.get('/', async (c) => {
     .bind(...binds)
     .first<{ n: number }>();
 
+  // The roster shows a first-timer / returning badge next to every name, so the
+  // list carries the person's rollup counts alongside the registration snapshot.
+  // LEFT JOIN: a registration always has a person_id today, but a missing person
+  // must degrade to "no badge", never drop the row off the roster.
   const rows = await c.env.DB.prepare(
-    `SELECT r.* FROM registrations r WHERE ${where}
+    `SELECT r.*,
+            COALESCE(p.times_attended, 0) AS times_attended,
+            COALESCE(p.times_served, 0)   AS times_served,
+            CASE WHEN COALESCE(p.times_attended, 0) <= 1 THEN 1 ELSE 0 END AS is_first_timer
+     FROM registrations r
+     LEFT JOIN people p ON p.id = r.person_id
+     WHERE ${where}
      ORDER BY r.created_at DESC LIMIT ? OFFSET ?`,
   )
     .bind(...binds, perPage, offset)
