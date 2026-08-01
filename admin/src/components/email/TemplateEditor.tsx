@@ -33,7 +33,35 @@ function reassemble(split: Split, editable: string): string {
 // Body background of each program's email (the <body> tag is stripped when we
 // inject the HTML into a div, so we set it on the frame instead).
 const EMAIL_BG: Record<'mens' | 'women', string> = { mens: '#f2efe6', women: '#fdf5f7' };
-const AUTOMATED_KEYS = new Set(['confirmation']);
+/**
+ * Templates the system sends by itself. They group under "Automated", cannot be
+ * deleted, and cannot be used as the body of a manual campaign.
+ *
+ * This must list EVERY key that some code path sends without a human pressing
+ * send — otherwise the email quietly shows up under "Templates" as though it
+ * were a draft someone made, and is deletable. Senders, for reference:
+ *   confirmation / confirmation_server          -> routes/register.ts
+ *   interest_confirmation(_server)              -> interest.ts sendInterestConfirmation
+ *   interest_invite(_server)                    -> interest.ts notifyInterestQueue
+ */
+const AUTOMATED_KEYS = new Set([
+  'confirmation',
+  'confirmation_server',
+  'interest_confirmation',
+  'interest_confirmation_server',
+  'interest_invite',
+  'interest_invite_server',
+]);
+/** What actually triggers each automated email, shown on its editor banner. */
+const AUTOMATED_TRIGGER: Record<string, string> = {
+  confirmation:                 'when someone registers as an attendee',
+  confirmation_server:          'when someone signs up to serve',
+  interest_confirmation:        'when someone joins the interest list while attendee registration is closed',
+  interest_confirmation_server: 'when someone joins the interest list while server sign-ups are closed',
+  interest_invite:              'to everyone on the interest list when a new Encounter opens for attendees',
+  interest_invite_server:       'to everyone on the interest list when server sign-ups open',
+};
+
 const LAUNCH_LOCATIONS = ['Colby', 'Gove', 'Hays', 'Hoxie', 'Norton', 'Plainville', 'Sterling', 'WaKeeney'];
 
 interface Segment { role?: 'attendee' | 'server' | ''; launch_location?: string; launch_locations?: string[]; person_ids?: number[]; }
@@ -364,7 +392,8 @@ export function TemplateEditor() {
           <>
             {isAutomated && (
               <div className="text-xs rounded-lg px-3 py-2 bg-amber-50 border border-amber-200 text-amber-800">
-                This email is sent <strong>automatically</strong> when someone registers. Edit it right on the preview below.
+                This email is sent <strong>automatically</strong>{' '}
+                {AUTOMATED_TRIGGER[selected.key] ?? 'by the system'}. Edit it right on the preview below.
               </div>
             )}
             <div className="grid grid-cols-2 gap-3">

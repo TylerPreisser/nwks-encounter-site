@@ -71,9 +71,9 @@ describe('LoginPage — neutral, program-free styling', () => {
     expect(shell.style.getPropertyValue('--login-ink')).toBe('#111113');
   });
 
-  it('keeps the tent emoji and the Admin Panel wording', () => {
+  it('shows both Encounter logos and the Admin Panel wording', () => {
     render(<MemoryRouter><LoginPage /></MemoryRouter>);
-    expect(screen.getByText('⛺')).toBeInTheDocument();
+    expect(screen.getAllByAltText(/Men's Encounter/i)[0]).toBeInTheDocument();
     expect(screen.getByText('NWKS Encounter')).toBeInTheDocument();
     expect(screen.getByText('Admin Panel')).toBeInTheDocument();
   });

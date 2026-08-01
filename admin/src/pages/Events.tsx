@@ -4,7 +4,6 @@ import { useProgram } from '@/App';
 import EnrollmentControl from '@/components/EnrollmentControl';
 import RolloverDialog from '@/components/RolloverDialog';
 import EventForm from '@/components/EventForm';
-import EncounterLogos from '@/components/EncounterLogos';
 import {
   type NwksEvent, type EventFormState, type RolloverPreview,
   encounterName, emptyEventForm as emptyForm, parseLaunchLocations,
@@ -265,7 +264,6 @@ export default function Events() {
             narrow content column on a phone, so the title drops under the
             lockup rather than being clipped off the right edge. */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0">
-          <EncounterLogos />
           <h1 className="text-2xl font-bold" style={{ color: 'var(--color-primary)' }}>
             Events
           </h1>

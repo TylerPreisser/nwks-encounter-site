@@ -32,7 +32,11 @@ const LOGO_SIZE = 'clamp(2.5rem, 9vw, 4rem)';
 
 /** Hairline ring — without it the women's mark (black on white) bleeds into the
  *  white surface behind it and reads as floating text rather than a logo. */
-const RING = '2px solid color-mix(in srgb, var(--color-primary, #3D4127) 22%, transparent)';
+// Fallbacks are deliberately NEUTRAL, not brand colours. A var() fallback only
+// fires when the variable is undefined — i.e. on a screen with no program theme,
+// which is exactly where a program's olive or cranberry would be wrong. The
+// login screen is that screen.
+const RING = '2px solid color-mix(in srgb, var(--color-primary, #52525B) 22%, transparent)';
 
 export default function EncounterLogos({ className = '' }: { className?: string }) {
   return (
@@ -43,7 +47,7 @@ export default function EncounterLogos({ className = '' }: { className?: string 
         gap: 'clamp(0.5rem, 1.5vw, 0.875rem)',
         padding: 'clamp(0.25rem, 1vw, 0.5rem)',
         background: 'var(--color-surface, #FFFFFF)',
-        border: '1px solid color-mix(in srgb, var(--color-accent, #6B7645) 30%, transparent)',
+        border: '1px solid color-mix(in srgb, var(--color-accent, #D4D4D8) 30%, transparent)',
       }}
     >
       <img
@@ -64,7 +68,7 @@ export default function EncounterLogos({ className = '' }: { className?: string 
           width: '1px',
           alignSelf: 'stretch',
           background:
-            'linear-gradient(to bottom, transparent, var(--color-secondary, #B8972A), transparent)',
+            'linear-gradient(to bottom, transparent, var(--color-secondary, #A1A1AA), transparent)',
         }}
       />
 

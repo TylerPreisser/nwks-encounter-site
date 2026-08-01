@@ -1,6 +1,7 @@
 import { useState, FormEvent, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '@/api';
+import EncounterLogos from '@/components/EncounterLogos';
 import TwoFactorChallenge, { type TwoFactorMethods } from '@/components/TwoFactorChallenge';
 
 /**
@@ -165,15 +166,17 @@ export default function LoginPage() {
           boxShadow: '0 30px 60px -25px rgba(0,0,0,.85), 0 0 0 1px rgba(255,255,255,.07)',
         }}
       >
-        {/* Brand header */}
+        {/* Brand header.
+
+            Both Encounter logos sit here and NOWHERE else in the admin: this is
+            the only screen where no program has been chosen yet, so showing the
+            men's and women's marks together is accurate. Every screen past the
+            login is scoped to one program by the sidebar toggle, where a second
+            program's logo would just be wrong. */}
         <div className="text-center">
-          <span
-            className="inline-flex h-14 w-14 items-center justify-center rounded-full text-3xl"
-            style={{ background: '#F4F4F5', border: `1px solid ${LINE}` }}
-            aria-hidden="true"
-          >
-            ⛺
-          </span>
+          <div className="flex justify-center">
+            <EncounterLogos />
+          </div>
           <h1
             className="mt-4 text-2xl font-bold tracking-tight"
             style={{ color: INK, fontFamily: 'Georgia, serif' }}
