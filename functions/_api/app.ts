@@ -17,6 +17,7 @@ import { photosAdminRouter, photosPublicRouter } from './routes/photos';
 import { testimoniesRouter } from './routes/testimonies';
 import { contentAdminRouter, contentPublicRouter } from './routes/content';
 import { interestPublicRouter, interestAdminRouter } from './routes/interest';
+import { securityRouter } from './routes/security';
 
 export interface Env {
   DB: D1Database;
@@ -75,6 +76,9 @@ app.route('/api/admin/events', eventsRouter);
 
 // Express Interest queue (admin view)
 app.route('/api/admin/interest', interestAdminRouter);
+
+// Admin security: passkeys, recovery codes, trusted devices, audit log
+app.route('/api/admin/security', securityRouter);
 
 // P4: admin email templates CRUD
 app.route('/api/admin/templates', templatesRouter);

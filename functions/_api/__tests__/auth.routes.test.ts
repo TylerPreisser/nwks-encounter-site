@@ -51,7 +51,7 @@ describe('POST /api/auth/login', () => {
     expect(res.status).toBe(401);
     const json = await res.json() as { ok: boolean; error: string };
     expect(json.ok).toBe(false);
-    expect(json.error).toBe('unauthorized');
+    expect(json.error).toBe('Invalid email or password.');
   });
 
   it('returns 401 for wrong password (same shape — no user enumeration)', async () => {
@@ -63,7 +63,7 @@ describe('POST /api/auth/login', () => {
     expect(res.status).toBe(401);
     const json = await res.json() as { ok: boolean; error: string };
     expect(json.ok).toBe(false);
-    expect(json.error).toBe('unauthorized');
+    expect(json.error).toBe('Invalid email or password.');
   });
 
   it('sets nwks_session cookie and returns user on good credentials', async () => {
@@ -81,7 +81,7 @@ describe('POST /api/auth/login', () => {
     expect(cookie).toContain('nwks_session=');
     expect(cookie).toContain('HttpOnly');
     expect(cookie).toContain('Secure');
-    expect(cookie).toContain('SameSite=Lax');
+    expect(cookie).toContain('SameSite=Strict');
   });
 
   it('updates last_login_at on successful login (verified via subsequent /me)', async () => {

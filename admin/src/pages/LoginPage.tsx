@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '@/api';
+import TwoFactorChallenge, { type TwoFactorMethods } from '@/components/TwoFactorChallenge';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -8,16 +9,23 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Set when the password was right but a second factor is still owed. Until
+  // this clears there is no session — the password alone gets you nowhere.
+  const [methods, setMethods] = useState<TwoFactorMethods | null>(null);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      await apiFetch('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-      });
+      const res = await apiFetch<{ two_factor_required?: boolean; methods?: TwoFactorMethods }>(
+        '/auth/login',
+        { method: 'POST', body: JSON.stringify({ email, password }) }
+      );
+      if (res.two_factor_required && res.methods) {
+        setMethods(res.methods);
+        return;
+      }
       navigate('/', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
@@ -62,6 +70,12 @@ export default function LoginPage() {
           </div>
         )}
 
+        {methods ? (
+          <TwoFactorChallenge
+            methods={methods}
+            onSuccess={() => navigate('/', { replace: true })}
+          />
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label
@@ -115,6 +129,7 @@ export default function LoginPage() {
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
+        )}
       </div>
     </div>
   );

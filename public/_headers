@@ -1,0 +1,35 @@
+# Cloudflare Pages response headers for the NWKS Encounter backend
+# (API + admin panel). Copied to dist/_headers by scripts/build.mjs.
+#
+# Design: docs/superpowers/specs/2026-08-01-admin-2fa-and-hardening-design.md
+#
+# The admin is a same-origin SPA that talks only to /api/* on its own origin, so
+# a strict policy costs nothing here and removes whole classes of attack.
+
+/*
+  # HTTPS only, for a year, including subdomains. Stops an attacker who can see
+  # the network from downgrading a login to plaintext.
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  # Never let a browser second-guess a declared content type (XSS via sniffing).
+  X-Content-Type-Options: nosniff
+  # Nothing here should ever be framed — clickjacking a "reset 2FA" button is a
+  # real attack, and the admin has no legitimate embedding use.
+  X-Frame-Options: DENY
+  # Don't leak admin URLs (which contain person ids) to third-party sites.
+  Referrer-Policy: strict-origin-when-cross-origin
+  # This app asks for none of these; deny them rather than leave them available
+  # to anything that manages to run in the page.
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()
+  # Isolates this origin from cross-origin window handles.
+  Cross-Origin-Opener-Policy: same-origin
+
+/admin/*
+  # Strict CSP for the admin. Vite emits external JS/CSS (no inline script), so
+  # 'self' is sufficient and there is no need to weaken it with unsafe-inline.
+  # style-src allows inline because the app sets CSS custom properties via the
+  # style attribute for per-program theming; that is not a script vector.
+  # frame-ancestors 'none' is the CSP equivalent of X-Frame-Options: DENY and is
+  # the directive modern browsers actually honour.
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'
+  # Admin pages must never be cached by a shared proxy — they contain roster data.
+  Cache-Control: no-store

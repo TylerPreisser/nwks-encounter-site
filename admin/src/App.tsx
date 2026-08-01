@@ -12,6 +12,7 @@ import { applyTheme, type Program } from './theme';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import RosterPage from './pages/RosterPage';
+import SecurityPage from './pages/SecurityPage';
 import PersonPage from './pages/PersonPage';
 import Events from './pages/Events';
 import { EmailPage } from './pages/Email';
@@ -111,6 +112,7 @@ export default function App() {
             <Route path="/testimonies" element={<Testimonies />} />
             <Route path="/forms" element={<FormsEditor />} />
             <Route path="/page-details" element={<PageDetails />} />
+            <Route path="/security" element={<SecurityPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Route>

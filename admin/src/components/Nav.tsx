@@ -5,6 +5,7 @@ import {
   IconDashboard,
   IconUsers,
   IconServing,
+  IconShield,
   IconCalendar,
   IconMail,
   IconHeart,
@@ -29,6 +30,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/testimonies',   label: 'Testimonies & Teachings', Icon: IconHeart       },
   { to: '/forms',         label: 'Forms',                   Icon: IconForms       },
   { to: '/page-details',  label: 'Web Page Details',        Icon: IconPageDetails },
+  { to: '/security',      label: 'Security',                Icon: IconShield      },
 ];
 
 interface ExtraNavItem {

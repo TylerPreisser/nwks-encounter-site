@@ -32,6 +32,16 @@ export function IconDashboard({ className }: IconProps) {
   );
 }
 
+/** Security — a shield */
+export function IconShield({ className }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <path d="M10 2.5 4 5v5c0 3.5 2.4 6.6 6 7.5 3.6-.9 6-4 6-7.5V5l-6-2.5Z" />
+      <path d="M7.6 10.2 9.3 12l3.4-3.6" />
+    </svg>
+  );
+}
+
 /** Attendees — a person and the group behind them */
 export function IconUsers({ className }: IconProps) {
   return (
