@@ -103,7 +103,7 @@ describe('Admin Events API', () => {
     // Use year 2027 since the seed migration (0003) already owns mens/2026.
     const res = await app.fetch(
       makeReq('POST', '/api/admin/events', cookie, 'mens', {
-        year: 2027,
+        year: 2027, season: 'spring',
         title: "Men's Encounter 2027",
         start_date: '2027-08-06',
         end_date: '2027-08-08',
@@ -123,7 +123,7 @@ describe('Admin Events API', () => {
 
   it('POST /api/admin/events returns 409 on duplicate program+year', async () => {
     // Use year 2027 (not 2026 which the seed already owns); first POST creates, second gets 409.
-    const payload = { year: 2027 };
+    const payload = { year: 2027, season: 'spring' };
     await app.fetch(makeReq('POST', '/api/admin/events', cookie, 'mens', payload), testEnv);
     const res2 = await app.fetch(makeReq('POST', '/api/admin/events', cookie, 'mens', payload), testEnv);
     expect(res2.status).toBe(409);
@@ -132,7 +132,7 @@ describe('Admin Events API', () => {
   it('POST /api/admin/events returns 400 for invalid start_date format', async () => {
     // Use year 2027 (seed owns 2026); validation error is thrown before the INSERT anyway.
     const res = await app.fetch(
-      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2027, start_date: '08-06-2027' }),
+      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2027, season: 'spring', start_date: '08-06-2027' }),
       testEnv
     );
     expect(res.status).toBe(400);
@@ -141,7 +141,7 @@ describe('Admin Events API', () => {
   it('POST /api/admin/events returns 400 for invalid launch_locations type', async () => {
     // Use year 2027 (seed owns 2026); validation error is thrown before the INSERT anyway.
     const res = await app.fetch(
-      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2027, launch_locations: 'Colby' }),
+      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2027, season: 'spring', launch_locations: 'Colby' }),
       testEnv
     );
     expect(res.status).toBe(400);
@@ -152,7 +152,7 @@ describe('Admin Events API', () => {
   it('PATCH /api/admin/events/:id updates title and dates', async () => {
     // Use year 2027 since seed owns mens/2026.
     const createRes = await app.fetch(
-      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2027 }),
+      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2027, season: 'spring' }),
       testEnv
     );
     const { event } = await createRes.json<{ event: { id: number } }>();
@@ -173,7 +173,7 @@ describe('Admin Events API', () => {
   it('PATCH /api/admin/events/:id returns 404 for wrong program', async () => {
     // Use year 2027 since seed owns mens/2026.
     const createRes = await app.fetch(
-      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2027 }),
+      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2027, season: 'spring' }),
       testEnv
     );
     const { event } = await createRes.json<{ event: { id: number } }>();
@@ -191,11 +191,11 @@ describe('Admin Events API', () => {
   it('POST /api/admin/events/:id/set-current enforces one-current invariant within program', async () => {
     // Use years 2025 + 2027 (seed owns mens/2026).
     const r1 = await app.fetch(
-      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2025 }),
+      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2025, season: 'spring' }),
       testEnv
     );
     const r2 = await app.fetch(
-      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2027 }),
+      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2027, season: 'spring' }),
       testEnv
     );
     const { event: ev1 } = await r1.json<{ event: { id: number } }>();
@@ -217,13 +217,13 @@ describe('Admin Events API', () => {
   it('set-current for mens does NOT affect womens is_current', async () => {
     // Use year 2027 (seed owns both mens/2026 and women/2026).
     const mr = await app.fetch(
-      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2027 }),
+      makeReq('POST', '/api/admin/events', cookie, 'mens', { year: 2027, season: 'spring' }),
       testEnv
     );
     const { event: mensEv } = await mr.json<{ event: { id: number } }>();
 
     const wr = await app.fetch(
-      makeReq('POST', '/api/admin/events', cookie, 'women', { year: 2027 }),
+      makeReq('POST', '/api/admin/events', cookie, 'women', { year: 2027, season: 'spring' }),
       testEnv
     );
     const { event: womenEv } = await wr.json<{ event: { id: number } }>();
@@ -301,7 +301,7 @@ describe('Encounter rollover', () => {
     await insertTestimony(oldId, 'draft_1_review');
 
     const res = await app.fetch(makeReq('POST', '/api/admin/events/rollover', cookie, 'mens', {
-      year: 2027, start_date: '2027-08-05', end_date: '2027-08-07',
+      year: 2027, season: 'spring', start_date: '2027-08-05', end_date: '2027-08-07',
       launch_locations: ['Colby', 'Hays'], attendee_limit: 120, confirm_year: 2027,
     }), testEnv);
     expect(res.status).toBe(201);
@@ -332,7 +332,7 @@ describe('Encounter rollover', () => {
   it('refuses rollover when the current encounter has not ended', async () => {
     await insertCurrentMens('2099-08-08');
     const res = await app.fetch(makeReq('POST', '/api/admin/events/rollover', cookie, 'mens', {
-      year: 2100, start_date: '2100-08-05', end_date: '2100-08-07', confirm_year: 2100,
+      year: 2100, season: 'spring', start_date: '2100-08-05', end_date: '2100-08-07', confirm_year: 2100,
     }), testEnv);
     expect(res.status).toBe(409);
   });
@@ -340,7 +340,7 @@ describe('Encounter rollover', () => {
   it('force=true overrides the not-ended guard', async () => {
     await insertCurrentMens('2099-08-08');
     const res = await app.fetch(makeReq('POST', '/api/admin/events/rollover', cookie, 'mens', {
-      year: 2098, start_date: '2098-08-05', end_date: '2098-08-07', confirm_year: 2098, force: true,
+      year: 2098, season: 'spring', start_date: '2098-08-05', end_date: '2098-08-07', confirm_year: 2098, force: true,
     }), testEnv);
     expect(res.status).toBe(201);
   });
@@ -348,29 +348,44 @@ describe('Encounter rollover', () => {
   it('rejects when confirm_year does not match year', async () => {
     await insertCurrentMens('2020-08-08');
     const res = await app.fetch(makeReq('POST', '/api/admin/events/rollover', cookie, 'mens', {
-      year: 2027, confirm_year: 2026, start_date: '2027-08-05', end_date: '2027-08-07',
+      year: 2027, season: 'spring', confirm_year: 2026, start_date: '2027-08-05', end_date: '2027-08-07',
     }), testEnv);
     expect(res.status).toBe(400);
   });
 
   it('409 when there is no current encounter', async () => {
     const res = await app.fetch(makeReq('POST', '/api/admin/events/rollover', cookie, 'mens', {
-      year: 2027, confirm_year: 2027, start_date: '2027-08-05', end_date: '2027-08-07',
+      year: 2027, season: 'spring', confirm_year: 2027, start_date: '2027-08-05', end_date: '2027-08-07',
     }), testEnv);
     expect(res.status).toBe(409);
   });
 
-  it('409 when the target year already exists', async () => {
+  it('409 when the target year AND season already exist', async () => {
     await insertCurrentMens('2020-08-08');
     const now = new Date().toISOString();
     await testEnv.DB.prepare(
-      `INSERT INTO events (program, year, launch_locations, attendee_registration_open, server_registration_open, is_current, created_at, updated_at)
-       VALUES ('mens', 2027, '[]', 1, 1, 0, ?, ?)`
+      `INSERT INTO events (program, year, season, launch_locations, attendee_registration_open, server_registration_open, is_current, created_at, updated_at)
+       VALUES ('mens', 2027, 'spring', '[]', 1, 1, 0, ?, ?)`
     ).bind(now, now).run();
     const res = await app.fetch(makeReq('POST', '/api/admin/events/rollover', cookie, 'mens', {
-      year: 2027, confirm_year: 2027, start_date: '2027-08-05', end_date: '2027-08-07',
+      year: 2027, season: 'spring', confirm_year: 2027, start_date: '2027-08-05', end_date: '2027-08-07',
     }), testEnv);
     expect(res.status).toBe(409);
+  });
+
+  it('allows rolling into spring when only FALL of that year exists', async () => {
+    // The whole point of seasons: two encounters share a year. A fall 2027
+    // encounter must not block creating spring 2027.
+    await insertCurrentMens('2020-08-08');
+    const now = new Date().toISOString();
+    await testEnv.DB.prepare(
+      `INSERT INTO events (program, year, season, launch_locations, attendee_registration_open, server_registration_open, is_current, created_at, updated_at)
+       VALUES ('mens', 2027, 'fall', '[]', 1, 1, 0, ?, ?)`
+    ).bind(now, now).run();
+    const res = await app.fetch(makeReq('POST', '/api/admin/events/rollover', cookie, 'mens', {
+      year: 2027, season: 'spring', confirm_year: 2027, start_date: '2027-04-05', end_date: '2027-04-07',
+    }), testEnv);
+    expect(res.status).toBe(201);
   });
 
   it('preview returns the current encounter, counts, ended flag, suggested year', async () => {

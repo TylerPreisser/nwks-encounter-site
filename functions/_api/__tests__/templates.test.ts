@@ -30,21 +30,21 @@ describe('email_templates seed (0015_templates_general.sql)', () => {
 
   // ── Row count ────────────────────────────────────────────────────────────────
 
-  it('seeds exactly 4 rows (general + confirmation per program)', async () => {
+  it('seeds exactly 6 rows (general + confirmation + interest_invite per program)', async () => {
     const { results } = await (env as any).DB
       .prepare('SELECT COUNT(*) AS n FROM email_templates')
       .all<{ n: number }>();
-    expect(results[0].n).toBe(4);
+    expect(results[0].n).toBe(6);
   });
 
-  it('has 0 shared rows and 2 rows per program (general + confirmation)', async () => {
+  it('has 0 shared rows and 3 rows per program', async () => {
     const rows = await (env as any).DB
       .prepare(`SELECT program, COUNT(*) AS n FROM email_templates GROUP BY program`)
       .all<{ program: string; n: number }>();
     const byProgram = Object.fromEntries(rows.results.map((r: any) => [r.program, r.n]));
     expect(byProgram['shared']).toBeUndefined();
-    expect(byProgram['mens']).toBe(2);
-    expect(byProgram['women']).toBe(2);
+    expect(byProgram['mens']).toBe(3);
+    expect(byProgram['women']).toBe(3);
   });
 
   it('has an editable confirmation template per program (no "Northwest Kansas")', async () => {
@@ -137,6 +137,6 @@ describe('email_templates seed (0015_templates_general.sql)', () => {
     const { results } = await (env as any).DB
       .prepare(`SELECT updated_at FROM email_templates WHERE updated_at IS NOT NULL`)
       .all<{ updated_at: string }>();
-    expect(results.length).toBe(4);
+    expect(results.length).toBe(6);
   });
 });

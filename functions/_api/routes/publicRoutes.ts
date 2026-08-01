@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import type { Env } from '../app';
+import { displayName } from '../seasons';
 
 export const publicRouter = new Hono<{ Bindings: Env }>();
 
@@ -13,7 +14,7 @@ publicRouter.get('/events/current', async (c) => {
   }
 
   const event = await c.env.DB.prepare(
-    `SELECT id, program, year, title, start_date, end_date, launch_locations,
+    `SELECT id, program, year, season, title, start_date, end_date, launch_locations,
             attendee_registration_open, server_registration_open,
             attendee_limit, attendee_full_message
      FROM events
@@ -23,6 +24,7 @@ publicRouter.get('/events/current', async (c) => {
     id: number;
     program: string;
     year: number;
+    season: string;
     title: string | null;
     start_date: string | null;
     end_date: string | null;
@@ -48,6 +50,7 @@ publicRouter.get('/events/current', async (c) => {
   // Parse launch_locations JSON before returning
   const parsed = {
     ...event,
+    display_name: displayName(event.year, event.season),
     launch_locations: JSON.parse(event.launch_locations) as string[],
     attendee_registration_open: event.attendee_registration_open === 1,
     server_registration_open: event.server_registration_open === 1,
