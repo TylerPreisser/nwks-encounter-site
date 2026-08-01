@@ -4,6 +4,7 @@ import { useProgram } from '@/App';
 import EnrollmentControl from '@/components/EnrollmentControl';
 import RolloverDialog from '@/components/RolloverDialog';
 import EventForm from '@/components/EventForm';
+import EncounterLogos from '@/components/EncounterLogos';
 import {
   type NwksEvent, type EventFormState, type RolloverPreview,
   encounterName, emptyEventForm as emptyForm, parseLaunchLocations,
@@ -255,12 +256,21 @@ export default function Events() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--color-primary)' }}>
-          Events
-        </h1>
-        <div className="flex gap-2">
+      {/* Header — the Men's + Women's lockup sits with the title because this
+          page manages the encounters for BOTH programs, not just the themed one.
+          flex-wrap so the action buttons drop to their own line instead of
+          squeezing the lockup once the content column gets narrow. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        {/* flex-wrap here too: the shell's fixed 14rem sidebar leaves a very
+            narrow content column on a phone, so the title drops under the
+            lockup rather than being clipped off the right edge. */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0">
+          <EncounterLogos />
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--color-primary)' }}>
+            Events
+          </h1>
+        </div>
+        <div className="flex flex-wrap gap-2">
           {currentEvent && (
             <button
               onClick={openRollover}

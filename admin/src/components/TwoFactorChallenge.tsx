@@ -19,6 +19,14 @@ type Mode = 'passkey' | 'email' | 'duo';
  * The second-factor step of login. Leads with the passkey and falls back to an
  * emailed code or a Duo push. If none of those is reachable, another admin
  * clears your 2FA from Security settings.
+ *
+ * Styling note: this renders INSIDE LoginPage's card, and login happens before
+ * a program is chosen, so it must stay on the same neutral palette rather than
+ * the men's/women's tint. It reads the `--login-*` tokens LoginPage defines on
+ * its shell; the hex fallbacks are the same neutral values, so a render outside
+ * that shell (a test, a future host) still comes out greyscale instead of
+ * falling back to a brand colour. The `nwks-login-*` classes come from
+ * LoginPage's scoped stylesheet and carry hover/focus states.
  */
 export default function TwoFactorChallenge({ methods, onSuccess }: Props) {
   const [mode, setMode] = useState<Mode>(methods.passkey ? 'passkey' : 'email');
@@ -112,10 +120,10 @@ export default function TwoFactorChallenge({ methods, onSuccess }: Props) {
   return (
     <div className="space-y-5" data-testid="two-factor-challenge">
       <div className="text-center">
-        <h2 className="text-lg font-semibold" style={{ color: 'var(--color-primary, #6B7645)' }}>
+        <h2 className="text-lg font-semibold" style={{ color: 'var(--login-ink, #111113)' }}>
           Confirm it&rsquo;s you
         </h2>
-        <p className="text-sm mt-1" style={{ color: '#78716c' }}>
+        <p className="text-sm mt-1" style={{ color: 'var(--login-muted, #52525B)' }}>
           {mode === 'passkey' && 'Use Face ID, Touch ID, or your security key.'}
           {mode === 'email' && 'We can email you a 6-digit code.'}
           {mode === 'duo' && 'Approve the push notification on your phone.'}
@@ -125,8 +133,13 @@ export default function TwoFactorChallenge({ methods, onSuccess }: Props) {
       {error && (
         <div
           role="alert"
-          className="rounded-lg border px-4 py-3 text-sm"
-          style={{ background: '#fef2f2', borderColor: '#fecaca', color: '#991b1b' }}
+          className="rounded-lg px-4 py-3 text-sm"
+          style={{
+            background: 'var(--login-alert-bg, #FAFAF9)',
+            border: '1px solid var(--login-line, #E4E4E7)',
+            borderLeft: '3px solid var(--login-alert-accent, #B42318)',
+            color: 'var(--login-alert-text, #8C1D18)',
+          }}
         >
           {error}
         </div>
@@ -138,8 +151,12 @@ export default function TwoFactorChallenge({ methods, onSuccess }: Props) {
           onClick={() => void runPasskey()}
           disabled={busy}
           data-testid="use-passkey"
-          className="w-full rounded-lg py-2.5 text-sm font-semibold text-white"
-          style={{ background: 'var(--color-primary, #6B7645)', opacity: busy ? 0.6 : 1 }}
+          className="nwks-login-btn w-full rounded-lg py-2.5 text-sm font-semibold"
+          style={{
+            background: 'var(--login-ink, #111113)',
+            opacity: busy ? 0.6 : 1,
+            cursor: busy ? 'not-allowed' : 'pointer',
+          }}
         >
           {busy ? 'Waiting for your device…' : 'Use your passkey'}
         </button>
@@ -151,8 +168,12 @@ export default function TwoFactorChallenge({ methods, onSuccess }: Props) {
           onClick={() => void startDuo()}
           disabled={busy}
           data-testid="use-duo"
-          className="w-full rounded-lg py-2.5 text-sm font-semibold text-white"
-          style={{ background: 'var(--color-primary, #6B7645)', opacity: busy ? 0.6 : 1 }}
+          className="nwks-login-btn w-full rounded-lg py-2.5 text-sm font-semibold"
+          style={{
+            background: 'var(--login-ink, #111113)',
+            opacity: busy ? 0.6 : 1,
+            cursor: busy ? 'not-allowed' : 'pointer',
+          }}
         >
           {busy ? 'Opening Duo…' : 'Send me a Duo push'}
         </button>
@@ -166,8 +187,12 @@ export default function TwoFactorChallenge({ methods, onSuccess }: Props) {
               onClick={() => void sendEmailCode()}
               disabled={busy}
               data-testid="send-email-code"
-              className="w-full rounded-lg py-2.5 text-sm font-semibold text-white"
-              style={{ background: 'var(--color-primary, #6B7645)', opacity: busy ? 0.6 : 1 }}
+              className="nwks-login-btn w-full rounded-lg py-2.5 text-sm font-semibold"
+              style={{
+                background: 'var(--login-ink, #111113)',
+                opacity: busy ? 0.6 : 1,
+                cursor: busy ? 'not-allowed' : 'pointer',
+              }}
             >
               {busy ? 'Sending…' : 'Email me a code'}
             </button>
@@ -175,7 +200,7 @@ export default function TwoFactorChallenge({ methods, onSuccess }: Props) {
 
           {emailSent && (
             <>
-              <label htmlFor="code" className="block text-sm font-medium" style={{ color: '#44403c' }}>
+              <label htmlFor="code" className="block text-sm font-medium" style={{ color: 'var(--login-text, #3F3F46)' }}>
                 6-digit code
               </label>
               <input
@@ -187,14 +212,18 @@ export default function TwoFactorChallenge({ methods, onSuccess }: Props) {
                 autoComplete="one-time-code"
                 placeholder="123456"
                 required
-                className="w-full rounded-lg border px-3 py-2 text-sm tracking-widest text-center focus:outline-none focus:ring-2"
-                style={{ borderColor: '#d6d3d1' }}
+                className="nwks-login-field w-full rounded-lg border px-3 py-2.5 text-sm tracking-widest text-center"
+                style={{ borderColor: 'var(--login-field-border, #D4D4D8)' }}
               />
               <button
                 type="submit"
                 disabled={busy}
-                className="w-full rounded-lg py-2.5 text-sm font-semibold text-white"
-                style={{ background: 'var(--color-primary, #6B7645)', opacity: busy ? 0.6 : 1 }}
+                className="nwks-login-btn w-full rounded-lg py-2.5 text-sm font-semibold"
+                style={{
+                  background: 'var(--login-ink, #111113)',
+                  opacity: busy ? 0.6 : 1,
+                  cursor: busy ? 'not-allowed' : 'pointer',
+                }}
               >
                 {busy ? 'Checking…' : 'Verify'}
               </button>
@@ -203,7 +232,7 @@ export default function TwoFactorChallenge({ methods, onSuccess }: Props) {
         </form>
       )}
 
-      <label className="flex items-center gap-2 text-sm" style={{ color: '#57534e' }}>
+      <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--login-text, #3F3F46)' }}>
         <input
           type="checkbox"
           checked={trustDevice}
@@ -213,19 +242,19 @@ export default function TwoFactorChallenge({ methods, onSuccess }: Props) {
         Trust this device for 2 days
       </label>
 
-      <div className="flex flex-wrap gap-3 justify-center text-xs pt-1" style={{ color: '#78716c' }}>
+      <div className="flex flex-wrap gap-3 justify-center text-xs pt-1" style={{ color: 'var(--login-muted, #52525B)' }}>
         {mode !== 'passkey' && methods.passkey && (
-          <button type="button" className="underline" onClick={() => setMode('passkey')}>
+          <button type="button" className="nwks-login-link" onClick={() => setMode('passkey')}>
             Use my passkey
           </button>
         )}
         {mode !== 'duo' && methods.duo && (
-          <button type="button" className="underline" data-testid="switch-duo" onClick={() => setMode('duo')}>
+          <button type="button" className="nwks-login-link" data-testid="switch-duo" onClick={() => setMode('duo')}>
             Use Duo instead
           </button>
         )}
         {mode !== 'email' && (
-          <button type="button" className="underline" data-testid="switch-email" onClick={() => setMode('email')}>
+          <button type="button" className="nwks-login-link" data-testid="switch-email" onClick={() => setMode('email')}>
             Email me a code instead
           </button>
         )}

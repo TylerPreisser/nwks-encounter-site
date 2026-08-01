@@ -12,6 +12,7 @@ import { applyTheme, type Program } from './theme';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import RosterPage from './pages/RosterPage';
+import InterestedPage from './pages/InterestedPage';
 import SecurityPage from './pages/SecurityPage';
 import DuoCallback from './pages/DuoCallback';
 import PersonPage from './pages/PersonPage';
@@ -65,12 +66,17 @@ function AuthGuard() {
   }
 
   if (status === 'loading') {
+    // Neutral, not themed. This screen renders BEFORE we know whether the
+    // session is valid, so it may be followed by the login card — and the login
+    // card is deliberately brand-free (no program has been chosen yet). Using
+    // var(--color-bg) here flashed the last program's cream/green for a beat
+    // before the black login screen appeared.
     return (
       <div
         className="min-h-screen flex items-center justify-center"
-        style={{ background: 'var(--color-bg, #F5F3EC)' }}
+        style={{ background: '#0B0B0C' }}
       >
-        <span className="text-sm" style={{ color: '#78716c' }}>Loading…</span>
+        <span className="text-sm" style={{ color: '#A1A1AA' }}>Loading…</span>
       </div>
     );
   }
@@ -99,6 +105,7 @@ export default function App() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/attendees" element={<RosterPage role="attendee" />} />
             <Route path="/servers" element={<RosterPage role="server" />} />
+            <Route path="/interested" element={<InterestedPage />} />
             {/* Old combined list — anything still linking here lands on Attendees. */}
             <Route path="/registrations" element={<Navigate to="/attendees" replace />} />
             <Route

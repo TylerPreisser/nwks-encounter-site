@@ -11,6 +11,7 @@ import {
   IconHeart,
   IconForms,
   IconPageDetails,
+  IconRaisedHand,
 } from './NavIcons';
 
 type IconComponent = React.ComponentType<{ className?: string }>;
@@ -25,6 +26,8 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/',              label: 'Dashboard',               Icon: IconDashboard   },
   { to: '/attendees',     label: 'Attendees',               Icon: IconUsers       },
   { to: '/servers',       label: 'Servers',                 Icon: IconServing     },
+  // Sits with the two rosters: same people-shaped list, one step earlier.
+  { to: '/interested',    label: 'Interested',              Icon: IconRaisedHand  },
   { to: '/events',        label: 'Upcoming Encounter',      Icon: IconCalendar    },
   { to: '/email',         label: 'Email',                   Icon: IconMail        },
   { to: '/testimonies',   label: 'Testimonies & Teachings', Icon: IconHeart       },

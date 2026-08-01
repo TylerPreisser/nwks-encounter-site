@@ -79,6 +79,17 @@ export function IconClipboard({ className }: IconProps) {
   );
 }
 
+/** Interested — a raised hand, i.e. people who put their hand up but haven't signed up */
+export function IconRaisedHand({ className }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <path d="M8 9V3.2a1.1 1.1 0 0 1 2.2 0V8" />
+      <path d="M10.2 8V4.2a1.1 1.1 0 0 1 2.2 0V9" />
+      <path d="M12.4 9V6.4a1.1 1.1 0 0 1 2.2 0V12a5 5 0 0 1-5 5H9a4 4 0 0 1-3.1-1.6L3.4 12a1.2 1.2 0 0 1 1.8-1.5L8 13" />
+    </svg>
+  );
+}
+
 /** Upcoming Encounter / Calendar */
 export function IconCalendar({ className }: IconProps) {
   return (

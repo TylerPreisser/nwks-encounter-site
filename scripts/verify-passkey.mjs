@@ -76,9 +76,10 @@ try {
   await page.getByTestId('add-passkey').click();
   await page.waitForTimeout(3000);
 
-  const codes = await page.getByTestId('recovery-codes').locator('li').allTextContents();
-  check('10 recovery codes shown once', codes.length === 10, `${codes.length} codes`);
-  check('codes avoid ambiguous characters', codes.every((c) => /^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(c)));
+  // Recovery codes were removed at the operator's direction — the factors are
+  // passkey, emailed code and Duo. Assert they are GONE, so this script fails
+  // loudly if they ever creep back in.
+  check('no recovery codes offered', (await page.getByTestId('recovery-codes').count()) === 0);
 
   const creds = await cdp.send('WebAuthn.getCredentials', { authenticatorId });
   check('a real credential exists on the authenticator', creds.credentials.length === 1);
@@ -124,7 +125,18 @@ try {
   const stillOnLogin = await page.locator('input[type="password"]').count();
   check('wrong password does not reach the second factor', stillOnLogin > 0);
 
-  console.log('\n5. Security headers on the admin');
+  console.log('\n5. Second-factor options');
+  await page.evaluate(() => fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }));
+  const methodsRes = await page.request.post(`${BASE}/api/auth/login`, {
+    data: { email: EMAIL, password: PASSWORD },
+  });
+  const methods = (await methodsRes.json()).methods ?? {};
+  check('offers passkey + email', methods.passkey === true && methods.email === true, JSON.stringify(methods));
+  check('does NOT offer recovery codes', !('recovery' in methods));
+  // Duo is inert until its three secrets are configured.
+  check('Duo off until configured', methods.duo === false);
+
+  console.log('\n6. Security headers on the admin');
   const res = await page.request.get(`${BASE}/admin/`);
   const csp = res.headers()['content-security-policy'];
   const xfo = res.headers()['x-frame-options'];

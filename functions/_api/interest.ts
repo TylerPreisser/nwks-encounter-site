@@ -199,10 +199,30 @@ export async function markInterestRegistered(
   ).bind(nowIso(), program, role, email.toLowerCase().trim()).run();
 }
 
+/**
+ * One row of the standing interest list, as the Interested tab consumes it.
+ * Declared explicitly so the SQL below and the front end share a real contract —
+ * renaming a selected column then fails to compile instead of rendering blank.
+ */
+export interface InterestedRow {
+  id: number;
+  role: InterestRole;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string | null;
+  status: 'waiting' | 'notified' | 'registered' | 'removed';
+  notified_at: string | null;
+  created_at: string;
+  /** The encounter they were last invited to; both null if never invited. */
+  notified_year: number | null;
+  notified_season: string | null;
+}
+
 /** Everyone who has raised a hand and not yet signed up. Drives the Interested tab. */
 export async function listInterested(
   env: Env, program: Program, opts: { role?: InterestRole; includeAll?: boolean } = {}
-) {
+): Promise<InterestedRow[]> {
   // Every column is qualified: `events` also has `program`, so a bare column
   // name here is ambiguous once the LEFT JOIN is in play.
   const clauses = ['iq.program = ?'];
@@ -225,7 +245,7 @@ export async function listInterested(
      LEFT JOIN events e ON e.id = iq.last_notified_event_id
      WHERE ${clauses.join(' AND ')}
      ORDER BY iq.created_at DESC`
-  ).bind(...binds).all();
+  ).bind(...binds).all<InterestedRow>();
 
   return results;
 }

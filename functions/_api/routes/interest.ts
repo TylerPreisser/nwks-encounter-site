@@ -130,8 +130,11 @@ interestPublicRouter.post('/interest', async (c) => {
 });
 
 // ---------------------------------------------------------------------------
-// GET /api/admin/interest?event_id=  (admin)
-// Defaults to the program's current encounter.
+// GET /api/admin/interest?role=attendee|server&all=1  (admin)
+//
+// Program-wide and standing: the list is NOT scoped to an encounter. Someone
+// stays on it until they register or are removed, which is the whole point of
+// the redesign in 0030. `all=1` includes registered/removed entries for history.
 // ---------------------------------------------------------------------------
 interestAdminRouter.use('*', requireAuth(), requireProgram());
 
