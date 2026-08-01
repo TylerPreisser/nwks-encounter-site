@@ -39,6 +39,10 @@ export async function apiFetchRaw(path: string, init?: RequestInit): Promise<Res
 export interface EncounterSummary {
   id: number;
   year: number;
+  /** 'spring' | 'fall' — see db/migrations/0026_encounter_seasons.sql */
+  season?: string;
+  /** Server-derived "Fall 2026". */
+  display_name?: string;
   is_current: number;
 }
 

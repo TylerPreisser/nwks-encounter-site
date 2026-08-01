@@ -4,6 +4,16 @@ import { listEncounters, type EncounterSummary } from '@/api';
 type EncounterOption = EncounterSummary;
 
 /**
+ * "Fall 2026". Prefers the server-derived display_name; falls back to composing
+ * it locally so an older cached response still labels sensibly.
+ */
+function encounterLabel(e: EncounterOption): string {
+  if (e.display_name) return e.display_name;
+  if (e.season) return `${e.season === 'fall' ? 'Fall' : 'Spring'} ${e.year}`;
+  return String(e.year);
+}
+
+/**
  * Year switcher for navigating past/current encounters. Loads the program's
  * events and renders a dropdown whose option values are event ids. On first
  * load it defaults the selection to the current encounter.
@@ -18,7 +28,8 @@ export function EncounterYearSelect({
   className,
 }: {
   value: number | null;
-  onChange: (eventId: number | null, isCurrent: boolean) => void;
+  /** `label` is the human name ("Fall 2026") — callers use it for headings and back links. */
+  onChange: (eventId: number | null, isCurrent: boolean, label?: string) => void;
   includeAll?: boolean;
   className?: string;
 }) {
@@ -34,7 +45,7 @@ export function EncounterYearSelect({
         setEvents(evs);
         if (value == null) {
           const cur = evs.find((e) => e.is_current);
-          if (cur) onChange(cur.id, true);
+          if (cur) onChange(cur.id, true, encounterLabel(cur));
         }
       })
       .catch(() => setEvents([]));
@@ -44,19 +55,19 @@ export function EncounterYearSelect({
 
   return (
     <select
-      aria-label="Encounter year"
+      aria-label="Encounter"
       value={value == null ? '' : String(value)}
       onChange={(e) => {
         const id = e.target.value === '' ? null : Number(e.target.value);
         const ev = events.find((x) => x.id === id);
-        onChange(id, ev ? ev.is_current === 1 : false);
+        onChange(id, ev ? ev.is_current === 1 : false, ev ? encounterLabel(ev) : undefined);
       }}
       className={className ?? 'rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2'}
     >
-      {includeAll && <option value="">All years</option>}
+      {includeAll && <option value="">All encounters</option>}
       {events.map((e) => (
         <option key={e.id} value={e.id}>
-          {e.year}{e.is_current ? ' (current)' : ''}
+          {encounterLabel(e)}{e.is_current ? ' (current)' : ''}
         </option>
       ))}
     </select>

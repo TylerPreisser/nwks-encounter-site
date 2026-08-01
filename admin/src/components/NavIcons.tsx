@@ -32,6 +32,31 @@ export function IconDashboard({ className }: IconProps) {
   );
 }
 
+/** Attendees — a person and the group behind them */
+export function IconUsers({ className }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <circle cx="8" cy="6" r="3" />
+      <path d="M2.5 17a5.5 5.5 0 0 1 11 0" />
+      <path d="M14 4.2a3 3 0 0 1 0 5.6" />
+      <path d="M15.5 12.2A5.5 5.5 0 0 1 18 17" />
+    </svg>
+  );
+}
+
+/** Servers — a hand offering a tray */
+export function IconServing({ className }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <path d="M3 13h14" />
+      <path d="M4.5 13a5.5 5.5 0 0 1 11 0" />
+      <line x1="10" y1="5" x2="10" y2="7.5" />
+      <circle cx="10" cy="4" r="1.2" />
+      <path d="M4 16.5h12" />
+    </svg>
+  );
+}
+
 /** Registrations — clipboard with lines */
 export function IconClipboard({ className }: IconProps) {
   return (

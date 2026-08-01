@@ -11,7 +11,7 @@ import { apiFetch, setApiProgram } from './api';
 import { applyTheme, type Program } from './theme';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
-import RegistrationsPage from './pages/RegistrationsPage';
+import RosterPage from './pages/RosterPage';
 import PersonPage from './pages/PersonPage';
 import Events from './pages/Events';
 import { EmailPage } from './pages/Email';
@@ -94,10 +94,10 @@ export default function App() {
         <Route element={<AuthGuard />}>
           <Route element={<AppShell />}>
             <Route path="/" element={<DashboardPage />} />
-            <Route
-              path="/registrations"
-              element={<RegistrationsPage />}
-            />
+            <Route path="/attendees" element={<RosterPage role="attendee" />} />
+            <Route path="/servers" element={<RosterPage role="server" />} />
+            {/* Old combined list — anything still linking here lands on Attendees. */}
+            <Route path="/registrations" element={<Navigate to="/attendees" replace />} />
             <Route
               path="/people/:id"
               element={<PersonPage />}

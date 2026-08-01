@@ -3,7 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { apiFetch } from '@/api';
 import {
   IconDashboard,
-  IconClipboard,
+  IconUsers,
+  IconServing,
   IconCalendar,
   IconMail,
   IconHeart,
@@ -21,7 +22,8 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { to: '/',              label: 'Dashboard',               Icon: IconDashboard   },
-  { to: '/registrations', label: 'Registrations',           Icon: IconClipboard   },
+  { to: '/attendees',     label: 'Attendees',               Icon: IconUsers       },
+  { to: '/servers',       label: 'Servers',                 Icon: IconServing     },
   { to: '/events',        label: 'Upcoming Encounter',      Icon: IconCalendar    },
   { to: '/email',         label: 'Email',                   Icon: IconMail        },
   { to: '/testimonies',   label: 'Testimonies & Teachings', Icon: IconHeart       },
