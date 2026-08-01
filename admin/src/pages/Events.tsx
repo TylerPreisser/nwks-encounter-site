@@ -1,67 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { apiFetch } from '@/api';
 import { useProgram } from '@/App';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface NwksEvent {
-  id: number;
-  program: string;
-  year: number;
-  title: string | null;
-  start_date: string | null;
-  end_date: string | null;
-  launch_locations: string; // raw JSON string from API
-  attendee_registration_open: number;
-  server_registration_open: number;
-  attendee_limit: number | null;
-  attendee_full_message: string | null;
-  is_current: number;
-}
-
-interface EventFormState {
-  year: string;
-  title: string;
-  start_date: string;
-  end_date: string;
-  launch_locations: string; // comma-separated for UI
-  attendee_registration_open: boolean;
-  server_registration_open: boolean;
-  attendee_limit: string;        // '' = no cap
-  attendee_full_message: string;
-}
-
-interface RolloverPreview {
-  current: NwksEvent | null;
-  registered_count: number;
-  board_count: number;
-  ended: boolean;
-  suggested_year: number;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function parseLaunchLocations(raw: string): string[] {
-  try { return JSON.parse(raw) as string[]; } catch { return []; }
-}
-
-function emptyForm(): EventFormState {
-  return {
-    year: String(new Date().getFullYear()),
-    title: '',
-    start_date: '',
-    end_date: '',
-    launch_locations: '',
-    attendee_registration_open: true,
-    server_registration_open: true,
-    attendee_limit: '',
-    attendee_full_message: '',
-  };
-}
+import EnrollmentControl from '@/components/EnrollmentControl';
+import RolloverDialog from '@/components/RolloverDialog';
+import EventForm from '@/components/EventForm';
+import {
+  type NwksEvent, type EventFormState, type RolloverPreview,
+  encounterName, emptyEventForm as emptyForm, parseLaunchLocations,
+} from '@/types/events';
 
 // ---------------------------------------------------------------------------
 // Component
@@ -88,6 +34,8 @@ export default function Events() {
   const [rolloverForm, setRolloverForm] = useState<EventFormState>(emptyForm());
   const [confirmYear, setConfirmYear] = useState('');
   const [force, setForce] = useState(false);
+  /** Email the finishing encounter's interest queue. Defaults ON. */
+  const [notifyInterest, setNotifyInterest] = useState(true);
   const [rollingOver, setRollingOver] = useState(false);
   const [rolloverError, setRolloverError] = useState<string | null>(null);
   const [rolloverDone, setRolloverDone] = useState<string | null>(null);
@@ -110,6 +58,25 @@ export default function Events() {
 
   useEffect(() => { void loadEvents(); }, [loadEvents]);
 
+  // Counts for the enrollment panel: how full the current encounter is, and how
+  // many people are waiting on it. Kept off the events fetch so a failure here
+  // degrades to zeroes instead of blanking the page.
+  const [currentCounts, setCurrentCounts] = useState({ registered: 0, interest: 0 });
+
+  const loadCurrentCounts = useCallback(async () => {
+    try {
+      const pv = await apiFetch<RolloverPreview>('/admin/events/rollover/preview');
+      setCurrentCounts({
+        registered: pv?.registered_count ?? 0,
+        interest: pv?.interest_count ?? 0,
+      });
+    } catch {
+      setCurrentCounts({ registered: 0, interest: 0 });
+    }
+  }, [program]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => { void loadCurrentCounts(); }, [loadCurrentCounts]);
+
   // ---------------------------------------------------------------------------
   // Form actions
   // ---------------------------------------------------------------------------
@@ -125,6 +92,7 @@ export default function Events() {
     setEditId(ev.id);
     setForm({
       year: String(ev.year),
+      season: ev.season === 'fall' ? 'fall' : 'spring',
       title: ev.title ?? '',
       start_date: ev.start_date ?? '',
       end_date: ev.end_date ?? '',
@@ -152,6 +120,7 @@ export default function Events() {
 
     const payload = {
       year: Number(form.year),
+      season: form.season,
       title: form.title || undefined,
       start_date: form.start_date || undefined,
       end_date: form.end_date || undefined,
@@ -202,11 +171,16 @@ export default function Events() {
       pv = await apiFetch<RolloverPreview>('/admin/events/rollover/preview');
       setPreview(pv);
     } catch { setPreview(null); }
+    // Default to the encounter that actually comes next: spring -> fall of the
+    // same year, fall -> spring of the next one.
     const sy = pv?.suggested_year
-      ?? (currentEvent ? currentEvent.year + 1 : new Date().getFullYear() + 1);
-    setRolloverForm({ ...emptyForm(), year: String(sy) });
+      ?? (currentEvent ? (currentEvent.season === 'spring' ? currentEvent.year : currentEvent.year + 1) : new Date().getFullYear() + 1);
+    const ss = pv?.suggested_season
+      ?? (currentEvent?.season === 'spring' ? 'fall' : 'spring');
+    setRolloverForm({ ...emptyForm(), year: String(sy), season: ss });
     setConfirmYear('');
     setForce(false);
+    setNotifyInterest(true);
     setRolloverError(null);
     setRolloverDone(null);
     setRolloverOpen(true);
@@ -219,6 +193,8 @@ export default function Events() {
 
     const payload = {
       year: Number(rolloverForm.year),
+      season: rolloverForm.season,
+      notify_interest: notifyInterest,
       title: rolloverForm.title || undefined,
       start_date: rolloverForm.start_date || undefined,
       end_date: rolloverForm.end_date || undefined,
@@ -234,15 +210,31 @@ export default function Events() {
     };
 
     try {
-      const res = await apiFetch<{ ok: boolean; archived_count: number; new_event: NwksEvent }>(
+      const res = await apiFetch<{
+        ok: boolean; archived_count: number; new_event: NwksEvent;
+        interest_notified: number; interest_failed: number;
+        interest_errors: { email: string; error: string }[];
+      }>(
         '/admin/events/rollover',
         { method: 'POST', body: JSON.stringify(payload) },
       );
       setRolloverOpen(false);
-      setRolloverDone(
-        `Archived ${res.archived_count} board item(s) to ${preview?.current?.year ?? 'last year'}. ` +
-        `${res.new_event.year} is now the current encounter.`,
-      );
+
+      const parts = [
+        `Archived ${res.archived_count} board item(s) to ${preview?.current ? encounterName(preview.current) : 'the last encounter'}.`,
+        `${encounterName(res.new_event)} is now the current encounter.`,
+      ];
+      if (res.interest_notified > 0) {
+        parts.push(`Emailed ${res.interest_notified} ${res.interest_notified === 1 ? 'person' : 'people'} on the interest list.`);
+      }
+      // A partly-sent blast must never read as a clean one.
+      if (res.interest_failed > 0) {
+        parts.push(
+          `⚠ ${res.interest_failed} invite(s) did NOT send and are still waiting — ` +
+          `${res.interest_errors.map((e) => e.email).join(', ')}. Re-run the rollover notification to retry.`
+        );
+      }
+      setRolloverDone(parts.join(' '));
       await loadEvents();
     } catch (err: unknown) {
       setRolloverError(err instanceof Error ? err.message : 'Rollover failed');
@@ -252,7 +244,6 @@ export default function Events() {
   }
 
   const programLabel = program === 'mens' ? "Men's" : "Women's";
-  const confirmOk = confirmYear.trim() !== '' && Number(confirmYear) === Number(rolloverForm.year);
   const currentEvent = events.find((e) => e.is_current) ?? null;
   const currentEnded = !currentEvent?.end_date || currentEvent.end_date < new Date().toISOString().slice(0, 10);
 
@@ -305,150 +296,24 @@ export default function Events() {
 
       {/* Rollover panel — "Start Next Encounter" */}
       {rolloverOpen && currentEvent && (
-        <form
+        <RolloverDialog
+          programLabel={programLabel}
+          currentEvent={currentEvent}
+          currentEnded={currentEnded}
+          preview={preview}
+          form={rolloverForm}
+          setForm={setRolloverForm}
+          confirmYear={confirmYear}
+          setConfirmYear={setConfirmYear}
+          force={force}
+          setForce={setForce}
+          notifyInterest={notifyInterest}
+          setNotifyInterest={setNotifyInterest}
+          busy={rollingOver}
+          error={rolloverError}
           onSubmit={handleRollover}
-          aria-label="Start Next Encounter"
-          className="p-4 border-2 rounded-lg space-y-4"
-          style={{ borderColor: 'var(--color-primary)' }}
-        >
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--color-primary)' }}>
-            Start Next {programLabel} Encounter
-          </h2>
-
-          <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-900">
-            <p className="font-semibold">This will archive {programLabel} {currentEvent.year}:</p>
-            <ul className="mt-1 list-disc list-inside space-y-0.5">
-              <li>{preview?.registered_count ?? '…'} registration(s) — kept in {currentEvent.year}'s history, still editable</li>
-              <li>{preview?.board_count ?? '…'} testimony/teaching board item(s) — archived; the new board starts empty</li>
-            </ul>
-            {!currentEnded && (
-              <p className="mt-2 font-medium text-amber-800">
-                ⚠ This encounter hasn't ended yet (ends {currentEvent.end_date ?? 'no end date set'}).
-              </p>
-            )}
-          </div>
-
-          {rolloverError && <p role="alert" className="text-red-600 text-sm">{rolloverError}</p>}
-
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col text-sm font-medium gap-1">
-              Year *
-              <input
-                type="number" required min={2020} max={2100}
-                value={rolloverForm.year}
-                onChange={(e) => setRolloverForm({ ...rolloverForm, year: e.target.value })}
-                className="border rounded px-2 py-1"
-                aria-label="Next year"
-              />
-            </label>
-            <label className="flex flex-col text-sm font-medium gap-1">
-              Title
-              <input
-                type="text"
-                value={rolloverForm.title}
-                onChange={(e) => setRolloverForm({ ...rolloverForm, title: e.target.value })}
-                placeholder={`${programLabel} Encounter ${rolloverForm.year}`}
-                className="border rounded px-2 py-1"
-              />
-            </label>
-            <label className="flex flex-col text-sm font-medium gap-1">
-              Start Date
-              <input
-                type="date"
-                value={rolloverForm.start_date}
-                onChange={(e) => setRolloverForm({ ...rolloverForm, start_date: e.target.value })}
-                className="border rounded px-2 py-1"
-              />
-            </label>
-            <label className="flex flex-col text-sm font-medium gap-1">
-              End Date
-              <input
-                type="date"
-                value={rolloverForm.end_date}
-                onChange={(e) => setRolloverForm({ ...rolloverForm, end_date: e.target.value })}
-                className="border rounded px-2 py-1"
-              />
-            </label>
-          </div>
-
-          <label className="flex flex-col text-sm font-medium gap-1">
-            Launch Locations (comma-separated)
-            <input
-              type="text"
-              value={rolloverForm.launch_locations}
-              onChange={(e) => setRolloverForm({ ...rolloverForm, launch_locations: e.target.value })}
-              placeholder="Colby, Hays, Dodge City"
-              className="border rounded px-2 py-1"
-            />
-          </label>
-
-          <div className="flex flex-wrap gap-6">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={rolloverForm.attendee_registration_open}
-                onChange={(e) => setRolloverForm({ ...rolloverForm, attendee_registration_open: e.target.checked })}
-              />
-              Attendee registration open
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={rolloverForm.server_registration_open}
-                onChange={(e) => setRolloverForm({ ...rolloverForm, server_registration_open: e.target.checked })}
-              />
-              Server registration open
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              Max attendees
-              <input
-                type="number" min="0" inputMode="numeric"
-                value={rolloverForm.attendee_limit}
-                onChange={(e) => setRolloverForm({ ...rolloverForm, attendee_limit: e.target.value })}
-                placeholder="no cap"
-                className="border rounded px-2 py-1 w-24"
-                aria-label="Attendee limit"
-              />
-            </label>
-          </div>
-
-          {!currentEnded && (
-            <label className="flex items-center gap-2 text-sm text-amber-800">
-              <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} />
-              Roll over anyway, even though this encounter hasn't ended
-            </label>
-          )}
-
-          <label className="flex flex-col text-sm font-medium gap-1">
-            Type <strong>{rolloverForm.year}</strong> to confirm
-            <input
-              type="text"
-              value={confirmYear}
-              onChange={(e) => setConfirmYear(e.target.value)}
-              className="border rounded px-2 py-1 w-40"
-              aria-label="Confirm year"
-              placeholder={rolloverForm.year}
-            />
-          </label>
-
-          <div className="flex gap-3 pt-1">
-            <button
-              type="submit"
-              disabled={rollingOver || !confirmOk || (!currentEnded && !force)}
-              className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
-              style={{ background: 'var(--color-primary)' }}
-            >
-              {rollingOver ? 'Rolling over…' : 'Archive & Start Next Encounter'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setRolloverOpen(false)}
-              className="px-4 py-2 border rounded-lg text-sm hover:bg-gray-100"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
+          onCancel={() => setRolloverOpen(false)}
+        />
       )}
 
       {/* Needs-next-event nudge */}
@@ -468,140 +333,35 @@ export default function Events() {
 
       {/* Create / Edit form */}
       {formOpen && (
-        <form
+        <EventForm
+          form={form}
+          setForm={setForm}
+          editId={editId}
+          formLabel={formLabel}
+          programLabel={programLabel}
+          saving={saving}
+          formError={formError}
           onSubmit={handleSubmit}
-          aria-label={formLabel}
-          className="p-4 border rounded-lg bg-gray-50 space-y-3"
-        >
-          <h2 className="text-lg font-semibold">
-            {editId !== null ? 'Edit Event' : 'New Event'}
+          closeForm={closeForm}
+        />
+      )}
+
+      {/* Enrollment for the encounter that's actually taking sign-ups */}
+      {currentEvent && !formOpen && !rolloverOpen && (
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+            {encounterName(currentEvent)} — enrollment
           </h2>
-
-          {formError && (
-            <p role="alert" className="text-red-600 text-sm">{formError}</p>
-          )}
-
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col text-sm font-medium gap-1">
-              Year *
-              <input
-                type="number"
-                value={form.year}
-                onChange={(e) => setForm({ ...form, year: e.target.value })}
-                required
-                min={2020}
-                max={2100}
-                disabled={editId !== null}
-                className="border rounded px-2 py-1"
-              />
-            </label>
-
-            <label className="flex flex-col text-sm font-medium gap-1">
-              Title
-              <input
-                type="text"
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                placeholder={`${program === 'mens' ? "Men's" : "Women's"} Encounter ${form.year}`}
-                className="border rounded px-2 py-1"
-              />
-            </label>
-
-            <label className="flex flex-col text-sm font-medium gap-1">
-              Start Date (YYYY-MM-DD)
-              <input
-                type="date"
-                value={form.start_date}
-                onChange={(e) => setForm({ ...form, start_date: e.target.value })}
-                className="border rounded px-2 py-1"
-              />
-            </label>
-
-            <label className="flex flex-col text-sm font-medium gap-1">
-              End Date (YYYY-MM-DD)
-              <input
-                type="date"
-                value={form.end_date}
-                onChange={(e) => setForm({ ...form, end_date: e.target.value })}
-                className="border rounded px-2 py-1"
-              />
-            </label>
-          </div>
-
-          <label className="flex flex-col text-sm font-medium gap-1">
-            Launch Locations (comma-separated)
-            <input
-              type="text"
-              value={form.launch_locations}
-              onChange={(e) => setForm({ ...form, launch_locations: e.target.value })}
-              placeholder="Colby, Hays, Dodge City"
-              className="border rounded px-2 py-1"
-            />
-          </label>
-
-          <div className="flex gap-6">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={form.attendee_registration_open}
-                onChange={(e) => setForm({ ...form, attendee_registration_open: e.target.checked })}
-              />
-              Attendee registration open
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={form.server_registration_open}
-                onChange={(e) => setForm({ ...form, server_registration_open: e.target.checked })}
-              />
-              Server registration open
-            </label>
-          </div>
-
-          {/* ── Attendee cap ─────────────────────────────────────── */}
-          <div className="rounded-lg border border-gray-200 p-3 space-y-3 bg-gray-50/60">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Attendee limit (auto full)</p>
-            <label className="flex flex-col text-sm font-medium gap-1">
-              Max attendees <span className="font-normal text-gray-400">— leave blank for no limit</span>
-              <input
-                type="number" min="0" inputMode="numeric"
-                value={form.attendee_limit}
-                onChange={(e) => setForm({ ...form, attendee_limit: e.target.value })}
-                placeholder="e.g. 60"
-                className="border rounded px-2 py-1 w-40"
-                aria-label="Attendee limit"
-              />
-            </label>
-            <label className="flex flex-col text-sm font-medium gap-1">
-              "Currently full" message <span className="font-normal text-gray-400">— shown when the limit is reached</span>
-              <textarea
-                value={form.attendee_full_message}
-                onChange={(e) => setForm({ ...form, attendee_full_message: e.target.value })}
-                placeholder="This upcoming Encounter is currently full…"
-                className="border rounded px-2 py-1.5 text-sm min-h-[3rem]"
-                aria-label="Attendee full message"
-              />
-            </label>
-          </div>
-
-          <div className="flex gap-3 pt-2">
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
-              style={{ background: 'var(--color-secondary)' }}
-            >
-              {saving ? 'Saving…' : editId !== null ? 'Save Changes' : 'Create Event'}
-            </button>
-            <button
-              type="button"
-              onClick={closeForm}
-              className="px-4 py-2 border rounded-lg text-sm hover:bg-gray-100"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
+          <EnrollmentControl
+            eventId={currentEvent.id}
+            attendeeOpen={currentEvent.attendee_registration_open === 1}
+            serverOpen={currentEvent.server_registration_open === 1}
+            registeredCount={currentCounts.registered}
+            attendeeLimit={currentEvent.attendee_limit}
+            interestCount={currentCounts.interest}
+            onChanged={async () => { await loadEvents(); await loadCurrentCounts(); }}
+          />
+        </section>
       )}
 
       {/* Events list */}
@@ -613,7 +373,7 @@ export default function Events() {
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-gray-100 text-left">
-              <th className="p-2 border">Year</th>
+              <th className="p-2 border">Encounter</th>
               <th className="p-2 border">Title</th>
               <th className="p-2 border">Dates</th>
               <th className="p-2 border">Launch Locations</th>
@@ -625,7 +385,7 @@ export default function Events() {
           <tbody>
             {events.map((ev) => (
               <tr key={ev.id} className={ev.is_current ? 'bg-green-50' : ''}>
-                <td className="p-2 border">{ev.year}</td>
+                <td className="p-2 border font-medium">{encounterName(ev)}</td>
                 <td className="p-2 border">{ev.title ?? '—'}</td>
                 <td className="p-2 border">
                   {ev.start_date ?? '?'} – {ev.end_date ?? '?'}
@@ -645,7 +405,7 @@ export default function Events() {
                     <button
                       onClick={() => handleSetCurrent(ev.id)}
                       className="text-xs px-2 py-1 border rounded hover:bg-gray-100"
-                      aria-label={`Make ${ev.year} current`}
+                      aria-label={`Make ${encounterName(ev)} current`}
                     >
                       Make Current
                     </button>
@@ -655,7 +415,7 @@ export default function Events() {
                   <button
                     onClick={() => openEdit(ev)}
                     className="text-xs px-2 py-1 border rounded hover:bg-gray-100"
-                    aria-label={`Edit ${ev.year} event`}
+                    aria-label={`Edit ${encounterName(ev)} event`}
                   >
                     Edit
                   </button>

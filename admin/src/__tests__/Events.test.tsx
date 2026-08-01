@@ -31,10 +31,47 @@ function mockFetchMap(responses: Record<string, FetchResponse>) {
 
 const EMPTY_LIST = { ok: true, events: [] };
 
+const NO_PREVIEW = {
+  ok: true, current: null, registered_count: 0, board_count: 0,
+  interest_count: 0, ended: true, suggested_year: 2027, suggested_season: 'spring',
+};
+
+/**
+ * Routes fetches by path + method, and lets the events list change after a
+ * write. The page issues its events fetch and its rollover/preview fetch
+ * concurrently, so chaining mockResolvedValueOnce by call order is unreliable —
+ * whichever settles first consumes the wrong stub.
+ */
+function routeEvents(opts: { events: unknown[]; afterWrite?: unknown[]; writeStatus?: number; writeBody?: unknown }) {
+  let listed = opts.events;
+  return vi.spyOn(global, 'fetch').mockImplementation(async (input, init) => {
+    const url = typeof input === 'string' ? input : (input as Request).url;
+    const path = url.split('?')[0];
+    const method = (init?.method ?? 'GET').toUpperCase();
+
+    if (path.endsWith('/rollover/preview')) {
+      return new Response(JSON.stringify(NO_PREVIEW), { status: 200 });
+    }
+
+    if (method === 'GET') {
+      return new Response(JSON.stringify({ ok: true, events: listed }), { status: 200 });
+    }
+
+    // Any write flips the list to its post-write state.
+    if (opts.afterWrite) listed = opts.afterWrite;
+    return new Response(
+      JSON.stringify(opts.writeBody ?? { ok: true }),
+      { status: opts.writeStatus ?? 200 },
+    );
+  });
+}
+
 const SAMPLE_EVENT = {
   id: 1,
   program: 'mens',
   year: 2026,
+  season: 'fall',
+  display_name: 'Fall 2026',
   title: "Men's Encounter 2026",
   start_date: '2026-08-06',
   end_date: '2026-08-08',
@@ -52,6 +89,27 @@ function wrapper(program: 'mens' | 'women' = 'mens') {
       </ProgramContext.Provider>
     </MemoryRouter>
   );
+}
+
+
+/**
+ * Finds the fetch call whose URL matches, rather than assuming a fixed index.
+ * The page issues a rollover/preview fetch alongside the events list, so a
+ * positional lookup silently grabs the wrong call.
+ */
+function callMatching(
+  mock: { mock: { calls: unknown[][] } },
+  re: RegExp,
+  method?: string,
+): [string, RequestInit] {
+  const hit = (mock.mock.calls as [string, RequestInit][]).find(
+    ([url, init]) =>
+      re.test(String(url)) &&
+      !String(url).includes('rollover/preview') &&
+      (method === undefined || (init?.method ?? 'GET').toUpperCase() === method),
+  );
+  if (!hit) throw new Error(`no ${method ?? 'any'} fetch call matching ${re}`);
+  return hit;
 }
 
 // ---------------------------------------------------------------------------
@@ -80,7 +138,7 @@ describe('Events page', () => {
       },
     });
     render(<Events />, { wrapper: wrapper() });
-    await waitFor(() => expect(screen.getByText('2026')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Fall 2026')).toBeInTheDocument());
     expect(screen.getByText("Men's Encounter 2026")).toBeInTheDocument();
     expect(screen.getByText(/Colby/)).toBeInTheDocument();
     expect(screen.getByText(/✓ Current/)).toBeInTheDocument();
@@ -98,18 +156,17 @@ describe('Events page', () => {
 
   it('submits a new event with correct payload and refreshes list', async () => {
     const newEvent = {
-      id: 2, program: 'mens', year: 2027, title: null, start_date: null,
+      id: 2, program: 'mens', year: 2027, season: 'spring', display_name: 'Spring 2027', title: null, start_date: null,
       end_date: null, launch_locations: '[]',
       attendee_registration_open: 1, server_registration_open: 1, is_current: 0,
     };
 
-    const fetchMock = vi.spyOn(global, 'fetch')
-      // initial load
-      .mockResolvedValueOnce(new Response(JSON.stringify(EMPTY_LIST), { status: 200 }))
-      // POST create
-      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, event: newEvent }), { status: 201 }))
-      // refetch after create
-      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, events: [newEvent] }), { status: 200 }));
+    const fetchMock = routeEvents({
+      events: [],
+      afterWrite: [newEvent],
+      writeStatus: 201,
+      writeBody: { ok: true, event: newEvent },
+    });
 
     render(<Events />, { wrapper: wrapper() });
     await waitFor(() => screen.getByText(/no events yet/i));
@@ -120,28 +177,25 @@ describe('Events page', () => {
     await userEvent.type(yearInput, '2027');
     fireEvent.click(screen.getByRole('button', { name: /create event/i }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(3));
 
     // Check that POST was called with the right URL and method
-    const [postUrl, postInit] = fetchMock.mock.calls[1] as [string, RequestInit];
+    const [postUrl, postInit] = callMatching(fetchMock, /\/api\/admin\/events\?/, 'POST');
     expect(postUrl).toMatch(/\/api\/admin\/events/);
     expect(postInit.method).toBe('POST');
     const posted = JSON.parse(postInit.body as string);
     expect(posted.year).toBe(2027);
 
-    // The refreshed list should now contain 2027
-    await waitFor(() => expect(screen.getByText('2027')).toBeInTheDocument());
+    // The refreshed list should now contain the new encounter, named by season
+    await waitFor(() => expect(screen.getByText('Spring 2027')).toBeInTheDocument());
   });
 
   it('shows a form-level error when API returns an error on create', async () => {
-    vi.spyOn(global, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(EMPTY_LIST), { status: 200 }))
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({ ok: false, error: 'An event already exists for mens 2026' }),
-          { status: 409 },
-        ),
-      );
+    routeEvents({
+      events: [],
+      writeStatus: 409,
+      writeBody: { ok: false, error: 'An encounter already exists for Fall 2026' },
+    });
 
     render(<Events />, { wrapper: wrapper() });
     await waitFor(() => screen.getByText(/no events yet/i));
@@ -158,8 +212,8 @@ describe('Events page', () => {
       '/api/admin/events': { status: 200, body: { ok: true, events: [SAMPLE_EVENT] } },
     });
     render(<Events />, { wrapper: wrapper() });
-    await waitFor(() => screen.getByText('2026'));
-    fireEvent.click(screen.getByRole('button', { name: /edit 2026/i }));
+    await waitFor(() => screen.getByText('Fall 2026'));
+    fireEvent.click(screen.getByRole('button', { name: /edit Fall 2026/i }));
 
     expect(screen.getByRole('form', { name: /edit event/i })).toBeInTheDocument();
     // title should be pre-filled
@@ -169,28 +223,23 @@ describe('Events page', () => {
   it('PATCHes when editing an existing event and refreshes', async () => {
     const updatedEvent = { ...SAMPLE_EVENT, title: 'Updated Title', is_current: 1 };
 
-    const fetchMock = vi.spyOn(global, 'fetch')
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ok: true, events: [SAMPLE_EVENT] }), { status: 200 }),
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ok: true, event: updatedEvent }), { status: 200 }),
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ok: true, events: [updatedEvent] }), { status: 200 }),
-      );
+    const fetchMock = routeEvents({
+      events: [SAMPLE_EVENT],
+      afterWrite: [updatedEvent],
+      writeBody: { ok: true, event: updatedEvent },
+    });
 
     render(<Events />, { wrapper: wrapper() });
-    await waitFor(() => screen.getByText('2026'));
-    fireEvent.click(screen.getByRole('button', { name: /edit 2026/i }));
+    await waitFor(() => screen.getByText('Fall 2026'));
+    fireEvent.click(screen.getByRole('button', { name: /edit Fall 2026/i }));
 
     const titleInput = screen.getByLabelText(/title/i);
     await userEvent.clear(titleInput);
     await userEvent.type(titleInput, 'Updated Title');
     fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
-    const [patchUrl, patchInit] = fetchMock.mock.calls[1] as [string, RequestInit];
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(3));
+    const [patchUrl, patchInit] = callMatching(fetchMock, /\/api\/admin\/events\/1\?/, 'PATCH');
     expect(patchUrl).toMatch(/\/api\/admin\/events\/1/);
     expect(patchInit.method).toBe('PATCH');
 
@@ -201,23 +250,18 @@ describe('Events page', () => {
     const notCurrentEvent = { ...SAMPLE_EVENT, is_current: 0 };
     const nowCurrentEvent = { ...SAMPLE_EVENT, is_current: 1 };
 
-    const fetchMock = vi.spyOn(global, 'fetch')
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ok: true, events: [notCurrentEvent] }), { status: 200 }),
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ok: true, event: nowCurrentEvent }), { status: 200 }),
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ok: true, events: [nowCurrentEvent] }), { status: 200 }),
-      );
+    const fetchMock = routeEvents({
+      events: [notCurrentEvent],
+      afterWrite: [nowCurrentEvent],
+      writeBody: { ok: true, event: nowCurrentEvent },
+    });
 
     render(<Events />, { wrapper: wrapper() });
-    await waitFor(() => screen.getByRole('button', { name: /make 2026 current/i }));
-    fireEvent.click(screen.getByRole('button', { name: /make 2026 current/i }));
+    await waitFor(() => screen.getByRole('button', { name: /make Fall 2026 current/i }));
+    fireEvent.click(screen.getByRole('button', { name: /make Fall 2026 current/i }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
-    const [setCurrentUrl, setCurrentInit] = fetchMock.mock.calls[1] as [string, RequestInit];
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(3));
+    const [setCurrentUrl, setCurrentInit] = callMatching(fetchMock, /set-current/, 'POST');
     expect(setCurrentUrl).toMatch(/\/api\/admin\/events\/1\/set-current/);
     expect(setCurrentInit.method).toBe('POST');
 
@@ -246,7 +290,7 @@ describe('Events page', () => {
         </ProgramContext.Provider>
       </MemoryRouter>,
     );
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2)); // events + rollover/preview
 
     rerender(
       <MemoryRouter>
@@ -255,7 +299,7 @@ describe('Events page', () => {
         </ProgramContext.Provider>
       </MemoryRouter>,
     );
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4)); // both programs
   });
 
   // ── needs_next_event banner ───────────────────────────────────────────────
@@ -297,7 +341,7 @@ describe('Events page', () => {
       },
     });
     render(<Events />, { wrapper: wrapper('mens') });
-    await waitFor(() => screen.getByText('2026'));
+    await waitFor(() => screen.getByText('Fall 2026'));
     expect(screen.queryByRole('alert', { name: /needs-next-event/i })).not.toBeInTheDocument();
   });
 
@@ -309,7 +353,7 @@ describe('Events page', () => {
       },
     });
     render(<Events />, { wrapper: wrapper('mens') });
-    await waitFor(() => screen.getByText('2026'));
+    await waitFor(() => screen.getByText('Fall 2026'));
     expect(screen.queryByRole('alert', { name: /needs-next-event/i })).not.toBeInTheDocument();
   });
 });
