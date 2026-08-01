@@ -133,5 +133,45 @@ NWKS.forms.specs = {
     title: "Women's Encounter — Server Registration",
     closed: true,
     closedMessage: "Server registration for Women's Encounter is currently full. Please contact us if you have questions."
+  },
+
+  /* Express Interest (the waitlist).
+     Shown INSTEAD of the attendee form when the current encounter is closed —
+     either because an admin closed enrollment or because the attendee cap was
+     reached. Four fields only: someone six months out from the next encounter
+     can't meaningfully answer shirt size or dietary needs, so we collect just
+     enough to email them when registration opens, and they fill the real form
+     then. See docs/superpowers/specs/2026-08-01-attendees-seasons-interest-queue-design.md
+
+     Unlike the registration specs, these post to a single shared endpoint and
+     carry `program` in the body (src/js/forms.js honours spec.endpoint).
+     `intro` is overwritten at render time with the encounter's own
+     attendee_full_message (src/js/worlds.js). */
+  menInterest: {
+    title: "Men's Encounter — Express Interest",
+    program: 'mens',
+    endpoint: '/api/register/interest',
+    submitLabel: 'Add me to the list',
+    successMessage: "You're on the list. We'll email you as soon as the next Men's Encounter opens for registration.",
+    fields: [
+      { name: 'first_name', label: 'First Name', type: 'text', required: true },
+      { name: 'last_name', label: 'Last Name', type: 'text', required: true },
+      { name: 'email', label: 'Email Address', type: 'text', required: true },
+      { name: 'phone', label: 'Phone Number', type: 'text', required: true, format: 'phone' }
+    ]
+  },
+
+  womenInterest: {
+    title: "Women's Encounter — Express Interest",
+    program: 'women',
+    endpoint: '/api/register/interest',
+    submitLabel: 'Add me to the list',
+    successMessage: "You're on the list. We'll email you as soon as the next Women's Encounter opens for registration.",
+    fields: [
+      { name: 'first_name', label: 'First Name', type: 'text', required: true },
+      { name: 'last_name', label: 'Last Name', type: 'text', required: true },
+      { name: 'email', label: 'Email Address', type: 'text', required: true },
+      { name: 'phone', label: 'Phone Number', type: 'text', required: true, format: 'phone' }
+    ]
   }
 };

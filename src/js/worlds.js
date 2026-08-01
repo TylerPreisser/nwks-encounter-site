@@ -337,10 +337,25 @@ window.NWKS = window.NWKS || {};
       // real native form, Server opens a panel (a real form when one exists, or a
       // "currently closed" notice — see src/content/forms.js + src/js/forms.js).
       // Women's Encounter has NO server registration — attendee only (operator).
-      var formSpecKeys = door === 'men' ? { attendee: 'menAttendee', server: 'menServer' }
-        : (door === 'women' ? { attendee: 'women', server: null } : null);
+      var formSpecKeys = door === 'men' ? { attendee: 'menAttendee', server: 'menServer', interest: 'menInterest' }
+        : (door === 'women' ? { attendee: 'women', server: null, interest: 'womenInterest' } : null);
       var hasNativeForm = !!(formSpecKeys && NWKS.forms && NWKS.forms.specs &&
         NWKS.forms.specs[formSpecKeys.attendee]);
+
+      // When attendee enrollment is closed — whether an admin closed it or the
+      // cap filled — the Register button becomes Express Interest and opens the
+      // short waitlist form. Both causes look identical to a visitor, because to
+      // them there is no difference between "full" and "we stopped taking names".
+      var interestKey = formSpecKeys && formSpecKeys.interest;
+      var hasInterestForm = !!(interestKey && NWKS.forms && NWKS.forms.specs &&
+        NWKS.forms.specs[interestKey]);
+      var showInterest = closedFlag && hasInterestForm;
+      if (showInterest) {
+        // Carry the encounter's own "we're full" wording into the form, so the
+        // reason and the thing to do about it are on the same screen.
+        NWKS.forms.specs[interestKey].intro =
+          closedMsg || 'This upcoming Encounter is currently full.';
+      }
       // Assigned below (after the world body is built) — both hero CTAs open panels
       // inside this same full-screen form page.
       var formPage = null;
@@ -349,10 +364,14 @@ window.NWKS = window.NWKS || {};
         var ctaGroup = el('div', { className: 'world-hero__cta-group' });
         var reg = content.register || [];
 
-        var attLabel = (reg[0] && reg[0].label) || 'Register as an Attendee';
+        var attLabel = showInterest
+          ? 'Express Interest'
+          : ((reg[0] && reg[0].label) || 'Register as an Attendee');
+        var attendeeTarget = showInterest ? interestKey : formSpecKeys.attendee;
         var attendeeCta = el('button', { className: 'world-cta', text: attLabel });
         attendeeCta.type = 'button';
-        attendeeCta.addEventListener('click', function () { if (formPage) formPage.open(formSpecKeys.attendee); });
+        attendeeCta.setAttribute('data-cta', showInterest ? 'interest' : 'attendee');
+        attendeeCta.addEventListener('click', function () { if (formPage) formPage.open(attendeeTarget); });
         ctaGroup.appendChild(attendeeCta);
 
         // Server registration — its own button opening the native Server form
@@ -433,16 +452,17 @@ window.NWKS = window.NWKS || {};
       }
 
       if (hasNativeForm) {
-        // Attendee cap: when the current event is full (or attendee reg is toggled
-        // off), show the themed "currently full" notice instead of the form.
-        var st = (NWKS.regStatus && NWKS.regStatus[door]) || null;
-        if (st && (st.attendee_full || st.attendee_open === false) &&
+        // Attendee cap / closed enrollment. When there IS an interest form we
+        // send people there instead — a dead-end notice tells someone they can't
+        // come without offering them the one thing they'd want, which is to hear
+        // about the next one. The bare notice remains the fallback.
+        if (closedFlag && !showInterest &&
             NWKS.forms.specs && NWKS.forms.specs[formSpecKeys.attendee]) {
           NWKS.forms.specs[formSpecKeys.attendee].closed = true;
           NWKS.forms.specs[formSpecKeys.attendee].closedMessage =
-            st.attendee_full_message || 'This upcoming Encounter is currently full.';
+            closedMsg || 'This upcoming Encounter is currently full.';
         }
-        var formPageKeys = [formSpecKeys.attendee];
+        var formPageKeys = showInterest ? [interestKey] : [formSpecKeys.attendee];
         if (formSpecKeys.server && NWKS.forms && NWKS.forms.specs && NWKS.forms.specs[formSpecKeys.server]) {
           formPageKeys.push(formSpecKeys.server);
         }

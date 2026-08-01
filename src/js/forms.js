@@ -6,6 +6,10 @@ NWKS.forms = NWKS.forms || {};
    from NWKS.forms.specs[specKey] (see src/content/forms.js) into mountEl, wires
    client-side required validation, and on submit POSTs JSON to the backend API:
      POST (NWKS_API_BASE) + '/api/register/' + spec.program + '/' + spec.role
+   A spec may override that path with spec.endpoint (used by the Express
+   Interest waitlist, which posts to one endpoint and carries the program in the
+   body), add spec.intro to explain itself above the fields, and override the
+   confirmation text with spec.successMessage.
    On {ok:true} shows a success message and resets the form.
    On {ok:false} shows the returned error inline (real validation feedback).
    Idempotent per mountEl: re-render calls after the first are no-ops. */
@@ -213,6 +217,13 @@ NWKS.forms = NWKS.forms || {};
 
     var form = el('form', { className: 'nwks-form' });
 
+    // Optional lead-in above the fields — the Express Interest form uses this to
+    // carry the encounter's "we're full" message, so the reason and the action
+    // arrive together instead of on two different screens.
+    if (spec.intro) {
+      form.appendChild(el('p', { className: 'nwks-form__intro', text: spec.intro }));
+    }
+
     spec.fields.forEach(function (field, idx) {
       if (field.type === 'radio' || field.type === 'checkbox') buildChoiceField(form, specKey, field, idx);
       else if (field.type === 'dropdown') buildSelectField(form, specKey, field, idx);
@@ -242,7 +253,10 @@ NWKS.forms = NWKS.forms || {};
     statusEl.setAttribute('role', 'status');
     statusEl.setAttribute('aria-live', 'polite');
 
-    var submitBtn = el('button', { className: 'nwks-form__submit', text: 'Submit Registration' });
+    var submitBtn = el('button', {
+      className: 'nwks-form__submit',
+      text: spec.submitLabel || 'Submit Registration'
+    });
     submitBtn.type = 'submit';
 
     form.appendChild(submitBtn);
@@ -288,9 +302,12 @@ NWKS.forms = NWKS.forms || {};
       statusEl.className = 'nwks-form__status';
 
       var apiBase = (typeof window !== 'undefined' && window.NWKS_API_BASE) || '';
-      var url = apiBase + '/api/register/' + spec.program + '/' + spec.role;
+      var url = apiBase + (spec.endpoint || ('/api/register/' + spec.program + '/' + spec.role));
       var payload = collectPayload(form, spec.fields);
       payload.cf_turnstile_response = turnstileToken;
+      // Endpoint-override specs (Express Interest) are shared across both doors,
+      // so the program travels in the body rather than the path.
+      if (spec.endpoint) payload.program = spec.program;
 
       fetch(url, {
         method: 'POST',
@@ -301,7 +318,8 @@ NWKS.forms = NWKS.forms || {};
         .then(function (res) { return res.json(); })
         .then(function (data) {
           if (data.ok) {
-            statusEl.textContent = "You're registered! We'll be in touch with details. Thank you!";
+            statusEl.textContent = spec.successMessage
+              || "You're registered! We'll be in touch with details. Thank you!";
             statusEl.className = 'nwks-form__status nwks-form__status--success';
             form.reset();
             submitBtn.disabled = false;
