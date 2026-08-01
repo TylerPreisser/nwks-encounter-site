@@ -20,6 +20,7 @@ import {
   issueTrustedDevice, lockState, randomToken, recordLoginAttempt, registerFailedLogin,
 } from '../security';
 import { startAuthentication, finishAuthentication } from '../webauthn';
+import { duoConfig, healthCheck as duoHealthCheck, createAuthUrl, exchangeCode } from '../duo';
 
 export const authRouter = new Hono<{ Bindings: Env }>();
 
@@ -217,10 +218,13 @@ authRouter.post('/login', async (c) => {
   return c.json({
     ok: true,
     two_factor_required: true,
+    // Passkey first, with email and Duo as the fallbacks. Recovery codes were
+    // dropped at the operator's direction: if someone has neither their passkey
+    // nor their email nor Duo, another admin clears their 2FA (audited) rather
+    // than a printed code doing it.
     methods: {
       passkey: row.webauthn_enabled === 1,
       email: true,
-      recovery: true,
       duo: duoConfigured(c.env),
     },
   });
@@ -270,6 +274,76 @@ authRouter.post('/2fa/passkey/verify', async (c) => {
 
   await clearPending(c.env, ctx.token);
   return completeLogin(c, ctx.row, 'passkey', body.trust_device === true);
+});
+
+// ── Duo push (only when configured) ─────────────────────────────────────────
+
+authRouter.post('/2fa/duo/start', async (c) => {
+  const ctx = await requirePending(c);
+  if ('error' in ctx) return ctx.error;
+
+  const cfg = duoConfig(c.env);
+  if (!cfg) return c.json({ ok: false, error: 'Duo is not configured.' }, 400);
+
+  // If Duo is down, say so and let the user pick another factor rather than
+  // bouncing them to a broken redirect.
+  const health = await duoHealthCheck(cfg);
+  if (!health.ok) {
+    await audit(c.env, {
+      adminUserId: ctx.row.id, adminEmail: ctx.row.email,
+      action: '2fa.duo_unavailable', detail: { error: health.error }, req: c.req.raw,
+    });
+    return c.json({ ok: false, error: 'Duo is unavailable right now. Use another method.' }, 503);
+  }
+
+  // Opaque state, stored server-side and required to come back unchanged.
+  const state = randomToken(24);
+  await c.env.SESSIONS.put(
+    `duostate:${state}`,
+    JSON.stringify({ userId: ctx.row.id, email: ctx.row.email }),
+    { expirationTtl: PENDING_TTL_SECONDS }
+  );
+
+  const redirectUri = new URL('/admin/#/duo-callback', new URL(c.req.url).origin).toString();
+  const url = await createAuthUrl(cfg, ctx.row.email, state, redirectUri);
+  return c.json({ ok: true, redirect_url: url, state });
+});
+
+authRouter.post('/2fa/duo/callback', async (c) => {
+  const ctx = await requirePending(c);
+  if ('error' in ctx) return ctx.error;
+
+  const cfg = duoConfig(c.env);
+  if (!cfg) return c.json({ ok: false, error: 'Duo is not configured.' }, 400);
+
+  const body = await c.req.json<{ code?: string; state?: string; trust_device?: boolean }>()
+    .catch(() => ({}));
+  if (!body.code || !body.state) return c.json({ ok: false, error: 'Missing Duo response.' }, 400);
+
+  // The state must be one WE issued, for THIS user, and is single use.
+  const raw = await c.env.SESSIONS.get(`duostate:${body.state}`);
+  if (!raw) return c.json({ ok: false, error: 'Duo session expired. Please start again.' }, 401);
+  await c.env.SESSIONS.delete(`duostate:${body.state}`);
+
+  const stored = JSON.parse(raw) as { userId: number; email: string };
+  if (stored.userId !== ctx.row.id) {
+    return c.json({ ok: false, error: 'Duo session mismatch.' }, 401);
+  }
+
+  const redirectUri = new URL('/admin/#/duo-callback', new URL(c.req.url).origin).toString();
+  const result = await exchangeCode(cfg, body.code, ctx.row.email, redirectUri);
+
+  if (!result.ok) {
+    await recordLoginAttempt(c.env, ctx.row.email, clientIp(c.req.raw), 'bad_second_factor');
+    await audit(c.env, {
+      adminUserId: ctx.row.id, adminEmail: ctx.row.email,
+      action: '2fa.duo_failed', detail: { error: result.error }, req: c.req.raw,
+    });
+    return c.json({ ok: false, error: result.error ?? 'Duo verification failed.' }, 401);
+  }
+
+  await clearPending(c.env, ctx.token);
+  return completeLogin(c, ctx.row, 'duo', body.trust_device === true);
 });
 
 authRouter.post('/2fa/email/send', async (c) => {
@@ -328,7 +402,6 @@ async function verifyTypedCode(
 }
 
 authRouter.post('/2fa/email/verify', (c) => verifyTypedCode(c, 'email_otp'));
-authRouter.post('/2fa/recovery/verify', (c) => verifyTypedCode(c, 'recovery'));
 
 // ── Session lifecycle ───────────────────────────────────────────────────────
 

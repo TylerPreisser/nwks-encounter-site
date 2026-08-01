@@ -60,9 +60,16 @@ publicRouter.get('/events/current', async (c) => {
     attendee_open: event.attendee_registration_open === 1 && !attendee_full,
   };
 
+  // 30s, not 300s. This response carries attendee_open / attendee_full, which
+  // decide whether the public site shows "Register" or "Express Interest". At a
+  // five-minute TTL, closing enrollment in the admin left the live site inviting
+  // registrations for up to five minutes afterwards — the one-click close button
+  // appeared not to work. Half a minute keeps the origin protected while making
+  // the toggle feel immediate. (The register endpoint re-checks server-side
+  // regardless, so a stale page could never actually breach the cap.)
   return c.json(
     { ok: true, event: parsed },
     200,
-    { 'Cache-Control': 'public, max-age=300' }
+    { 'Cache-Control': 'public, max-age=30' }
   );
 });

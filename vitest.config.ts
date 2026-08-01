@@ -5,7 +5,7 @@ export default defineWorkersConfig({
   // ships CJS interop against tslib. Bundling those deps rather than externalizing
   // them lets the Workers pool resolve tslib's default export.
   ssr: {
-    noExternal: ['@simplewebauthn/server', /^@peculiar\//, '@hexagon/base64', '@levischuck/tiny-cbor', 'tslib'],
+    noExternal: ['@simplewebauthn/server', /^@peculiar\//, '@hexagon/base64', '@levischuck/tiny-cbor', 'tslib', 'jose'],
   },
   test: {
     globalSetup: ['./functions/_api/__tests__/globalSetup.ts'],

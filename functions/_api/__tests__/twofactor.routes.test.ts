@@ -5,7 +5,7 @@ import { env } from 'cloudflare:test';
 import { app } from '../app';
 import { applyMigrations, seedAdmin } from './setup';
 import type { Env } from '../app';
-import { issueRecoveryCodes, issueTrustedDevice, sha256Hex } from '../security';
+import { issueTrustedDevice, sha256Hex } from '../security';
 
 const testEnv = env as unknown as Env;
 const db = () => (env as unknown as { DB: D1Database }).DB;
@@ -83,7 +83,10 @@ describe('step 1 — password', () => {
     const body = await res.json<{ two_factor_required: boolean; methods: Record<string, boolean> }>();
 
     expect(body.two_factor_required).toBe(true);
-    expect(body.methods).toMatchObject({ passkey: true, email: true, recovery: true, duo: false });
+    // Recovery codes were dropped at the operator's direction: passkey, emailed
+    // code, and Duo (when configured) are the factors.
+    expect(body.methods).toMatchObject({ passkey: true, email: true, duo: false });
+    expect('recovery' in body.methods).toBe(false);
     // The password alone must not produce a session.
     expect(cookiesFrom(res)).not.toContain('nwks_session=');
     expect(cookiesFrom(res)).toContain('nwks_pending=');
@@ -168,30 +171,6 @@ describe('step 2 — emailed code', () => {
   });
 });
 
-describe('step 2 — recovery codes (no email, no phone)', () => {
-  beforeEach(() => enroll(userId));
-
-  it('logs in with a printed recovery code, once', async () => {
-    const codes = await issueRecoveryCodes(testEnv, userId);
-
-    const login = await app.fetch(post('/api/auth/login', { email: EMAIL, password: PASSWORD }), testEnv);
-    const pending = cookiesFrom(login);
-
-    const first = await app.fetch(
-      post('/api/auth/2fa/recovery/verify', { code: codes[0] }, pending), testEnv
-    );
-    expect(first.status).toBe(200);
-    expect(cookiesFrom(first)).toContain('nwks_session=');
-
-    // The same code must not work a second time.
-    const login2 = await app.fetch(post('/api/auth/login', { email: EMAIL, password: PASSWORD }), testEnv);
-    const replay = await app.fetch(
-      post('/api/auth/2fa/recovery/verify', { code: codes[0] }, cookiesFrom(login2)), testEnv
-    );
-    expect(replay.status).toBe(401);
-  });
-});
-
 describe('trusted device', () => {
   beforeEach(() => enroll(userId));
 
@@ -243,29 +222,14 @@ describe('security settings', () => {
   it('requires a session', async () => {
     expect((await app.fetch(get('/api/admin/security'), testEnv)).status).toBe(401);
     expect((await app.fetch(get('/api/admin/security/audit'), testEnv)).status).toBe(401);
-    expect((await app.fetch(post('/api/admin/security/recovery-codes'), testEnv)).status).toBe(401);
   });
 
   it('reports enrollment status', async () => {
     const res = await app.fetch(get('/api/admin/security', await session()), testEnv);
     const body = await res.json<Record<string, unknown>>();
     expect(body).toMatchObject({
-      ok: true, two_factor_required: false, webauthn_enabled: false,
-      duo_available: false, recovery_codes_remaining: 0,
+      ok: true, two_factor_required: false, webauthn_enabled: false, duo_available: false,
     });
-  });
-
-  it('issues ten recovery codes and shows them exactly once', async () => {
-    const cookie = await session();
-    const res = await app.fetch(post('/api/admin/security/recovery-codes', {}, cookie), testEnv);
-    const body = await res.json<{ recovery_codes: string[] }>();
-    expect(body.recovery_codes).toHaveLength(10);
-
-    // There is no endpoint that returns them again — only hashes are stored.
-    const status = await app.fetch(get('/api/admin/security', cookie), testEnv);
-    const statusBody = await status.json<Record<string, unknown>>();
-    expect(statusBody.recovery_codes_remaining).toBe(10);
-    expect(JSON.stringify(statusBody)).not.toContain(body.recovery_codes[0]);
   });
 
   it('exposes the audit log', async () => {
@@ -285,7 +249,6 @@ describe('admin-assisted 2FA reset — the last rung', () => {
   it('clears another admin 2FA and logs BOTH parties', async () => {
     const locked = await seedAdmin({ email: 'locked@nwks.test' });
     await enroll(locked.id);
-    await issueRecoveryCodes(testEnv, locked.id);
 
     const res = await app.fetch(
       post(`/api/admin/security/reset-2fa/${locked.id}`, {}, await session()), testEnv

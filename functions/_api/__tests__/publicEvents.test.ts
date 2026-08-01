@@ -87,12 +87,12 @@ describe('Public events/current endpoint', () => {
     expect(wRes.status).toBe(404);
   });
 
-  it('sets Cache-Control: public, max-age=300', async () => {
+  it('caches only briefly, so closing enrollment takes effect promptly', async () => {
     await seedEvent('mens', 2026, 1);
     const res = await app.fetch(
       new Request('http://localhost/api/public/events/current?program=mens'),
       env
     );
-    expect(res.headers.get('Cache-Control')).toBe('public, max-age=300');
+    expect(res.headers.get('Cache-Control')).toBe('public, max-age=30');
   });
 });

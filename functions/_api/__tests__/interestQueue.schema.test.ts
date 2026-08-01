@@ -27,21 +27,23 @@ describe('interest_queue schema', () => {
   it('accepts an entry and defaults it to waiting', async () => {
     await addInterest('jim@example.com');
     const row = await db()
-      .prepare(`SELECT status, notified_at, notified_event_id FROM interest_queue WHERE email = ?`)
+      .prepare(`SELECT status, notified_at, last_notified_event_id FROM interest_queue WHERE email = ?`)
       .bind('jim@example.com')
-      .first<{ status: string; notified_at: string | null; notified_event_id: number | null }>();
+      .first<{ status: string; notified_at: string | null; last_notified_event_id: number | null }>();
 
     expect(row?.status).toBe('waiting');
     expect(row?.notified_at).toBeNull();
-    expect(row?.notified_event_id).toBeNull();
+    expect(row?.last_notified_event_id).toBeNull();
   });
 
-  it('rejects a duplicate email for the same encounter', async () => {
+  it('rejects a duplicate email for the same program+role', async () => {
+    // The list is now STANDING: one entry per person per program per role,
+    // regardless of which encounter they first raised their hand during.
     await addInterest('dup@example.com');
-    await expect(addInterest('dup@example.com')).rejects.toThrow(/UNIQUE/i);
+    await expect(addInterest('dup@example.com', 2)).rejects.toThrow(/UNIQUE/i);
   });
 
-  it('allows the same email on a DIFFERENT encounter', async () => {
+  it('allows the same email in the OTHER program', async () => {
     await addInterest('repeat@example.com', 1, 'mens');
     await expect(addInterest('repeat@example.com', 2, 'women')).resolves.toBeTruthy();
   });

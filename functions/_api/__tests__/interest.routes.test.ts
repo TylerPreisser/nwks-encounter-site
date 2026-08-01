@@ -158,7 +158,7 @@ describe('GET /api/admin/interest', () => {
     await app.fetch(interestReq({ ...VALID_INTEREST, email: 'pam@example.com', first_name: 'Pam' }), testEnv);
   });
 
-  it('lists the queue for the current encounter with a total', async () => {
+  it('lists everyone still interested, regardless of which encounter they joined at', async () => {
     const res = await app.fetch(adminReq('GET', '/api/admin/interest', cookie), testEnv);
     expect(res.status).toBe(200);
     const body = await res.json<{ rows: { email: string }[]; total: number }>();
@@ -166,8 +166,8 @@ describe('GET /api/admin/interest', () => {
     expect(body.rows.map((r) => r.email).sort()).toEqual(['jim@example.com', 'pam@example.com']);
   });
 
-  it('scopes to the requested encounter', async () => {
-    const res = await app.fetch(adminReq('GET', '/api/admin/interest?event_id=2', cookie), testEnv);
+  it('can filter by role', async () => {
+    const res = await app.fetch(adminReq('GET', '/api/admin/interest?role=server', cookie), testEnv);
     const body = await res.json<{ total: number }>();
     expect(body.total).toBe(0);
   });
@@ -205,12 +205,12 @@ describe('rollover notifies the interest queue', () => {
     expect(body.interest_notified).toBe(1);
 
     const row = await db()
-      .prepare(`SELECT status, notified_at, notified_event_id FROM interest_queue WHERE email = ?`)
+      .prepare(`SELECT status, notified_at, last_notified_event_id FROM interest_queue WHERE email = ?`)
       .bind('jim@example.com')
-      .first<{ status: string; notified_at: string; notified_event_id: number }>();
+      .first<{ status: string; notified_at: string; last_notified_event_id: number }>();
     expect(row?.status).toBe('notified');
     expect(row?.notified_at).toBeTruthy();
-    expect(row?.notified_event_id).toBe(body.new_event.id);
+    expect(row?.last_notified_event_id).toBe(body.new_event.id);
   });
 
   it('logs the invite email against the interest_invite template', async () => {
@@ -251,25 +251,38 @@ describe('rollover notifies the interest queue', () => {
     expect(body.interest_count).toBe(1);
   });
 
-  it('starts the NEW encounter with an empty queue', async () => {
-    const rollover = await app.fetch(
+  it('KEEPS people on the list across the rollover', async () => {
+    // The whole point of the standing list: they carry over to the next
+    // encounter rather than the queue resetting to empty.
+    await app.fetch(
       adminReq('POST', '/api/admin/events/rollover', cookie, 'mens', {
         year: 2027, season: 'spring', confirm_year: 2027, force: true,
       }),
       testEnv
     );
-    const { new_event } = await rollover.json<{ new_event: { id: number } }>();
 
-    const res = await app.fetch(
-      adminReq('GET', `/api/admin/interest?event_id=${new_event.id}`, cookie),
-      testEnv
-    );
-    const body = await res.json<{ total: number }>();
-    expect(body.total).toBe(0);
+    const res = await app.fetch(adminReq('GET', '/api/admin/interest', cookie), testEnv);
+    const body = await res.json<{ total: number; rows: { status: string }[] }>();
+    expect(body.total).toBe(1);
+    expect(body.rows[0].status).toBe('notified');
+  });
 
-    // ...but the old encounter's list survives for history.
-    const old = await app.fetch(adminReq('GET', '/api/admin/interest?event_id=1', cookie), testEnv);
-    expect((await old.json<{ total: number }>()).total).toBe(1);
+  it('drops someone off the list once they actually register', async () => {
+    const now = new Date().toISOString();
+    await db().prepare(
+      `INSERT INTO people (id, program, first_name, last_name, email, created_at, updated_at)
+       VALUES (99, 'mens', 'Jim', 'Halpert', 'jim@example.com', ?, ?)`
+    ).bind(now, now).run();
+    await db().prepare(
+      `INSERT INTO registrations (program, event_id, person_id, role, first_name, last_name, email, extra, status, created_at)
+       VALUES ('mens', 1, 99, 'attendee', 'Jim', 'Halpert', 'jim@example.com', '{}', 'registered', ?)`
+    ).bind(now).run();
+
+    const { markInterestRegistered } = await import('../interest');
+    await markInterestRegistered(testEnv, 'mens', 'attendee', 'jim@example.com');
+
+    const res = await app.fetch(adminReq('GET', '/api/admin/interest', cookie), testEnv);
+    expect((await res.json<{ total: number }>()).total).toBe(0);
   });
 });
 

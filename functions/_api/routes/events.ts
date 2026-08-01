@@ -8,6 +8,7 @@ import {
   isSeason, displayName, nextSeason, withDisplayName, ORDER_RECENT_FIRST,
 } from '../seasons';
 import { notifyInterestQueue } from '../interest';
+import { audit } from '../security';
 
 export const eventsRouter = new Hono<{ Bindings: Env }>();
 
@@ -250,7 +251,7 @@ eventsRouter.post('/rollover', async (c) => {
   // send stay 'waiting' and can be retried.
   const notify = body.notify_interest !== false;
   const interest = notify
-    ? await notifyInterestQueue(c.env, program, current.id, created!)
+    ? await notifyInterestQueue(c.env, program, created!)
     : { sent: 0, failed: 0, errors: [] };
 
   return c.json({
@@ -384,6 +385,21 @@ eventsRouter.post('/:id/enrollment', async (c) => {
 
   const updated = await c.env.DB.prepare(`SELECT * FROM events WHERE id = ?`)
     .bind(id).first<{ year: number; season: string }>();
+
+  // Opening or closing enrollment decides whether the public site accepts
+  // anyone at all — that belongs in the audit trail alongside logins.
+  const actor = c.get('user');
+  await audit(c.env, {
+    adminUserId: actor?.id, adminEmail: actor?.email,
+    action: 'enrollment.changed',
+    targetType: 'event', targetId: String(id),
+    detail: {
+      encounter: displayName((updated as { year: number }).year, (updated as { season: string }).season),
+      attendee_open: body.attendee_open, server_open: body.server_open,
+    },
+    req: c.req.raw,
+  });
+
   return c.json({ ok: true, event: withDisplayName(updated!) });
 });
 
@@ -413,6 +429,34 @@ eventsRouter.post('/:id/set-current', async (c) => {
   ]);
 
   const updated = await c.env.DB.prepare(`SELECT * FROM events WHERE id = ?`)
-    .bind(id).first<{ year: number; season: string }>();
-  return c.json({ ok: true, event: withDisplayName(updated!) });
+    .bind(id).first<{ id: number; year: number; season: string; start_date: string | null; end_date: string | null }>();
+
+  // Switching the current encounter is the OTHER way a new one opens — the
+  // encounters may all have been created up front, and the operator simply
+  // flips to Spring 2027. Everyone on the standing interest list gets the
+  // invitation either way; pass notify=false to move the pointer silently.
+  const notify = c.req.query('notify') !== '0';
+  const interest = notify
+    ? await notifyInterestQueue(c.env, program, updated!)
+    : { sent: 0, failed: 0, errors: [] };
+
+  const actor = c.get('user');
+  await audit(c.env, {
+    adminUserId: actor?.id, adminEmail: actor?.email,
+    action: 'encounter.set_current',
+    targetType: 'event', targetId: String(id),
+    detail: {
+      encounter: displayName(updated!.year, updated!.season),
+      interest_notified: interest.sent, interest_failed: interest.failed,
+    },
+    req: c.req.raw,
+  });
+
+  return c.json({
+    ok: true,
+    event: withDisplayName(updated!),
+    interest_notified: interest.sent,
+    interest_failed: interest.failed,
+    interest_errors: interest.errors,
+  });
 });

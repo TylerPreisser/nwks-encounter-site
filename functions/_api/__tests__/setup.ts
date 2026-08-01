@@ -3,6 +3,7 @@ import { env } from 'cloudflare:test';
 import { inject } from 'vitest';
 import type { D1Migration } from '@cloudflare/vitest-pool-workers/config';
 import { hashPassword } from '../auth';
+import { SEED_SQL } from './seeds.generated';
 import { nowIso } from '../db';
 
 /**
@@ -13,6 +14,19 @@ import { nowIso } from '../db';
 export async function applyMigrations(env: { DB: D1Database }): Promise<void> {
   const migrations = inject('migrations') as D1Migration[];
   await applyD1Migrations(env.DB, migrations);
+}
+
+/**
+ * Applies db/seeds/*.sql on top of the migrations.
+ *
+ * Email bodies live in seeds rather than migrations because the accumulated
+ * migration payload was breaking the Workers test pool outright; keeping the
+ * same SQL running here means the split doesn't cost test coverage.
+ */
+export async function applySeeds(env: { DB: D1Database }): Promise<void> {
+  for (const stmt of SEED_SQL) {
+    await env.DB.prepare(stmt).run();
+  }
 }
 
 /** Default credentials used by seedAdmin when no overrides are provided. */

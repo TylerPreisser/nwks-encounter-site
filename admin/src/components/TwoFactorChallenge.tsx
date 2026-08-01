@@ -5,7 +5,6 @@ import { apiFetch } from '@/api';
 export interface TwoFactorMethods {
   passkey: boolean;
   email: boolean;
-  recovery: boolean;
   duo: boolean;
 }
 
@@ -14,12 +13,12 @@ interface Props {
   onSuccess: () => void;
 }
 
-type Mode = 'passkey' | 'email' | 'recovery';
+type Mode = 'passkey' | 'email' | 'duo';
 
 /**
- * The second-factor step of login. Offers the passkey first and falls back
- * through the recovery ladder — emailed code, then a printed recovery code —
- * so losing a phone is an inconvenience rather than a lockout.
+ * The second-factor step of login. Leads with the passkey and falls back to an
+ * emailed code or a Duo push. If none of those is reachable, another admin
+ * clears your 2FA from Security settings.
  */
 export default function TwoFactorChallenge({ methods, onSuccess }: Props) {
   const [mode, setMode] = useState<Mode>(methods.passkey ? 'passkey' : 'email');
@@ -59,6 +58,27 @@ export default function TwoFactorChallenge({ methods, onSuccess }: Props) {
     }
   }
 
+  /**
+   * Duo Universal is a full-page redirect: we hand off to Duo, the user approves
+   * the push, and Duo sends them back to /admin/#/duo-callback with a code.
+   * The pending-login cookie survives the round trip, so the callback can finish
+   * the same login.
+   */
+  async function startDuo() {
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await apiFetch<{ redirect_url: string; state: string }>(
+        '/auth/2fa/duo/start', { method: 'POST', body: JSON.stringify({}) }
+      );
+      sessionStorage.setItem('nwks_duo_trust', trustDevice ? '1' : '0');
+      window.location.assign(res.redirect_url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not reach Duo');
+      setBusy(false);
+    }
+  }
+
   async function sendEmailCode() {
     setError(null);
     setBusy(true);
@@ -77,8 +97,7 @@ export default function TwoFactorChallenge({ methods, onSuccess }: Props) {
     setError(null);
     setBusy(true);
     try {
-      const path = mode === 'recovery' ? '/auth/2fa/recovery/verify' : '/auth/2fa/email/verify';
-      await apiFetch(path, {
+      await apiFetch('/auth/2fa/email/verify', {
         method: 'POST',
         body: JSON.stringify({ code, trust_device: trustDevice }),
       });
@@ -99,7 +118,7 @@ export default function TwoFactorChallenge({ methods, onSuccess }: Props) {
         <p className="text-sm mt-1" style={{ color: '#78716c' }}>
           {mode === 'passkey' && 'Use Face ID, Touch ID, or your security key.'}
           {mode === 'email' && 'We can email you a 6-digit code.'}
-          {mode === 'recovery' && 'Enter one of your printed recovery codes.'}
+          {mode === 'duo' && 'Approve the push notification on your phone.'}
         </p>
       </div>
 
@@ -126,7 +145,20 @@ export default function TwoFactorChallenge({ methods, onSuccess }: Props) {
         </button>
       )}
 
-      {(mode === 'email' || mode === 'recovery') && (
+      {mode === 'duo' && (
+        <button
+          type="button"
+          onClick={() => void startDuo()}
+          disabled={busy}
+          data-testid="use-duo"
+          className="w-full rounded-lg py-2.5 text-sm font-semibold text-white"
+          style={{ background: 'var(--color-primary, #6B7645)', opacity: busy ? 0.6 : 1 }}
+        >
+          {busy ? 'Opening Duo…' : 'Send me a Duo push'}
+        </button>
+      )}
+
+      {mode === 'email' && (
         <form onSubmit={submitCode} className="space-y-4">
           {mode === 'email' && !emailSent && (
             <button
@@ -141,19 +173,19 @@ export default function TwoFactorChallenge({ methods, onSuccess }: Props) {
             </button>
           )}
 
-          {(mode === 'recovery' || emailSent) && (
+          {emailSent && (
             <>
               <label htmlFor="code" className="block text-sm font-medium" style={{ color: '#44403c' }}>
-                {mode === 'recovery' ? 'Recovery code' : '6-digit code'}
+                6-digit code
               </label>
               <input
                 id="code"
                 data-testid="code-input"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                inputMode={mode === 'recovery' ? 'text' : 'numeric'}
+                inputMode="numeric"
                 autoComplete="one-time-code"
-                placeholder={mode === 'recovery' ? 'ABCD-EFGH-JKMN' : '123456'}
+                placeholder="123456"
                 required
                 className="w-full rounded-lg border px-3 py-2 text-sm tracking-widest text-center focus:outline-none focus:ring-2"
                 style={{ borderColor: '#d6d3d1' }}
@@ -187,14 +219,14 @@ export default function TwoFactorChallenge({ methods, onSuccess }: Props) {
             Use my passkey
           </button>
         )}
+        {mode !== 'duo' && methods.duo && (
+          <button type="button" className="underline" data-testid="switch-duo" onClick={() => setMode('duo')}>
+            Use Duo instead
+          </button>
+        )}
         {mode !== 'email' && (
           <button type="button" className="underline" data-testid="switch-email" onClick={() => setMode('email')}>
             Email me a code instead
-          </button>
-        )}
-        {mode !== 'recovery' && (
-          <button type="button" className="underline" data-testid="switch-recovery" onClick={() => setMode('recovery')}>
-            I can&rsquo;t access my email
           </button>
         )}
       </div>

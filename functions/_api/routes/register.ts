@@ -5,6 +5,7 @@ import type { Env } from '../app.js';
 import { nowIso } from '../db.js';
 import { upsertPerson, recomputeRollups } from '../dedupe.js';
 import { sendEmail, renderTemplate } from '../email.js';
+import { markInterestRegistered } from '../interest.js';
 
 // ── Turnstile ──────────────────────────────────────────────────────────────
 // Dev/test bypass: token value '__TEST_BYPASS__' always passes when
@@ -492,9 +493,16 @@ registerRouter.post('/:program/:role', async (c) => {
   // Prefer the office-editable "confirmation" template from the DB (Email Center →
   // Automated Emails); fall back to the inline template if it's missing.
   if (fields.email) {
-    const dbTpl = await c.env.DB.prepare(
-      `SELECT subject, body_html, body_text FROM email_templates WHERE program = ? AND key = 'confirmation'`
-    ).bind(program).first<{ subject: string; body_html: string; body_text: string }>();
+    // Servers get their own confirmation wording; falls back to the shared
+    // attendee template if a server one hasn't been created for this program.
+    const tplKey = role === 'server' ? 'confirmation_server' : 'confirmation';
+    const dbTpl =
+      (await c.env.DB.prepare(
+        `SELECT subject, body_html, body_text FROM email_templates WHERE program = ? AND key = ?`
+      ).bind(program, tplKey).first<{ subject: string; body_html: string; body_text: string }>())
+      ?? (await c.env.DB.prepare(
+        `SELECT subject, body_html, body_text FROM email_templates WHERE program = ? AND key = 'confirmation'`
+      ).bind(program).first<{ subject: string; body_html: string; body_text: string }>());
     const tpl = dbTpl ?? welcomeTemplate(program, role);
     const rendered = renderTemplate(tpl, {
       first_name:   fields.first_name,
@@ -515,11 +523,16 @@ registerRouter.post('/:program/:role', async (c) => {
       text:        rendered.text,
       replyTo:     c.env.EMAIL_REPLY_TO || undefined,
       type:        'transactional',
-      templateKey: 'confirmation',
+      templateKey: tplKey,
       personId:    person_id,
       program,
     });
   }
+
+  // They're registered, so they no longer belong on the interest list —
+  // otherwise they'd keep getting "registration is open" emails for an
+  // encounter they already signed up for.
+  await markInterestRegistered(c.env, program, role as 'attendee' | 'server', fields.email ?? null);
 
   return c.json({ ok: true, registration_id, person_id }, 200);
 });

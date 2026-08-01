@@ -1,7 +1,11 @@
 // functions/_api/routes/security.ts — admin security settings.
 //
-// Passkey enrollment, recovery codes, trusted-device management, the audit log
-// view, and admin-assisted 2FA reset (the last rung of the recovery ladder).
+// Passkey enrollment, trusted-device management, the audit log view, and
+// admin-assisted 2FA reset.
+//
+// Recovery codes were removed at the operator's direction: the factors are
+// passkey, emailed code and Duo. If someone has none of those, another admin
+// clears their 2FA here — audited, rather than a printed code doing it.
 //
 // Mounted under /api/admin/security, so requireAuth() applies. Note these
 // routes deliberately do NOT use requireProgram(): security is per-person, not
@@ -12,9 +16,7 @@ import type { Env } from '../app';
 import { requireAuth } from '../auth';
 import type { AppVariables } from '../auth';
 import { nowIso } from '../db';
-import {
-  audit, countUnusedRecoveryCodes, issueRecoveryCodes, revokeTrustedDevices, duoConfigured,
-} from '../security';
+import { audit, revokeTrustedDevices, duoConfigured } from '../security';
 import {
   startRegistration, finishRegistration, listCredentials, deleteCredential,
 } from '../webauthn';
@@ -51,7 +53,6 @@ securityRouter.get('/', async (c) => {
       id: cred.id, label: cred.device_label, credential_id: cred.credential_id,
     })),
     trusted_devices: devices,
-    recovery_codes_remaining: await countUnusedRecoveryCodes(c.env, user.id),
   });
 });
 
@@ -84,12 +85,7 @@ securityRouter.post('/passkey/verify', async (c) => {
     action: 'passkey.enrolled', detail: { label: body.label }, req: c.req.raw,
   });
 
-  // Recovery codes are issued on FIRST enrollment, never silently regenerated
-  // afterwards — regenerating would invalidate codes the user already printed.
-  const existing = await countUnusedRecoveryCodes(c.env, user.id);
-  const recoveryCodes = existing === 0 ? await issueRecoveryCodes(c.env, user.id) : null;
-
-  return c.json({ ok: true, recovery_codes: recoveryCodes });
+  return c.json({ ok: true });
 });
 
 securityRouter.delete('/passkey/:id', async (c) => {
@@ -106,19 +102,6 @@ securityRouter.delete('/passkey/:id', async (c) => {
     req: c.req.raw,
   });
   return c.json({ ok: true });
-});
-
-// ── Recovery codes ──────────────────────────────────────────────────────────
-
-securityRouter.post('/recovery-codes', async (c) => {
-  const user = c.get('user');
-  const codes = await issueRecoveryCodes(c.env, user.id);
-  await audit(c.env, {
-    adminUserId: user.id, adminEmail: user.email, action: 'recovery_codes.regenerated', req: c.req.raw,
-  });
-  // Shown exactly once. There is no endpoint to read them back — only the hash
-  // is stored, so even we cannot.
-  return c.json({ ok: true, recovery_codes: codes });
 });
 
 // ── Trusted devices ─────────────────────────────────────────────────────────
@@ -143,10 +126,10 @@ securityRouter.get('/admins', async (c) => {
 });
 
 /**
- * Clears another admin's 2FA enrollment and unlocks them. With a four-person
- * team this is the realistic backstop when someone loses their phone AND their
- * recovery codes. It is logged with BOTH user ids — that is what keeps it from
- * being a quiet backdoor.
+ * Clears another admin's 2FA enrollment and unlocks them. With recovery codes
+ * gone this is THE backstop when someone can reach neither their passkey, their
+ * email, nor Duo. Logged with both user ids — that is what keeps it from being
+ * a quiet backdoor.
  */
 securityRouter.post('/reset-2fa/:userId', async (c) => {
   const actor = c.get('user');

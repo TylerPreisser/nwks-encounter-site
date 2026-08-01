@@ -30,6 +30,7 @@
     "@simplewebauthn/browser": "^13.3.0",
     "@simplewebauthn/server": "^13.3.2",
     "hono": "^4.7.0",
+    "jose": "^6.2.7",
     "jsdom": "^29.1.1",
     "playwright": "^1.61.1",
     "resend": "^4.7.0",
