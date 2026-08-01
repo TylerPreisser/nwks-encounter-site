@@ -1,6 +1,12 @@
 import { defineWorkersConfig } from '@cloudflare/vitest-pool-workers/config';
 
 export default defineWorkersConfig({
+  // @simplewebauthn/server pulls in @peculiar/asn1-* (attestation parsing), which
+  // ships CJS interop against tslib. Bundling those deps rather than externalizing
+  // them lets the Workers pool resolve tslib's default export.
+  ssr: {
+    noExternal: ['@simplewebauthn/server', /^@peculiar\//, '@hexagon/base64', '@levischuck/tiny-cbor', 'tslib'],
+  },
   test: {
     globalSetup: ['./functions/_api/__tests__/globalSetup.ts'],
     // Exclude photos test — it runs under a separate project (vitest.photos.config.ts)

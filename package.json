@@ -27,6 +27,8 @@
     "@anthropic-ai/sdk": "^0.52.0",
     "@cloudflare/vitest-pool-workers": "^0.8.0",
     "@cloudflare/workers-types": "^4.20260702.1",
+    "@simplewebauthn/browser": "^13.3.0",
+    "@simplewebauthn/server": "^13.3.2",
     "hono": "^4.7.0",
     "jsdom": "^29.1.1",
     "playwright": "^1.61.1",
