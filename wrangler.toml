@@ -23,7 +23,7 @@ binding = "SESSIONS"
 id = "f35ff27e301240d6bfa59ca344520f3e"
 
 [vars]
-EMAIL_ENABLED  = "false"
+EMAIL_ENABLED  = "true"
 EMAIL_FROM     = "NWKS Encounter <noreply@nwksencounter.com>"
 EMAIL_REPLY_TO = ""
 CORS_ORIGINS   = "http://localhost:8788,http://localhost:8787,http://localhost:8080,http://127.0.0.1:8788,http://127.0.0.1:8080,https://nwks-encounter-site.pages.dev,https://nwksencounter.com,https://www.nwksencounter.com"

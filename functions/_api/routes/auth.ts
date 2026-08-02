@@ -14,12 +14,13 @@ import { verifyPassword, createSession, getSessionUser } from '../auth';
 import { nowIso } from '../db';
 import { sendEmail } from '../email';
 import {
-  SESSION_TTL_HOURS, TRUSTED_DEVICE_DAYS,
+  EMAIL_OTP_TTL_MINUTES, SESSION_TTL_HOURS, TRUSTED_DEVICE_DAYS,
   audit, clientIp, clearFailedLogins, consumeAuthCode, duoConfigured,
-  isIpRateLimited, isSecondFactorRateLimited, isTrustedDevice, issueEmailOtp,
+  emailDeliverable, isIpRateLimited, isSecondFactorRateLimited, isTrustedDevice, issueEmailOtp,
   issueTrustedDevice, lockState, randomToken, recordLoginAttempt, registerFailedLogin,
 } from '../security';
-import { startAuthentication, finishAuthentication } from '../webauthn';
+import { startAuthentication, finishAuthentication, startRegistration, finishRegistration } from '../webauthn';
+import { loginCodeEmail } from '../emails/loginCode';
 import { duoConfig, healthCheck as duoHealthCheck, createAuthUrl, exchangeCode } from '../duo';
 
 export const authRouter = new Hono<{ Bindings: Env }>();
@@ -137,6 +138,40 @@ async function completeLogin(
   });
 }
 
+/** "ty****@gmail.com" — enough to recognise, not enough to harvest. */
+function maskEmail(email: string): string {
+  const [user, domain] = email.split('@');
+  if (!domain) return '***';
+  const head = user.slice(0, 2);
+  return `${head}${'*'.repeat(Math.max(3, user.length - 2))}@${domain}`;
+}
+
+/** Issues an emailed code and sends it. Returns false if rate limited. */
+async function issueAndSendOtp(
+  c: Parameters<Parameters<typeof authRouter.post>[1]>[0],
+  userId: number,
+  email: string,
+  firstName?: string
+): Promise<boolean> {
+  const code = await issueEmailOtp(c.env, userId);
+  if (!code) return false;
+
+  const mail = loginCodeEmail(code, EMAIL_OTP_TTL_MINUTES, firstName);
+  await sendEmail(c.env, {
+    to: email,
+    subject: mail.subject,
+    html: mail.html,
+    text: mail.text,
+    type: 'transactional',
+    templateKey: 'admin_login_code',
+  });
+
+  await audit(c.env, {
+    adminUserId: userId, adminEmail: email, action: '2fa.email_code_sent', req: c.req.raw,
+  });
+  return true;
+}
+
 // ── Step 1: password ────────────────────────────────────────────────────────
 
 authRouter.post('/login', async (c) => {
@@ -197,16 +232,7 @@ authRouter.post('/login', async (c) => {
     return c.json(GENERIC_FAILURE, 401);
   }
 
-  // Password is correct. Does this user need a second factor?
-  if (!row.two_factor_required) {
-    return completeLogin(c, row, 'password_only', false);
-  }
-
-  // A trusted browser skips the second factor — but never the password.
-  if (await isTrustedDevice(c.env, row.id, getCookie(c, TRUSTED_COOKIE))) {
-    return completeLogin(c, row, 'trusted_device', false);
-  }
-
+  // The password is correct. Everything below decides what the SECOND step is.
   const pendingToken = randomToken(32);
   await putPending(c.env, pendingToken, {
     userId: row.id, email: row.email, createdAt: nowIso(),
@@ -215,16 +241,46 @@ authRouter.post('/login', async (c) => {
     httpOnly: true, secure: true, sameSite: 'Strict', path: '/', maxAge: PENDING_TTL_SECONDS,
   });
 
+  const canEmail = emailDeliverable(c.env);
+
+  // FIRST RUN: nobody gets in on a password alone. A user with no passkey is
+  // sent through setup — verify by emailed code, then they're offered a passkey.
+  if (row.webauthn_enabled !== 1) {
+    if (canEmail) {
+      // Send the code immediately: the screen says "check your email", so making
+      // them press another button first is a step for nothing.
+      await issueAndSendOtp(c, row.id, row.email);
+      return c.json({
+        ok: true,
+        setup_required: true,
+        verify_with: 'email',
+        email_hint: maskEmail(row.email),
+      });
+    }
+    // Email cannot be delivered on this deployment. Rather than dead-ending
+    // someone at "check your email" for a message that will never arrive, let
+    // them enrol a passkey directly — the password already proved who they are,
+    // and a passkey is strictly stronger than the emailed code would have been.
+    return c.json({
+      ok: true,
+      setup_required: true,
+      verify_with: 'passkey_direct',
+      reason: 'email_unavailable',
+    });
+  }
+
+  // A trusted browser skips the second factor — but never the password.
+  if (await isTrustedDevice(c.env, row.id, getCookie(c, TRUSTED_COOKIE))) {
+    await clearPending(c.env, pendingToken);
+    return completeLogin(c, row, 'trusted_device', false);
+  }
+
   return c.json({
     ok: true,
     two_factor_required: true,
-    // Passkey first, with email and Duo as the fallbacks. Recovery codes were
-    // dropped at the operator's direction: if someone has neither their passkey
-    // nor their email nor Duo, another admin clears their 2FA (audited) rather
-    // than a printed code doing it.
     methods: {
-      passkey: row.webauthn_enabled === 1,
-      email: true,
+      passkey: true,
+      email: canEmail,
       duo: duoConfigured(c.env),
     },
   });
@@ -350,26 +406,13 @@ authRouter.post('/2fa/email/send', async (c) => {
   const ctx = await requirePending(c);
   if ('error' in ctx) return ctx.error;
 
-  const code = await issueEmailOtp(c.env, ctx.row.id);
-  if (!code) {
+  if (!emailDeliverable(c.env)) {
+    return c.json({ ok: false, error: 'Email is not configured on this site.' }, 503);
+  }
+  if (!(await issueAndSendOtp(c, ctx.row.id, ctx.row.email))) {
     return c.json({ ok: false, error: 'Too many codes requested. Please wait a few minutes.' }, 429);
   }
-
-  await sendEmail(c.env, {
-    to: ctx.row.email,
-    subject: 'Your NWKS admin sign-in code',
-    html:
-      `<p>Your sign-in code is <strong style="font-size:22px;letter-spacing:3px;">${code}</strong></p>` +
-      `<p>It expires in 10 minutes. If you did not try to sign in, someone has your password — change it.</p>`,
-    text: `Your NWKS admin sign-in code is ${code}. It expires in 10 minutes.\n\nIf you did not try to sign in, someone has your password — change it.`,
-    type: 'transactional',
-    templateKey: 'admin_login_code',
-  });
-
-  await audit(c.env, {
-    adminUserId: ctx.row.id, adminEmail: ctx.row.email, action: '2fa.email_code_sent', req: c.req.raw,
-  });
-  return c.json({ ok: true });
+  return c.json({ ok: true, email_hint: maskEmail(ctx.row.email) });
 });
 
 /** Shared handler for the two typed-code factors. */
@@ -397,11 +440,93 @@ async function verifyTypedCode(
     return c.json({ ok: false, error: 'That code is not valid.' }, 401);
   }
 
+  // A user with no passkey is mid-SETUP: verifying the code does not finish the
+  // login, it unlocks the passkey offer. The session is issued by either
+  // /setup/passkey/verify or /setup/skip. Doing it here instead would drop them
+  // on the dashboard and quietly skip the whole point of the flow.
+  if (ctx.row.webauthn_enabled !== 1) {
+    await c.env.SESSIONS.put(`setupok:${ctx.token}`, '1', { expirationTtl: PENDING_TTL_SECONDS });
+    await audit(c.env, {
+      adminUserId: ctx.row.id, adminEmail: ctx.row.email,
+      action: '2fa.email_code_verified', detail: { during: 'setup' }, req: c.req.raw,
+    });
+    return c.json({ ok: true, setup_stage: 'offer_passkey' });
+  }
+
   await clearPending(c.env, ctx.token);
   return completeLogin(c, ctx.row, kind, body.trust_device === true);
 }
 
 authRouter.post('/2fa/email/verify', (c) => verifyTypedCode(c, 'email_otp'));
+
+// ── First-run setup: enrol a passkey before a full session exists ───────────
+//
+// These mirror the ones under /admin/security, but authorise on the PENDING
+// login rather than a session. That is what lets the flow be
+// password -> emailed code -> "want a passkey?" in one unbroken run, instead of
+// making someone sign in, land on a dashboard, and go hunting through settings.
+
+authRouter.post('/setup/passkey/options', async (c) => {
+  const ctx = await requirePending(c);
+  if ('error' in ctx) return ctx.error;
+
+  const options = await startRegistration(c.env, c.req.raw, {
+    id: ctx.row.id, email: ctx.row.email, name: ctx.row.name ?? ctx.row.email,
+  });
+  return c.json({ ok: true, options });
+});
+
+authRouter.post('/setup/passkey/verify', async (c) => {
+  const ctx = await requirePending(c);
+  if ('error' in ctx) return ctx.error;
+
+  const body = await c.req.json<{ response?: unknown; label?: string; trust_device?: boolean }>()
+    .catch(() => ({}));
+
+  const result = await finishRegistration(
+    c.env, c.req.raw, ctx.row.id, body.response, body.label ?? 'Passkey'
+  );
+
+  if (!result.ok) {
+    await audit(c.env, {
+      adminUserId: ctx.row.id, adminEmail: ctx.row.email,
+      action: 'passkey.enroll_failed', detail: { error: result.error, during: 'setup' }, req: c.req.raw,
+    });
+    return c.json({ ok: false, error: result.error }, 400);
+  }
+
+  await audit(c.env, {
+    adminUserId: ctx.row.id, adminEmail: ctx.row.email,
+    action: 'passkey.enrolled', detail: { during: 'setup' }, req: c.req.raw,
+  });
+
+  // Enrolling completes the sign-in: they proved the password, then the emailed
+  // code (or, where email cannot be delivered, the password alone), and have now
+  // registered a stronger factor than either.
+  await clearPending(c.env, ctx.token);
+  return completeLogin(c, ctx.row, 'passkey_enrolled', body.trust_device === true);
+});
+
+/**
+ * "Skip for now" on the passkey offer.
+ *
+ * Only reachable once the pending login has ALREADY cleared its second step, so
+ * this is not a bypass — it is the difference between "signed in with a code"
+ * and "signed in with a code and also set up a passkey".
+ */
+authRouter.post('/setup/skip', async (c) => {
+  const ctx = await requirePending(c);
+  if ('error' in ctx) return ctx.error;
+
+  const verified = await c.env.SESSIONS.get(`setupok:${ctx.token}`);
+  if (!verified) {
+    return c.json({ ok: false, error: 'Finish verifying first.' }, 401);
+  }
+
+  await c.env.SESSIONS.delete(`setupok:${ctx.token}`);
+  await clearPending(c.env, ctx.token);
+  return completeLogin(c, ctx.row, 'email_code_setup_skipped', false);
+});
 
 // ── Session lifecycle ───────────────────────────────────────────────────────
 

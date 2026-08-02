@@ -8,6 +8,8 @@ import type { Env } from '../app';
 import { issueTrustedDevice, sha256Hex } from '../security';
 
 const testEnv = env as unknown as Env;
+/** Env where email is considered deliverable, for the first-run setup flow. */
+const mailEnv = { ...(env as unknown as Env), EMAIL_ENABLED: 'true', RESEND_API_KEY: 'test-key' } as Env;
 const db = () => (env as unknown as { DB: D1Database }).DB;
 
 const EMAIL = 'admin@nwksencounter.com';
@@ -55,23 +57,77 @@ beforeEach(async () => {
   userId = seeded.id;
 });
 
-describe('rollout safety', () => {
-  it('a user who has NOT enrolled still logs in with password alone', async () => {
-    const res = await app.fetch(post('/api/auth/login', { email: EMAIL, password: PASSWORD }), testEnv);
+describe('first-run setup — nobody gets in on a password alone', () => {
+  it('sends a user with no passkey into setup, with NO session', async () => {
+    const res = await app.fetch(post('/api/auth/login', { email: EMAIL, password: PASSWORD }), mailEnv);
     expect(res.status).toBe(200);
-    const body = await res.json<{ ok: boolean; two_factor_required?: boolean }>();
-    expect(body.ok).toBe(true);
-    expect(body.two_factor_required).toBeUndefined();
-    // A session is issued immediately — deploying 2FA cannot lock the team out.
-    expect(cookiesFrom(res)).toContain('nwks_session=');
+    const body = await res.json<{ setup_required: boolean; verify_with: string; email_hint: string }>();
+    expect(body.setup_required).toBe(true);
+    expect(body.verify_with).toBe('email');
+    // The hint identifies the inbox without publishing the address.
+    expect(body.email_hint).toMatch(/^ad\*+@nwksencounter\.com$/);
+    expect(cookiesFrom(res)).not.toContain('nwks_session=');
+    expect(cookiesFrom(res)).toContain('nwks_pending=');
   });
 
-  it('the session cookie is HttpOnly, Secure and SameSite=Strict', async () => {
+  it('issues the emailed code immediately, without a second request', async () => {
+    await app.fetch(post('/api/auth/login', { email: EMAIL, password: PASSWORD }), mailEnv);
+    const row = await db()
+      .prepare(`SELECT COUNT(*) AS n FROM auth_codes WHERE admin_user_id = ? AND kind='email_otp'`)
+      .bind(userId).first<{ n: number }>();
+    expect(row?.n).toBe(1);
+  });
+
+  it('falls back to direct passkey enrolment where email cannot be delivered', async () => {
+    // Otherwise this parks someone on "check your email" forever — which is how
+    // an only-admin locks themselves out of their own site.
     const res = await app.fetch(post('/api/auth/login', { email: EMAIL, password: PASSWORD }), testEnv);
-    const raw = res.headers.getSetCookie().find((c) => c.startsWith('nwks_session='))!;
+    const body = await res.json<{ setup_required: boolean; verify_with: string; reason: string }>();
+    expect(body.setup_required).toBe(true);
+    expect(body.verify_with).toBe('passkey_direct');
+    expect(body.reason).toBe('email_unavailable');
+  });
+
+  it('verifying the code does NOT finish the login — it offers a passkey', async () => {
+    const login = await app.fetch(post('/api/auth/login', { email: EMAIL, password: PASSWORD }), mailEnv);
+    const pending = cookiesFrom(login);
+    await db()
+      .prepare(`UPDATE auth_codes SET code_hash = ? WHERE admin_user_id = ? AND kind='email_otp'`)
+      .bind(await sha256Hex('123456'), userId).run();
+
+    const verify = await app.fetch(
+      post('/api/auth/2fa/email/verify', { code: '123456' }, pending), mailEnv
+    );
+    expect(verify.status).toBe(200);
+    const body = await verify.json<{ setup_stage: string }>();
+    expect(body.setup_stage).toBe('offer_passkey');
+    expect(cookiesFrom(verify)).not.toContain('nwks_session=');
+  });
+
+  it('"not now" finishes the login only AFTER the code was verified', async () => {
+    const login = await app.fetch(post('/api/auth/login', { email: EMAIL, password: PASSWORD }), mailEnv);
+    const pending = cookiesFrom(login);
+
+    // Skipping before verifying would be a straight bypass of the second factor.
+    const early = await app.fetch(post('/api/auth/setup/skip', {}, pending), mailEnv);
+    expect(early.status).toBe(401);
+
+    await db()
+      .prepare(`UPDATE auth_codes SET code_hash = ? WHERE admin_user_id = ? AND kind='email_otp'`)
+      .bind(await sha256Hex('123456'), userId).run();
+    await app.fetch(post('/api/auth/2fa/email/verify', { code: '123456' }, pending), mailEnv);
+
+    const skip = await app.fetch(post('/api/auth/setup/skip', {}, pending), mailEnv);
+    expect(skip.status).toBe(200);
+    const raw = skip.headers.getSetCookie().find((c) => c.startsWith('nwks_session='))!;
     expect(raw).toContain('HttpOnly');
     expect(raw).toContain('Secure');
     expect(raw).toContain('SameSite=Strict');
+  });
+
+  it('setup endpoints refuse without a pending login', async () => {
+    expect((await app.fetch(post('/api/auth/setup/passkey/options'), testEnv)).status).toBe(401);
+    expect((await app.fetch(post('/api/auth/setup/skip'), testEnv)).status).toBe(401);
   });
 });
 
@@ -85,7 +141,7 @@ describe('step 1 — password', () => {
     expect(body.two_factor_required).toBe(true);
     // Recovery codes were dropped at the operator's direction: passkey, emailed
     // code, and Duo (when configured) are the factors.
-    expect(body.methods).toMatchObject({ passkey: true, email: true, duo: false });
+    expect(body.methods).toMatchObject({ passkey: true, duo: false });
     expect('recovery' in body.methods).toBe(false);
     // The password alone must not produce a session.
     expect(cookiesFrom(res)).not.toContain('nwks_session=');
@@ -123,14 +179,14 @@ describe('step 2 — emailed code', () => {
   beforeEach(() => enroll(userId));
 
   async function startLogin(): Promise<string> {
-    const res = await app.fetch(post('/api/auth/login', { email: EMAIL, password: PASSWORD }), testEnv);
+    const res = await app.fetch(post('/api/auth/login', { email: EMAIL, password: PASSWORD }), mailEnv);
     return cookiesFrom(res);
   }
 
   it('sends a code and completes the login', async () => {
     const pending = await startLogin();
 
-    const send = await app.fetch(post('/api/auth/2fa/email/send', {}, pending), testEnv);
+    const send = await app.fetch(post('/api/auth/2fa/email/send', {}, pending), mailEnv);
     expect(send.status).toBe(200);
 
     // Read the code the only way anyone can: it isn't stored in plaintext, so
@@ -148,7 +204,7 @@ describe('step 2 — emailed code', () => {
       .run();
 
     const verify = await app.fetch(
-      post('/api/auth/2fa/email/verify', { code: '123456' }, pending), testEnv
+      post('/api/auth/2fa/email/verify', { code: '123456' }, pending), mailEnv
     );
     expect(verify.status).toBe(200);
     expect(cookiesFrom(verify)).toContain('nwks_session=');
@@ -156,10 +212,10 @@ describe('step 2 — emailed code', () => {
 
   it('refuses a wrong code and issues no session', async () => {
     const pending = await startLogin();
-    await app.fetch(post('/api/auth/2fa/email/send', {}, pending), testEnv);
+    await app.fetch(post('/api/auth/2fa/email/send', {}, pending), mailEnv);
 
     const res = await app.fetch(
-      post('/api/auth/2fa/email/verify', { code: '000000' }, pending), testEnv
+      post('/api/auth/2fa/email/verify', { code: '000000' }, pending), mailEnv
     );
     expect(res.status).toBe(401);
     expect(cookiesFrom(res)).not.toContain('nwks_session=');
@@ -214,9 +270,16 @@ describe('trusted device', () => {
 });
 
 describe('security settings', () => {
+  /** Completes the whole first-run flow and returns a real session cookie. */
   async function session(): Promise<string> {
-    const res = await app.fetch(post('/api/auth/login', { email: EMAIL, password: PASSWORD }), testEnv);
-    return cookiesFrom(res);
+    const login = await app.fetch(post('/api/auth/login', { email: EMAIL, password: PASSWORD }), mailEnv);
+    const pending = cookiesFrom(login);
+    await db()
+      .prepare(`UPDATE auth_codes SET code_hash = ? WHERE admin_user_id = ? AND kind='email_otp'`)
+      .bind(await sha256Hex('123456'), userId).run();
+    await app.fetch(post('/api/auth/2fa/email/verify', { code: '123456' }, pending), mailEnv);
+    const done = await app.fetch(post('/api/auth/setup/skip', {}, pending), mailEnv);
+    return cookiesFrom(done);
   }
 
   it('requires a session', async () => {
@@ -241,9 +304,16 @@ describe('security settings', () => {
 });
 
 describe('admin-assisted 2FA reset — the last rung', () => {
+  /** Completes the whole first-run flow and returns a real session cookie. */
   async function session(): Promise<string> {
-    const res = await app.fetch(post('/api/auth/login', { email: EMAIL, password: PASSWORD }), testEnv);
-    return cookiesFrom(res);
+    const login = await app.fetch(post('/api/auth/login', { email: EMAIL, password: PASSWORD }), mailEnv);
+    const pending = cookiesFrom(login);
+    await db()
+      .prepare(`UPDATE auth_codes SET code_hash = ? WHERE admin_user_id = ? AND kind='email_otp'`)
+      .bind(await sha256Hex('123456'), userId).run();
+    await app.fetch(post('/api/auth/2fa/email/verify', { code: '123456' }, pending), mailEnv);
+    const done = await app.fetch(post('/api/auth/setup/skip', {}, pending), mailEnv);
+    return cookiesFrom(done);
   }
 
   it('clears another admin 2FA and logs BOTH parties', async () => {

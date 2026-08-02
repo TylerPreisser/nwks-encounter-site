@@ -20,10 +20,29 @@ const testEnv = env as unknown as Env;
 async function getAuthCookie(opts: { email?: string; password?: string } = {}): Promise<string> {
   const email = opts.email ?? 'admin@nwksencounter.com';
   const password = opts.password ?? 'TestPass1!';
+  // Every seeded admin is treated as already past first-run setup: since a
+  // password alone no longer yields a session, tests that just need "an
+  // authenticated admin" mark the account enrolled and present a trusted-device
+  // cookie rather than re-driving the whole enrolment flow.
+  const { markEnrolled: __mark } = await import('./setup');
+  const { issueTrustedDevice: __trust } = await import('../security');
+  const __db = (env as unknown as { DB: D1Database }).DB;
+  const __row = await __db.prepare(`SELECT id FROM admin_users WHERE email = ?`)
+    .bind(email).first<{ id: number }>();
+  let __trustCookie = '';
+  if (__row) {
+    await __mark(__row.id);
+    const __t = await __trust(
+      testEnv as never,
+      __row.id,
+      new Request('http://localhost/', { headers: { 'CF-Connecting-IP': '127.0.0.1' } })
+    );
+    __trustCookie = `nwks_trusted=${__t}`;
+  }
   const loginRes = await app.fetch(
     new Request('http://localhost/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(__trustCookie ? { Cookie: __trustCookie } : {}) },
       body: JSON.stringify({ email, password }),
     }),
     testEnv

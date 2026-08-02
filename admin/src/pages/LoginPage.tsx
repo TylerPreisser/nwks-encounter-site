@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '@/api';
 import EncounterLogos from '@/components/EncounterLogos';
 import TwoFactorChallenge, { type TwoFactorMethods } from '@/components/TwoFactorChallenge';
+import TwoFactorSetup, { type VerifyWith } from '@/components/TwoFactorSetup';
 
 /**
  * Login is the one admin screen that renders BEFORE a program has been picked,
@@ -128,16 +129,27 @@ export default function LoginPage() {
   // Set when the password was right but a second factor is still owed. Until
   // this clears there is no session — the password alone gets you nowhere.
   const [methods, setMethods] = useState<TwoFactorMethods | null>(null);
+  // Set when this account has no passkey yet and must go through first-run setup.
+  const [setup, setSetup] = useState<{ verifyWith: VerifyWith; emailHint?: string } | null>(null);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      const res = await apiFetch<{ two_factor_required?: boolean; methods?: TwoFactorMethods }>(
-        '/auth/login',
-        { method: 'POST', body: JSON.stringify({ email, password }) }
-      );
+      const res = await apiFetch<{
+        two_factor_required?: boolean;
+        methods?: TwoFactorMethods;
+        setup_required?: boolean;
+        verify_with?: VerifyWith;
+        email_hint?: string;
+      }>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+
+      // No passkey yet -> first-run setup, not the normal challenge.
+      if (res.setup_required) {
+        setSetup({ verifyWith: res.verify_with ?? 'email', emailHint: res.email_hint });
+        return;
+      }
       if (res.two_factor_required && res.methods) {
         setMethods(res.methods);
         return;
@@ -211,7 +223,13 @@ export default function LoginPage() {
           </div>
         )}
 
-        {methods ? (
+        {setup ? (
+          <TwoFactorSetup
+            verifyWith={setup.verifyWith}
+            emailHint={setup.emailHint}
+            onDone={() => navigate('/', { replace: true })}
+          />
+        ) : methods ? (
           <TwoFactorChallenge
             methods={methods}
             onSuccess={() => navigate('/', { replace: true })}

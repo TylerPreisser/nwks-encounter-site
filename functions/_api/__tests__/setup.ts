@@ -58,3 +58,54 @@ export async function seedAdmin(
     .run();
   return { id: meta.last_row_id as number, email, password };
 }
+
+/**
+ * Marks a seeded admin as already having a passkey.
+ *
+ * Since the first-run setup flow landed, a password alone no longer yields a
+ * session — every login without a passkey is routed into enrolment. Tests that
+ * only need "an authenticated admin" (i.e. nearly all of them) call this so the
+ * account is past setup, rather than re-driving the whole flow.
+ */
+export async function markEnrolled(adminUserId: number): Promise<void> {
+  const db = (env as unknown as { DB: D1Database }).DB;
+  await db
+    .prepare(
+      `UPDATE admin_users SET webauthn_enabled = 1, two_factor_required = 1 WHERE id = ?`
+    )
+    .bind(adminUserId)
+    .run();
+}
+
+/**
+ * Logs in and returns a Cookie header carrying a real session.
+ *
+ * Requires the account to be past setup (see markEnrolled). Bypasses the second
+ * factor with a trusted-device token so tests do not need an authenticator.
+ */
+export async function authCookie(
+  app: { fetch: (r: Request, e: unknown) => Promise<Response> },
+  adminUserId: number,
+  email = DEFAULT_ADMIN.email,
+  password = DEFAULT_ADMIN.password
+): Promise<string> {
+  await markEnrolled(adminUserId);
+  const { issueTrustedDevice } = await import('../security');
+  const testEnv = env as unknown as never;
+  const trusted = await issueTrustedDevice(
+    testEnv,
+    adminUserId,
+    new Request('http://localhost/', { headers: { 'CF-Connecting-IP': '127.0.0.1' } })
+  );
+
+  const res = await app.fetch(
+    new Request('http://localhost/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: `nwks_trusted=${trusted}` },
+      body: JSON.stringify({ email, password }),
+    }),
+    testEnv
+  );
+  const token = (res.headers.get('Set-Cookie') ?? '').match(/nwks_session=([^;]+)/)?.[1] ?? '';
+  return `nwks_session=${token}`;
+}

@@ -82,11 +82,19 @@ describe('GET /api/admin/events includes needs_next_event', () => {
   beforeEach(async () => {
     await applyMigrations(env as any);
     await testEnv.DB.prepare('DELETE FROM events').run();
-    await seedAdmin();
+    const { id: adminId } = await seedAdmin();
+    // Past first-run setup: a password alone no longer yields a session.
+    const { markEnrolled } = await import('./setup');
+    const { issueTrustedDevice } = await import('../security');
+    await markEnrolled(adminId);
+    const _t = await issueTrustedDevice(
+      env as never, adminId,
+      new Request('http://localhost/', { headers: { 'CF-Connecting-IP': '127.0.0.1' } })
+    );
     const loginRes = await app.fetch(
       new Request('http://localhost/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Cookie: `nwks_trusted=${_t}` },
         body: JSON.stringify({ email: 'admin@nwksencounter.com', password: 'TestPass1!' }),
       }),
       testEnv

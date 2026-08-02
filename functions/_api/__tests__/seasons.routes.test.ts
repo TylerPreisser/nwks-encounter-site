@@ -9,10 +9,28 @@ import type { Env } from '../app';
 const testEnv = env as unknown as Env;
 
 async function getAuthCookie(): Promise<string> {
+  let _trusted = '';
+  // Seeded admins are treated as past first-run setup: a password alone no
+  // longer yields a session, and these tests only need "an authenticated admin".
+  {
+    const { markEnrolled } = await import('./setup');
+    const { issueTrustedDevice } = await import('../security');
+    const _db = (env as unknown as { DB: D1Database }).DB;
+    const _rows = await _db.prepare(`SELECT id FROM admin_users`).all<{ id: number }>();
+    for (const _r of _rows.results) await markEnrolled(_r.id);
+    const _first = _rows.results[0];
+    if (_first) {
+      const _t = await issueTrustedDevice(
+        env as never, _first.id,
+        new Request('http://localhost/', { headers: { 'CF-Connecting-IP': '127.0.0.1' } })
+      );
+      _trusted = `nwks_trusted=${_t}`;
+    }
+  }
   const res = await app.fetch(
     new Request('http://localhost/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(_trusted ? { Cookie: _trusted } : {}) },
       body: JSON.stringify({ email: 'admin@nwksencounter.com', password: 'TestPass1!' }),
     }),
     testEnv

@@ -442,6 +442,19 @@ export async function revokeTrustedDevices(env: Env, userId: number): Promise<vo
 // ── Duo (optional) ──────────────────────────────────────────────────────────
 
 /**
+ * Can this deployment actually deliver an email right now?
+ *
+ * Both halves matter: EMAIL_ENABLED gates sending, and Resend needs a key. With
+ * either missing, sendEmail() writes a 'queued' log row and returns ok — which
+ * looks like success but delivers nothing. Any flow that makes someone WAIT for
+ * an email has to check this first, or it dead-ends them.
+ */
+export function emailDeliverable(env: Env): boolean {
+  const e = env as unknown as Record<string, string | undefined>;
+  return e.EMAIL_ENABLED === 'true' && Boolean(e.RESEND_API_KEY);
+}
+
+/**
  * Duo is offered ONLY when all three secrets are present. With them absent the
  * option is neither rendered nor accepted — no half-wired code path that might
  * look like a second factor without being one.

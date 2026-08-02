@@ -9,6 +9,21 @@ import type { Env } from '../app';
 
 const testEnv = env as unknown as Env;
 
+/**
+ * Marks an admin as past first-run setup and returns a trusted-device cookie,
+ * so a plain password login yields a session the way it used to.
+ */
+async function enrolledTrustedCookie(adminId: number): Promise<string> {
+  const { markEnrolled } = await import('./setup');
+  const { issueTrustedDevice } = await import('../security');
+  await markEnrolled(adminId);
+  const t = await issueTrustedDevice(
+    env as never, adminId,
+    new Request('http://localhost/', { headers: { 'CF-Connecting-IP': '127.0.0.1' } })
+  );
+  return `nwks_trusted=${t}`;
+}
+
 function makeRequest(
   path: string,
   method: string,
@@ -66,10 +81,23 @@ describe('POST /api/auth/login', () => {
     expect(json.error).toBe('Invalid email or password.');
   });
 
-  it('sets nwks_session cookie and returns user on good credentials', async () => {
+  it('sends a brand-new admin into first-run setup instead of straight in', async () => {
+    // The deliberate change: no account gets a session from a password alone.
     await seedAdmin();
     const res = await app.fetch(
       makeRequest('/api/auth/login', 'POST', { email: 'admin@nwksencounter.com', password: 'TestPass1!' }),
+      testEnv,
+    );
+    const body = await res.json() as { setup_required?: boolean };
+    expect(body.setup_required).toBe(true);
+    expect(res.headers.get('Set-Cookie') ?? '').not.toContain('nwks_session=');
+  });
+
+  it('sets nwks_session cookie and returns user on good credentials', async () => {
+    const { id: adminId } = await seedAdmin();
+    const trusted = await enrolledTrustedCookie(adminId);
+    const res = await app.fetch(
+      makeRequest('/api/auth/login', 'POST', { email: 'admin@nwksencounter.com', password: 'TestPass1!' }, trusted),
       testEnv,
     );
     expect(res.status).toBe(200);
@@ -85,9 +113,10 @@ describe('POST /api/auth/login', () => {
   });
 
   it('updates last_login_at on successful login (verified via subsequent /me)', async () => {
-    await seedAdmin();
+    const { id: aId } = await seedAdmin();
+    const trusted = await enrolledTrustedCookie(aId);
     const loginRes = await app.fetch(
-      makeRequest('/api/auth/login', 'POST', { email: 'admin@nwksencounter.com', password: 'TestPass1!' }),
+      makeRequest('/api/auth/login', 'POST', { email: 'admin@nwksencounter.com', password: 'TestPass1!' }, trusted),
       testEnv,
     );
     expect(loginRes.status).toBe(200);
@@ -128,9 +157,10 @@ describe('POST /api/auth/logout', () => {
   });
 
   it('invalidates the session so a subsequent /me with the old token returns 401', async () => {
-    await seedAdmin();
+    const { id: aId } = await seedAdmin();
+    const trusted = await enrolledTrustedCookie(aId);
     const loginRes = await app.fetch(
-      makeRequest('/api/auth/login', 'POST', { email: 'admin@nwksencounter.com', password: 'TestPass1!' }),
+      makeRequest('/api/auth/login', 'POST', { email: 'admin@nwksencounter.com', password: 'TestPass1!' }, trusted),
       testEnv,
     );
     const setCookie = loginRes.headers.get('Set-Cookie') ?? '';
@@ -177,9 +207,10 @@ describe('GET /api/auth/me', () => {
   });
 
   it('returns user when session cookie is valid', async () => {
-    await seedAdmin();
+    const { id: aId } = await seedAdmin();
+    const trusted = await enrolledTrustedCookie(aId);
     const loginRes = await app.fetch(
-      makeRequest('/api/auth/login', 'POST', { email: 'admin@nwksencounter.com', password: 'TestPass1!' }),
+      makeRequest('/api/auth/login', 'POST', { email: 'admin@nwksencounter.com', password: 'TestPass1!' }, trusted),
       testEnv,
     );
     const setCookie = loginRes.headers.get('Set-Cookie') ?? '';
