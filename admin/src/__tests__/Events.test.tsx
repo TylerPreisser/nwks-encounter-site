@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { ProgramContext } from '../App';
@@ -12,10 +12,7 @@ import Events from '../pages/Events';
 
 type FetchResponse = { status: number; body: unknown };
 
-/**
- * Spy on global.fetch and map stripped-path keys to response stubs.
- * Key = pathname without query string; "*" is a fallback catch-all.
- */
+/** Maps stripped-path keys (no query string) to stubs; "*" is the catch-all. */
 function mockFetchMap(responses: Record<string, FetchResponse>) {
   return vi.spyOn(global, 'fetch').mockImplementation(async (input) => {
     const url = typeof input === 'string' ? input : (input as Request).url;
@@ -81,6 +78,22 @@ const SAMPLE_EVENT = {
   is_current: 1,
 };
 
+/** A finished encounter, for the history disclosure and the picker. */
+const PAST_EVENT = {
+  id: 9,
+  program: 'mens',
+  year: 2025,
+  season: 'spring',
+  display_name: 'Spring 2025',
+  title: "Men's Encounter 2025",
+  start_date: '2025-03-07',
+  end_date: '2025-03-09',
+  launch_locations: '["Norton"]',
+  attendee_registration_open: 0,
+  server_registration_open: 0,
+  is_current: 0,
+};
+
 function wrapper(program: 'mens' | 'women' = 'mens') {
   return ({ children }: { children: React.ReactNode }) => (
     <MemoryRouter>
@@ -91,6 +104,8 @@ function wrapper(program: 'mens' | 'women' = 'mens') {
   );
 }
 
+/** The panel's encounter name — an <h2>, distinct from the picker's option. */
+const panelName = (name: string) => screen.getByRole('heading', { name });
 
 /**
  * Finds the fetch call whose URL matches, rather than assuming a fixed index.
@@ -128,9 +143,19 @@ describe('Events page', () => {
     render(<Events />, { wrapper: wrapper() });
     expect(screen.getByText(/loading/i)).toBeInTheDocument();
     await waitFor(() => expect(screen.getByText(/no events yet/i)).toBeInTheDocument());
+    expect(screen.queryByTestId('encounter-panel')).not.toBeInTheDocument();
   });
 
-  it('renders event rows from the API', async () => {
+  it('titles the page "Upcoming Encounter", matching the nav', async () => {
+    mockFetchMap({
+      '/api/admin/events': { status: 200, body: { ok: true, events: [SAMPLE_EVENT] } },
+    });
+    render(<Events />, { wrapper: wrapper() });
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/upcoming encounter/i);
+    await waitFor(() => expect(screen.getByTestId('encounter-panel')).toBeInTheDocument());
+  });
+
+  it('renders the selected encounter in the control panel, not a table', async () => {
     mockFetchMap({
       '/api/admin/events': {
         status: 200,
@@ -138,10 +163,14 @@ describe('Events page', () => {
       },
     });
     render(<Events />, { wrapper: wrapper() });
-    await waitFor(() => expect(screen.getByText('Fall 2026')).toBeInTheDocument());
-    expect(screen.getByText("Men's Encounter 2026")).toBeInTheDocument();
-    expect(screen.getByText(/Colby/)).toBeInTheDocument();
-    expect(screen.getByText(/✓ Current/)).toBeInTheDocument();
+    await waitFor(() => expect(panelName('Fall 2026')).toBeInTheDocument());
+
+    const panel = screen.getByTestId('encounter-panel');
+    expect(within(panel).getByText("Men's Encounter 2026")).toBeInTheDocument();
+    expect(within(panel).getByText(/2026-08-06/)).toBeInTheDocument();
+    expect(within(panel).getByText(/Colby/)).toBeInTheDocument();
+    expect(within(panel).getByTestId('current-badge')).toHaveTextContent('✓ Current');
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 
   it('opens the create form when + New Event is clicked', async () => {
@@ -186,8 +215,8 @@ describe('Events page', () => {
     const posted = JSON.parse(postInit.body as string);
     expect(posted.year).toBe(2027);
 
-    // The refreshed list should now contain the new encounter, named by season
-    await waitFor(() => expect(screen.getByText('Spring 2027')).toBeInTheDocument());
+    // The refreshed list should now be showing in the panel, named by season
+    await waitFor(() => expect(panelName('Spring 2027')).toBeInTheDocument());
   });
 
   it('shows a form-level error when API returns an error on create', async () => {
@@ -207,12 +236,12 @@ describe('Events page', () => {
     );
   });
 
-  it('opens the edit form pre-filled when Edit is clicked', async () => {
+  it('opens the edit form pre-filled when the panel Edit is clicked', async () => {
     mockFetchMap({
       '/api/admin/events': { status: 200, body: { ok: true, events: [SAMPLE_EVENT] } },
     });
     render(<Events />, { wrapper: wrapper() });
-    await waitFor(() => screen.getByText('Fall 2026'));
+    await waitFor(() => panelName('Fall 2026'));
     fireEvent.click(screen.getByRole('button', { name: /edit Fall 2026/i }));
 
     expect(screen.getByRole('form', { name: /edit event/i })).toBeInTheDocument();
@@ -230,7 +259,7 @@ describe('Events page', () => {
     });
 
     render(<Events />, { wrapper: wrapper() });
-    await waitFor(() => screen.getByText('Fall 2026'));
+    await waitFor(() => panelName('Fall 2026'));
     fireEvent.click(screen.getByRole('button', { name: /edit Fall 2026/i }));
 
     const titleInput = screen.getByLabelText(/title/i);
@@ -265,10 +294,10 @@ describe('Events page', () => {
     expect(setCurrentUrl).toMatch(/\/api\/admin\/events\/1\/set-current/);
     expect(setCurrentInit.method).toBe('POST');
 
-    await waitFor(() => expect(screen.getByText(/✓ Current/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('current-badge')).toHaveTextContent('✓ Current'));
   });
 
-  it('launch locations are displayed and can be added via comma input', async () => {
+  it('launch locations are displayed', async () => {
     mockFetchMap({
       '/api/admin/events': { status: 200, body: { ok: true, events: [SAMPLE_EVENT] } },
     });
@@ -300,6 +329,115 @@ describe('Events page', () => {
       </MemoryRouter>,
     );
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4)); // both programs
+  });
+
+  // ── Encounter picker ──────────────────────────────────────────────────────
+
+  it('the picker lists every encounter and switching one changes the panel', async () => {
+    mockFetchMap({
+      '/api/admin/events': {
+        status: 200,
+        body: { ok: true, events: [SAMPLE_EVENT, PAST_EVENT] },
+      },
+    });
+    render(<Events />, { wrapper: wrapper() });
+    await waitFor(() => expect(panelName('Fall 2026')).toBeInTheDocument());
+
+    const picker = screen.getByLabelText('Encounter');
+    // Current leads, and is marked so the operator knows which one is live.
+    expect(within(picker).getByRole('option', { name: /Fall 2026 \(current\)/ })).toBeInTheDocument();
+    expect(within(picker).getByRole('option', { name: 'Spring 2025' })).toBeInTheDocument();
+
+    fireEvent.change(picker, { target: { value: String(PAST_EVENT.id) } });
+
+    expect(panelName('Spring 2025')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Fall 2026' })).not.toBeInTheDocument();
+    // Editing acts on what's shown, not on whatever is current.
+    expect(screen.getByRole('button', { name: /edit Spring 2025/i })).toBeInTheDocument();
+  });
+
+  // ── Past encounters disclosure ────────────────────────────────────────────
+
+  it('hides past encounters behind a button and lists only the non-current ones', async () => {
+    mockFetchMap({
+      '/api/admin/events': {
+        status: 200,
+        body: { ok: true, events: [SAMPLE_EVENT, PAST_EVENT] },
+      },
+    });
+    render(<Events />, { wrapper: wrapper() });
+    await waitFor(() => expect(panelName('Fall 2026')).toBeInTheDocument());
+
+    expect(screen.queryByTestId('past-encounters-list')).not.toBeInTheDocument();
+
+    const toggle = screen.getByTestId('toggle-past-encounters');
+    expect(toggle).toHaveTextContent(/show past encounters \(1\)/i);
+    fireEvent.click(toggle);
+
+    const list = screen.getByTestId('past-encounters-list');
+    expect(within(list).getByRole('button', { name: /view Spring 2025/i })).toBeInTheDocument();
+    expect(within(list).queryByText('Fall 2026')).not.toBeInTheDocument();
+  });
+
+  it('picking a past encounter from the list loads it into the panel', async () => {
+    mockFetchMap({
+      '/api/admin/events': {
+        status: 200,
+        body: { ok: true, events: [SAMPLE_EVENT, PAST_EVENT] },
+      },
+    });
+    render(<Events />, { wrapper: wrapper() });
+    await waitFor(() => expect(panelName('Fall 2026')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('toggle-past-encounters'));
+    fireEvent.click(screen.getByRole('button', { name: /view Spring 2025/i }));
+
+    expect(panelName('Spring 2025')).toBeInTheDocument();
+    // …and it can be promoted from right there.
+    expect(screen.getByRole('button', { name: /make Spring 2025 current/i })).toBeInTheDocument();
+  });
+
+  it('shows no past-encounters disclosure when the current one is the only encounter', async () => {
+    mockFetchMap({
+      '/api/admin/events': { status: 200, body: { ok: true, events: [SAMPLE_EVENT] } },
+    });
+    render(<Events />, { wrapper: wrapper() });
+    await waitFor(() => expect(panelName('Fall 2026')).toBeInTheDocument());
+    expect(screen.queryByTestId('toggle-past-encounters')).not.toBeInTheDocument();
+  });
+
+  // ── Enrollment + rollover stay reachable ──────────────────────────────────
+
+  it('shows live enrollment controls for the current encounter only', async () => {
+    mockFetchMap({
+      '/api/admin/events': {
+        status: 200,
+        body: { ok: true, events: [SAMPLE_EVENT, PAST_EVENT] },
+      },
+      '/api/admin/events/rollover/preview': { status: 200, body: NO_PREVIEW },
+    });
+    render(<Events />, { wrapper: wrapper() });
+    await waitFor(() => expect(panelName('Fall 2026')).toBeInTheDocument());
+
+    expect(screen.getByTestId('toggle-attendee-enrollment')).toBeInTheDocument();
+    expect(screen.getByTestId('toggle-server-enrollment')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Encounter'), { target: { value: String(PAST_EVENT.id) } });
+
+    // A finished encounter takes no sign-ups — state, not levers.
+    expect(screen.queryByTestId('toggle-attendee-enrollment')).not.toBeInTheDocument();
+    expect(screen.getByTestId('panel-enrollment-readonly')).toHaveTextContent(/attendees closed/i);
+  });
+
+  it('Start Next Encounter still opens the rollover dialog', async () => {
+    routeEvents({ events: [SAMPLE_EVENT] });
+    render(<Events />, { wrapper: wrapper() });
+    await waitFor(() => expect(panelName('Fall 2026')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /start next encounter/i }));
+    await waitFor(() =>
+      expect(screen.getByRole('form', { name: /start next encounter/i })).toBeInTheDocument(),
+    );
   });
 
   // ── needs_next_event banner ───────────────────────────────────────────────
@@ -341,7 +479,7 @@ describe('Events page', () => {
       },
     });
     render(<Events />, { wrapper: wrapper('mens') });
-    await waitFor(() => screen.getByText('Fall 2026'));
+    await waitFor(() => panelName('Fall 2026'));
     expect(screen.queryByRole('alert', { name: /needs-next-event/i })).not.toBeInTheDocument();
   });
 
@@ -353,7 +491,7 @@ describe('Events page', () => {
       },
     });
     render(<Events />, { wrapper: wrapper('mens') });
-    await waitFor(() => screen.getByText('Fall 2026'));
+    await waitFor(() => panelName('Fall 2026'));
     expect(screen.queryByRole('alert', { name: /needs-next-event/i })).not.toBeInTheDocument();
   });
 });

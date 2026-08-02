@@ -257,15 +257,21 @@ describe('DashboardPage', () => {
   });
 
   it('shows loading state again while switching programs', async () => {
-    mockApiFetch
-      .mockResolvedValueOnce({ ok: true, stats: MENS_STATS })  // dashboard (mens)
-      .mockResolvedValueOnce(MENS_EVENTS_RESPONSE)              // events tile (mens)
-      .mockReturnValueOnce(new Promise(() => {}))               // dashboard (women, never resolves)
-      .mockReturnValueOnce(new Promise(() => {}));              // events tile (women, never resolves)
+    // Path-based rather than call-ordered: the page fetches dashboard stats,
+    // the encounter tile's events, and the testimony count, and their effects
+    // don't fire in a guaranteed order.
+    let program: 'mens' | 'women' = 'mens';
+    mockApiFetch.mockImplementation((path: string) => {
+      if (program === 'women') return new Promise(() => {}); // stays in flight
+      if (path === '/admin/dashboard') return Promise.resolve({ ok: true, stats: MENS_STATS });
+      if (path === '/admin/events') return Promise.resolve(MENS_EVENTS_RESPONSE);
+      return Promise.resolve({ ok: true, program_new: 0, unassigned_new: 0 });
+    });
 
     const { rerender } = renderDashboard('mens');
     await waitFor(() => expect(screen.getByText('42')).toBeInTheDocument());
 
+    program = 'women';
     await act(async () => {
       rerender(
         <ProgramContext.Provider value={{ program: 'women', setProgram: vi.fn() }}>

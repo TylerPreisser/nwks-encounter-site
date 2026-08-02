@@ -24,12 +24,16 @@
   Cross-Origin-Opener-Policy: same-origin
 
 /admin/*
+  # img-src includes the backend origin: the Email Center previews real emails,
+  # whose logos are absolute URLs (they must be — an email client has no origin
+  # to resolve a relative path against). Same-origin in production; this keeps
+  # the preview working in local dev too, rather than silently blank images.
   # Strict CSP for the admin. Vite emits external JS/CSS (no inline script), so
   # 'self' is sufficient and there is no need to weaken it with unsafe-inline.
   # style-src allows inline because the app sets CSS custom properties via the
   # style attribute for per-program theming; that is not a script vector.
   # frame-ancestors 'none' is the CSP equivalent of X-Frame-Options: DENY and is
   # the directive modern browsers actually honour.
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://nwks-encounter-backend.pages.dev; font-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'
   # Admin pages must never be cached by a shared proxy — they contain roster data.
   Cache-Control: no-store

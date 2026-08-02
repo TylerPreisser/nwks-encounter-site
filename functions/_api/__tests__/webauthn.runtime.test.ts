@@ -9,7 +9,11 @@
 import { describe, it, expect } from 'vitest';
 
 describe('@simplewebauthn/server in the Workers runtime', () => {
-  it('imports without pulling in a Node built-in', async () => {
+  // 20s, not the 5s default: this is the FIRST dynamic import of a large
+  // dependency tree (@simplewebauthn + @peculiar/asn1-*) in a cold Workers
+  // isolate, and under full-suite contention the bundle work alone can exceed
+  // 5s. It runs in ~0.5s in isolation — the budget is for scheduling, not speed.
+  it('imports without pulling in a Node built-in', { timeout: 20_000 }, async () => {
     const mod = await import('@simplewebauthn/server');
     expect(typeof mod.generateRegistrationOptions).toBe('function');
     expect(typeof mod.verifyRegistrationResponse).toBe('function');

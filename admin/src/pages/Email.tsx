@@ -1,4 +1,5 @@
 import { TemplateEditor } from '../components/email/TemplateEditor';
+import EmailHealthBanner from '@/components/EmailHealthBanner';
 
 // Email Center — templates only.
 // Everything the office needs lives here: the general "Men's Encounter" template
@@ -7,6 +8,7 @@ import { TemplateEditor } from '../components/email/TemplateEditor';
 export function EmailPage() {
   return (
     <div className="max-w-6xl mx-auto p-6">
+      <EmailHealthBanner />
       <div className="mb-6">
         <h2 className="text-2xl font-bold" style={{ color: 'var(--color-primary)' }}>
           Email Center

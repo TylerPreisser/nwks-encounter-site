@@ -12,13 +12,14 @@ interface Status {
   duo_available: boolean;
   passkeys: Passkey[];
   trusted_devices: TrustedDevice[];
-  recovery_codes_remaining: number;
 }
 
 /**
- * Security settings: enroll a passkey, hold recovery codes, see and revoke
- * trusted devices, and (as the last rung of the recovery ladder) clear another
- * admin's 2FA when they're locked out.
+ * Security settings: enroll a passkey, see and revoke trusted devices, and
+ * clear another admin's 2FA when they are locked out.
+ *
+ * Recovery codes were removed at the operator's direction — the factors are
+ * passkey, emailed code and Duo. Admin-assisted reset is the backstop.
  */
 export default function SecurityPage() {
   const [status, setStatus] = useState<Status | null>(null);
@@ -26,8 +27,6 @@ export default function SecurityPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  /** Shown exactly once — the server stores only hashes and cannot re-show them. */
-  const [newCodes, setNewCodes] = useState<string[] | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -52,11 +51,9 @@ export default function SecurityPage() {
       );
       const response = await startRegistration({ optionsJSON: options });
       const label = navigator.platform || 'This device';
-      const res = await apiFetch<{ recovery_codes: string[] | null }>(
-        '/admin/security/passkey/verify',
-        { method: 'POST', body: JSON.stringify({ response, label }) }
-      );
-      if (res.recovery_codes) setNewCodes(res.recovery_codes);
+      await apiFetch('/admin/security/passkey/verify', {
+        method: 'POST', body: JSON.stringify({ response, label }),
+      });
       setNotice('Passkey added. Two-factor sign-in is now on for your account.');
       await load();
     } catch (err) {
@@ -74,19 +71,6 @@ export default function SecurityPage() {
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not remove that passkey');
-    } finally { setBusy(false); }
-  }
-
-  async function regenerateCodes() {
-    setError(null); setBusy(true);
-    try {
-      const res = await apiFetch<{ recovery_codes: string[] }>(
-        '/admin/security/recovery-codes', { method: 'POST', body: JSON.stringify({}) }
-      );
-      setNewCodes(res.recovery_codes);
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not generate codes');
     } finally { setBusy(false); }
   }
 
@@ -111,17 +95,6 @@ export default function SecurityPage() {
     } finally { setBusy(false); }
   }
 
-  function downloadCodes(codes: string[]) {
-    const blob = new Blob(
-      [`NWKS Encounter admin recovery codes\n\nEach code works once. Keep these somewhere safe and offline.\n\n${codes.join('\n')}\n`],
-      { type: 'text/plain' }
-    );
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'nwks-recovery-codes.txt'; a.click();
-    URL.revokeObjectURL(url);
-  }
-
   if (error && !status) return <p className="text-red-600 text-sm">{error}</p>;
   if (!status) return <p className="text-gray-400 text-sm animate-pulse">Loading…</p>;
 
@@ -131,30 +104,6 @@ export default function SecurityPage() {
 
       {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-sm">{error}</div>}
       {notice && <div role="status" className="rounded-lg border border-green-300 bg-green-50 text-green-800 px-4 py-3 text-sm">{notice}</div>}
-
-      {/* One-time recovery code display */}
-      {newCodes && (
-        <section className="rounded-xl border-2 p-4 space-y-3" style={{ borderColor: 'var(--color-primary)' }}>
-          <h2 className="font-semibold">Save these recovery codes now</h2>
-          <p className="text-sm text-gray-600">
-            Each works once, and they never expire. They&rsquo;re how you get in if you lose your
-            phone <em>and</em> can&rsquo;t reach your email. <strong>This is the only time
-            they&rsquo;ll be shown</strong> — we store only a one-way hash, so we genuinely
-            cannot show them again.
-          </p>
-          <ul className="grid grid-cols-2 gap-1 font-mono text-sm" data-testid="recovery-codes">
-            {newCodes.map((c) => <li key={c}>{c}</li>)}
-          </ul>
-          <div className="flex gap-2">
-            <button onClick={() => downloadCodes(newCodes)} className="px-3 py-1.5 rounded-lg text-sm font-semibold text-white" style={{ background: 'var(--color-primary)' }}>
-              Download
-            </button>
-            <button onClick={() => setNewCodes(null)} className="px-3 py-1.5 rounded-lg text-sm border">
-              I&rsquo;ve saved them
-            </button>
-          </div>
-        </section>
-      )}
 
       {/* Two-factor status */}
       <section className="rounded-xl border border-gray-100 shadow-sm p-4 space-y-3" style={{ background: 'var(--color-surface)' }}>
@@ -204,18 +153,6 @@ export default function SecurityPage() {
         )}
       </section>
 
-      {/* Recovery codes */}
-      <section className="rounded-xl border border-gray-100 shadow-sm p-4 space-y-2" style={{ background: 'var(--color-surface)' }}>
-        <h2 className="font-semibold">Recovery codes</h2>
-        <p className="text-sm text-gray-600">
-          <strong data-testid="codes-remaining">{status.recovery_codes_remaining}</strong> unused.
-          These work with no phone and no email.
-        </p>
-        <button onClick={() => void regenerateCodes()} disabled={busy} className="px-3 py-1.5 rounded-lg text-sm border" style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}>
-          Generate new codes
-        </button>
-      </section>
-
       {/* Trusted devices */}
       <section className="rounded-xl border border-gray-100 shadow-sm p-4 space-y-2" style={{ background: 'var(--color-surface)' }}>
         <h2 className="font-semibold">Trusted devices</h2>
@@ -242,7 +179,7 @@ export default function SecurityPage() {
       <section className="rounded-xl border border-gray-100 shadow-sm p-4 space-y-2" style={{ background: 'var(--color-surface)' }}>
         <h2 className="font-semibold">Team</h2>
         <p className="text-sm text-gray-600">
-          If someone loses their phone and their recovery codes, clear their two-factor here.
+          If someone can't reach their passkey, their email, or Duo, clear their two-factor here.
           Every reset is written to the audit log.
         </p>
         <ul className="text-sm space-y-1">

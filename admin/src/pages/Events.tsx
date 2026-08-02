@@ -4,6 +4,8 @@ import { useProgram } from '@/App';
 import EnrollmentControl from '@/components/EnrollmentControl';
 import RolloverDialog from '@/components/RolloverDialog';
 import EventForm from '@/components/EventForm';
+import EncounterPanel from '@/components/EncounterPanel';
+import PastEncounters from '@/components/PastEncounters';
 import {
   type NwksEvent, type EventFormState, type RolloverPreview,
   encounterName, emptyEventForm as emptyForm, parseLaunchLocations,
@@ -20,6 +22,15 @@ export default function Events() {
   const [needsNextEvent, setNeedsNextEvent] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Which encounter the panel is showing. Page-local on purpose: picking one
+   * here changes THIS page only.
+   * TODO(cross-page): to make the choice follow the operator into the roster,
+   * the board and the dashboard, lift this into a shared encounter context
+   * (alongside ProgramContext in App.tsx) and have those pages read from it.
+   */
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
   // Form
   const [form, setForm] = useState<EventFormState>(emptyForm());
@@ -76,6 +87,22 @@ export default function Events() {
   }, [program]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { void loadCurrentCounts(); }, [loadCurrentCounts]);
+
+  const currentEvent = events.find((e) => e.is_current) ?? null;
+  const selectedEvent = events.find((e) => e.id === selectedId) ?? null;
+
+  // Keep the selection pointing at a real row. Covers the first load and a
+  // program switch, where the previous selection belongs to the other program's
+  // events and would otherwise leave the panel blank.
+  useEffect(() => {
+    if (events.length === 0) {
+      if (selectedId !== null) setSelectedId(null);
+      return;
+    }
+    if (!events.some((e) => e.id === selectedId)) {
+      setSelectedId((currentEvent ?? events[0]).id);
+    }
+  }, [events, selectedId, currentEvent]);
 
   // ---------------------------------------------------------------------------
   // Form actions
@@ -244,8 +271,18 @@ export default function Events() {
   }
 
   const programLabel = program === 'mens' ? "Men's" : "Women's";
-  const currentEvent = events.find((e) => e.is_current) ?? null;
   const currentEnded = !currentEvent?.end_date || currentEvent.end_date < new Date().toISOString().slice(0, 10);
+
+  // Newest first — history reads backwards from now. Fall outranks Spring
+  // within a year because NWKS runs Spring then Fall.
+  const seasonRank = (e: NwksEvent) => (e.season === 'fall' ? 1 : 0);
+  const pastEvents = events
+    .filter((e) => !e.is_current)
+    .slice()
+    .sort((a, b) => (b.year - a.year) || (seasonRank(b) - seasonRank(a)));
+
+  // The picker leads with the encounter that's live, then history.
+  const pickerEvents = currentEvent ? [currentEvent, ...pastEvents] : pastEvents;
 
   // ---------------------------------------------------------------------------
   // Render
@@ -255,18 +292,31 @@ export default function Events() {
 
   return (
     <div className="space-y-6">
-      {/* Header — the Men's + Women's lockup sits with the title because this
-          page manages the encounters for BOTH programs, not just the themed one.
-          flex-wrap so the action buttons drop to their own line instead of
-          squeezing the lockup once the content column gets narrow. */}
+      {/* Header — the title matches the nav ("Upcoming Encounter"), and the
+          picker sits with it because switching encounters is navigation, not an
+          action. flex-wrap so the buttons drop to their own line instead of
+          squeezing the picker once the content column gets narrow. */}
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-        {/* flex-wrap here too: the shell's fixed 14rem sidebar leaves a very
-            narrow content column on a phone, so the title drops under the
-            lockup rather than being clipped off the right edge. */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0">
           <h1 className="text-2xl font-bold" style={{ color: 'var(--color-primary)' }}>
-            Events
+            Upcoming Encounter
           </h1>
+          {pickerEvents.length > 0 && (
+            <select
+              aria-label="Encounter"
+              data-testid="encounter-picker"
+              value={selectedId == null ? '' : String(selectedId)}
+              onChange={(e) => setSelectedId(Number(e.target.value))}
+              className="rounded-lg border px-3 py-1.5 text-sm font-medium bg-white"
+              style={{ borderColor: 'var(--color-accent)', color: 'var(--color-primary)' }}
+            >
+              {pickerEvents.map((ev) => (
+                <option key={ev.id} value={ev.id}>
+                  {encounterName(ev)}{ev.is_current ? ' (current)' : ''}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           {currentEvent && (
@@ -354,85 +404,44 @@ export default function Events() {
         />
       )}
 
-      {/* Enrollment for the encounter that's actually taking sign-ups */}
-      {currentEvent && !formOpen && !rolloverOpen && (
-        <section className="space-y-2">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
-            {encounterName(currentEvent)} — enrollment
-          </h2>
-          <EnrollmentControl
-            eventId={currentEvent.id}
-            attendeeOpen={currentEvent.attendee_registration_open === 1}
-            serverOpen={currentEvent.server_registration_open === 1}
-            registeredCount={currentCounts.registered}
-            attendeeLimit={currentEvent.attendee_limit}
-            interestCount={currentCounts.interest}
-            onChanged={async () => { await loadEvents(); await loadCurrentCounts(); }}
-          />
-        </section>
-      )}
-
-      {/* Events list */}
+      {/* The control panel — one encounter, everything that acts on it */}
       {loading ? (
         <p className="text-gray-400 text-sm animate-pulse">Loading…</p>
       ) : events.length === 0 ? (
         <p className="text-gray-500">No events yet. Create one above.</p>
-      ) : (
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="bg-gray-100 text-left">
-              <th className="p-2 border">Encounter</th>
-              <th className="p-2 border">Title</th>
-              <th className="p-2 border">Dates</th>
-              <th className="p-2 border">Launch Locations</th>
-              <th className="p-2 border">Reg Open</th>
-              <th className="p-2 border">Current</th>
-              <th className="p-2 border">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {events.map((ev) => (
-              <tr key={ev.id} className={ev.is_current ? 'bg-green-50' : ''}>
-                <td className="p-2 border font-medium">{encounterName(ev)}</td>
-                <td className="p-2 border">{ev.title ?? '—'}</td>
-                <td className="p-2 border">
-                  {ev.start_date ?? '?'} – {ev.end_date ?? '?'}
-                </td>
-                <td className="p-2 border">
-                  {parseLaunchLocations(ev.launch_locations).join(', ') || '—'}
-                </td>
-                <td className="p-2 border">
-                  {ev.attendee_registration_open ? 'Att ' : ''}
-                  {ev.server_registration_open ? 'Srv' : ''}
-                  {!ev.attendee_registration_open && !ev.server_registration_open ? 'Closed' : ''}
-                </td>
-                <td className="p-2 border text-center">
-                  {ev.is_current ? (
-                    <span className="text-green-700 font-bold">✓ Current</span>
-                  ) : (
-                    <button
-                      onClick={() => handleSetCurrent(ev.id)}
-                      className="text-xs px-2 py-1 border rounded hover:bg-gray-100"
-                      aria-label={`Make ${encounterName(ev)} current`}
-                    >
-                      Make Current
-                    </button>
-                  )}
-                </td>
-                <td className="p-2 border">
-                  <button
-                    onClick={() => openEdit(ev)}
-                    className="text-xs px-2 py-1 border rounded hover:bg-gray-100"
-                    aria-label={`Edit ${encounterName(ev)} event`}
-                  >
-                    Edit
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      ) : selectedEvent ? (
+        <>
+          <EncounterPanel
+            event={selectedEvent}
+            // Only the current encounter's counts are fetched, so any other
+            // encounter shows no number rather than a borrowed one.
+            registeredCount={selectedEvent.is_current ? currentCounts.registered : null}
+            onEdit={openEdit}
+            onMakeCurrent={handleSetCurrent}
+            enrollment={
+              // Live toggles belong to the encounter taking sign-ups, and are
+              // stood down while a form or the rollover owns the page.
+              selectedEvent.is_current && !formOpen && !rolloverOpen ? (
+                <EnrollmentControl
+                  eventId={selectedEvent.id}
+                  attendeeOpen={selectedEvent.attendee_registration_open === 1}
+                  serverOpen={selectedEvent.server_registration_open === 1}
+                  registeredCount={currentCounts.registered}
+                  attendeeLimit={selectedEvent.attendee_limit}
+                  interestCount={currentCounts.interest}
+                  onChanged={async () => { await loadEvents(); await loadCurrentCounts(); }}
+                />
+              ) : undefined
+            }
+          />
+
+          <PastEncounters
+            events={pastEvents}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+          />
+        </>
+      ) : null}
     </div>
   );
 }

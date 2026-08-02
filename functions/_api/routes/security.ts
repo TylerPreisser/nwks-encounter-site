@@ -16,7 +16,7 @@ import type { Env } from '../app';
 import { requireAuth } from '../auth';
 import type { AppVariables } from '../auth';
 import { nowIso } from '../db';
-import { audit, revokeTrustedDevices, duoConfigured } from '../security';
+import { audit, revokeTrustedDevices, duoConfigured, emailDeliverable } from '../security';
 import {
   startRegistration, finishRegistration, listCredentials, deleteCredential,
 } from '../webauthn';
@@ -165,6 +165,49 @@ securityRouter.post('/reset-2fa/:userId', async (c) => {
   });
 
   return c.json({ ok: true, reset_for: target.email });
+});
+
+// ── Email health ────────────────────────────────────────────────────────────
+
+/**
+ * Is outbound email actually working?
+ *
+ * The public forms promise people "we'll email you". If delivery is broken, the
+ * office must SEE that rather than assume confirmations went out — silence is
+ * the failure mode that costs a registration. Reports configuration state plus
+ * what the log actually shows, because a key can be present and still rejected.
+ */
+securityRouter.get('/email-health', async (c) => {
+  const configured = emailDeliverable(c.env);
+
+  const recent = await c.env.DB.prepare(
+    `SELECT status, COUNT(*) AS n FROM email_log
+     WHERE created_at > ? GROUP BY status`
+  ).bind(new Date(Date.now() - 7 * 86_400_000).toISOString()).all<{ status: string; n: number }>();
+
+  const counts: Record<string, number> = {};
+  for (const r of recent.results) counts[r.status] = r.n;
+
+  const lastFailure = await c.env.DB.prepare(
+    `SELECT to_email, error, created_at FROM email_log
+     WHERE status = 'failed' ORDER BY id DESC LIMIT 1`
+  ).first<{ to_email: string; error: string; created_at: string }>();
+
+  const failed = counts.failed ?? 0;
+  const sent = counts.sent ?? 0;
+
+  return c.json({
+    ok: true,
+    configured,
+    healthy: configured && failed === 0,
+    counts: { sent, failed, queued: counts.queued ?? 0 },
+    last_failure: lastFailure ?? null,
+    reason: !configured
+      ? 'Email is not configured — no messages are being delivered.'
+      : failed > 0
+        ? 'Email is configured but recent sends are failing.'
+        : null,
+  });
 });
 
 // ── Audit log ───────────────────────────────────────────────────────────────

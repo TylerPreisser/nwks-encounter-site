@@ -5,6 +5,8 @@ import { useProgram } from '@/App';
 import PersonBadges from '@/components/PersonBadges';
 import MergeDialog from '@/components/MergeDialog';
 import RegistrationDetail from '@/components/RegistrationDetail';
+import PersonTestimonies from '@/components/PersonTestimonies';
+import type { PersonTestimony } from '@/components/PersonTestimonies';
 import type { RegistrationRow } from '@/components/registrationFields';
 
 interface Person {
@@ -20,6 +22,8 @@ interface ProfileResponse {
   badges: Badges;
   history: RegistrationRow[];
   possible_duplicates: Person[];
+  /** Optional so a cached/older API response can't blank the page. */
+  testimonies?: PersonTestimony[];
 }
 
 export default function PersonPage() {
@@ -68,7 +72,7 @@ export default function PersonPage() {
   if (error) return <p className="text-red-600 text-sm">{error}</p>;
   if (!data) return <p className="text-gray-400 text-sm animate-pulse">Loading…</p>;
 
-  const { person, badges, history, possible_duplicates } = data;
+  const { person, badges, history, possible_duplicates, testimonies } = data;
 
   // The registration they clicked in from sorts to the top; the rest of the
   // person's history follows underneath.
@@ -134,6 +138,9 @@ export default function PersonPage() {
           </ul>
         </section>
       )}
+
+      {/* Their emailed-in testimonies & teachings */}
+      <PersonTestimonies testimonies={testimonies ?? []} />
 
       {/* Possible duplicates */}
       {possible_duplicates.length > 0 && (

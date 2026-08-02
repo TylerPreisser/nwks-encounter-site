@@ -13,6 +13,109 @@ export const peopleRouter = new Hono<{ Bindings: Env }>();
 peopleRouter.use('*', requireAuth(), requireProgram());
 
 // ---------------------------------------------------------------------------
+// Testimonies on the profile
+// ---------------------------------------------------------------------------
+
+/** An attachment row as the profile exposes it (no r2_key — see below). */
+export interface ProfileAttachment {
+  id: number;
+  filename: string | null;
+  content_type: string | null;
+  size: number | null;
+  link_url: string | null;
+  /**
+   * Whether an admin can actually open this attachment.
+   *
+   * Only link_url makes something openable. Emailed FILE attachments are stored
+   * as metadata only: the email worker never writes bytes anywhere (r2_key is
+   * NULL on every insert in testimonies/ingest.ts) because the R2 binding is
+   * commented out in wrangler.toml, and no route serves attachment bytes. So
+   * r2_key is deliberately not consulted here — treating it as "available"
+   * would render a link that 404s. The UI says so instead.
+   */
+  available: boolean;
+}
+
+interface AttachmentRow {
+  id: number;
+  testimony_id: number;
+  filename: string | null;
+  content_type: string | null;
+  size: number | null;
+  link_url: string | null;
+}
+
+interface TestimonyRow {
+  id: number;
+  type: string;
+  title: string | null;
+  topic: string | null;
+  subject: string | null;
+  status: string;
+  body_text: string | null;
+  body_html: string | null;
+  from_email: string;
+  from_name: string;
+  match_confidence: string | null;
+  received_at: string | null;
+  created_at: string;
+}
+
+/**
+ * Loads the testimonies/teachings belonging to one person, each with its own
+ * attachments.
+ *
+ * Scoped by person_id alone on purpose: the caller has already verified this
+ * person belongs to the active program, and person_id NULL (unmatched inbound
+ * mail) can never equal a real id — so unassigned submissions cannot leak onto
+ * anybody's profile.
+ */
+async function loadPersonTestimonies(
+  env: Env,
+  personId: number
+): Promise<Array<TestimonyRow & { attachments: ProfileAttachment[] }>> {
+  const testimonies = await env.DB.prepare(
+    `SELECT id, type, title, topic, subject, status, body_text, body_html,
+            from_email, from_name, match_confidence, received_at, created_at
+     FROM testimonies
+     WHERE person_id = ?
+     ORDER BY COALESCE(received_at, created_at) DESC, id DESC`
+  ).bind(personId).all<TestimonyRow>();
+
+  if (testimonies.results.length === 0) return [];
+
+  // One extra round-trip for every attachment of every testimony, joined back
+  // through testimonies so the person scoping is enforced in SQL rather than
+  // by trusting the id list.
+  const attachments = await env.DB.prepare(
+    `SELECT a.id, a.testimony_id, a.filename, a.content_type, a.size, a.link_url
+     FROM testimony_attachments a
+     JOIN testimonies t ON t.id = a.testimony_id
+     WHERE t.person_id = ?
+     ORDER BY a.id`
+  ).bind(personId).all<AttachmentRow>();
+
+  const byTestimony = new Map<number, ProfileAttachment[]>();
+  for (const a of attachments.results) {
+    const list = byTestimony.get(a.testimony_id) ?? [];
+    list.push({
+      id: a.id,
+      filename: a.filename,
+      content_type: a.content_type,
+      size: a.size,
+      link_url: a.link_url,
+      available: a.link_url !== null && a.link_url !== '',
+    });
+    byTestimony.set(a.testimony_id, list);
+  }
+
+  return testimonies.results.map((t) => ({
+    ...t,
+    attachments: byTestimony.get(t.id) ?? [],
+  }));
+}
+
+// ---------------------------------------------------------------------------
 // GET /api/admin/people/:id
 // Returns person profile, attendance badges, registration history, and
 // possible duplicate candidates for the given person.
@@ -43,12 +146,17 @@ peopleRouter.get('/:id', async (c) => {
 
   const possibleDuplicates = await findPossibleDuplicates(c.env, personId);
 
+  // Emailed-in testimonies/teachings, so a server's own submission shows up
+  // under their profile instead of only on the Testimonies board.
+  const testimonies = await loadPersonTestimonies(c.env, personId);
+
   return c.json({
     ok: true,
     person,
     badges,
     history: historyResult.results.map(withDisplayName),
     possible_duplicates: possibleDuplicates,
+    testimonies,
   });
 });
 
