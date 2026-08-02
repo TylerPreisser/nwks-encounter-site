@@ -17,6 +17,11 @@ export default defineWorkersConfig({
       workers: {
         wrangler: { configPath: './wrangler.toml' },
         miniflare: {
+          // wrangler.toml now sets EMAIL_ENABLED=true for PRODUCTION. Tests must
+          // not inherit it: sendEmail() would attempt a real Resend call and the
+          // email suites assert the skipped/queued path. Individual tests that
+          // need deliverable email pass their own env override.
+          bindings: { EMAIL_ENABLED: 'false' },
           d1Databases: ['DB'],
           kvNamespaces: ['SESSIONS'],
           r2Buckets: ['PHOTOS'],

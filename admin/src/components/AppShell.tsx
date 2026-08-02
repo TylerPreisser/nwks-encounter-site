@@ -15,7 +15,20 @@ import Nav from './Nav';
  * - Sidebar Nav: Dashboard, Registrations, Upcoming Encounter, etc.
  * - Main: <Outlet /> for page content.
  */
+import DesktopOnlyNotice from './DesktopOnlyNotice';
+import { useEffect as useRoleEffect, useState as useRoleState } from 'react';
+import { apiFetch as roleFetch } from '@/api';
+
 export default function AppShell() {
+  // The Team tab is super-admin only. The server enforces this on every team
+  // endpoint regardless; this just avoids showing a link that would 403.
+  const [isSuperAdmin, setIsSuperAdmin] = useRoleState(false);
+  useRoleEffect(() => {
+    roleFetch<{ user?: { role?: string } }>('/auth/me')
+      .then((d) => setIsSuperAdmin(d.user?.role === 'super_admin'))
+      .catch(() => setIsSuperAdmin(false));
+  }, []);
+
   const navigate = useNavigate();
   const { program } = useProgram();
   const theme = THEMES[program];
@@ -26,7 +39,9 @@ export default function AppShell() {
   }
 
   return (
-    <div
+    <>
+      <DesktopOnlyNotice />
+      <div
       data-program={program}
       className="min-h-screen flex"
       style={{ background: 'var(--color-bg, #F5F3EC)' }}
@@ -53,7 +68,7 @@ export default function AppShell() {
         </div>
 
         {/* Navigation links */}
-        <Nav />
+        <Nav superAdmin={isSuperAdmin} />
 
         {/* Sign out */}
         <div className="p-4 border-t border-white/10">
@@ -72,5 +87,6 @@ export default function AppShell() {
         <Outlet />
       </main>
     </div>
+      </>
   );
 }

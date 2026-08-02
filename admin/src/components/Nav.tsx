@@ -46,9 +46,12 @@ interface ExtraNavItem {
 interface NavProps {
   /** Additional links injected by later phases. */
   extraItems?: ExtraNavItem[];
+  /** Super admins get the Team tab. The server enforces this too — hiding the
+   *  link is convenience, not the access control. */
+  superAdmin?: boolean;
 }
 
-export default function Nav({ extraItems = [] }: NavProps) {
+export default function Nav({ extraItems = [], superAdmin = false }: NavProps) {
   const location = useLocation();
   const [newCount, setNewCount] = useState<number>(0);
 
@@ -77,7 +80,7 @@ export default function Nav({ extraItems = [] }: NavProps) {
 
   return (
     <nav aria-label="Main navigation" className="flex-1 py-4 space-y-0.5 px-2">
-      {NAV_ITEMS.map(({ to, label, Icon }) => {
+      {[...NAV_ITEMS, ...(superAdmin ? [{ to: '/team', label: 'Team', Icon: IconUsers }] : [])].map(({ to, label, Icon }) => {
         const active =
           to === '/'
             ? location.pathname === '/' || location.pathname === ''

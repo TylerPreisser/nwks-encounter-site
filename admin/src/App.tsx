@@ -14,6 +14,8 @@ import DashboardPage from './pages/DashboardPage';
 import RosterPage from './pages/RosterPage';
 import InterestedPage from './pages/InterestedPage';
 import SecurityPage from './pages/SecurityPage';
+import TeamPage from './pages/TeamPage';
+import AcceptInvitePage from './pages/AcceptInvitePage';
 import DuoCallback from './pages/DuoCallback';
 import PersonPage from './pages/PersonPage';
 import Events from './pages/Events';
@@ -98,6 +100,7 @@ export default function App() {
         {/* Public */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/duo-callback" element={<DuoCallback />} />
+        <Route path="/invite/:token" element={<AcceptInvitePage />} />
 
         {/* Protected — AuthGuard verifies session, AppShell provides layout */}
         <Route element={<AuthGuard />}>
@@ -122,6 +125,7 @@ export default function App() {
             <Route path="/forms" element={<FormsEditor />} />
             <Route path="/page-details" element={<PageDetails />} />
             <Route path="/security" element={<SecurityPage />} />
+            <Route path="/team" element={<TeamPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Route>
